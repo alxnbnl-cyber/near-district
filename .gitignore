@@ -1,0 +1,15 @@
+node_modules/
+.next/
+dist/
+coverage/
+.data/
+uploads/
+*.log
+.env
+.env.*
+!.env.example
+contracts/vault/target/
+playwright-report/
+test-results/
+*.tsbuildinfo
+.claude/

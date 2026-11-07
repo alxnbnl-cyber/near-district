@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+/*
+ * Yielvy design tokens. Warm paper base, charcoal ink, orange as the single brand accent.
+ * District hues (sky, mint, gold, violet) are used for place-making only, never for status.
+ * Status uses text + shape first, color second.
+ */
+@theme {
+  --color-paper: #fff9f0;
+  --color-paper-2: #f7eddd;
+  --color-card: #ffffff;
+  --color-line: #ecdfcb;
+  --color-line-strong: #d8c5a8;
+
+  --color-ink: #22232b;
+  --color-ink-2: #555765;
+  --color-ink-3: #8a8b96;
+
+  --color-orange: #ff914d;
+  --color-orange-deep: #ea6f2a;
+  --color-orange-ink: #a84a16;
+  --color-orange-wash: #ffeadb;
+
+  --color-sky: #74c9e6;
+  --color-sky-ink: #1d6680;
+  --color-sky-wash: #e2f3f9;
+  --color-gold: #ffd66e;
+  --color-gold-ink: #7d5800;
+  --color-gold-wash: #fff3cf;
+  --color-mint: #9bd7bf;
+  --color-mint-ink: #22694f;
+  --color-mint-wash: #e2f4ec;
+  --color-violet: #a394d6;
+  --color-violet-ink: #54458f;
+  --color-violet-wash: #eeeaf8;
+
+  --color-night: #242633;
+  --color-night-2: #30334a;
+  --color-danger: #c93c30;
+  --color-danger-wash: #fde7e3;
+
+  --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  --shadow-lift: 0 1px 0 rgb(34 35 43 / 0.04), 0 10px 28px -14px rgb(92 58 22 / 0.28);
+  --shadow-pop: 0 1px 0 rgb(34 35 43 / 0.05), 0 18px 48px -18px rgb(92 58 22 / 0.38);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  :focus-visible {
+    outline: 2.5px solid var(--color-orange-deep);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: var(--color-gold);
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .paper-grain {
+    background-image: radial-gradient(rgb(160 120 70 / 0.07) 1px, transparent 1px);
+    background-size: 14px 14px;
+  }
+}
+
+@keyframes yv-dot-hop {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-0.18em); }
+  60% { transform: translateY(-0.12em); }
+}
+.yv-dot-hop:hover .yv-dot,
+.yv-dot-hop:focus-visible .yv-dot {
+  animation: yv-dot-hop 520ms cubic-bezier(.3,.7,.4,1);
+}
+
+@keyframes yv-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.yv-enter {
+  animation: yv-fade-up 260ms cubic-bezier(.2,.7,.3,1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,36 @@
+# Local development services. App processes run on the host (pnpm dev / pnpm dev:worker).
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: yielvy-postgres
+    environment:
+      POSTGRES_USER: yielvy
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: yielvy
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - yielvy-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yielvy"]
+      interval: 5s
+      retries: 10
+
+  # Runs the vault contract test-suite in Linux (no local Rust linker setup needed):
+  #   docker compose run --rm contract-tests
+  contract-tests:
+    image: rust:1
+    working_dir: /work
+    volumes:
+      - ./contracts/vault:/work
+      - yielvy-cargo-registry:/usr/local/cargo/registry
+      - yielvy-cargo-target:/target
+    environment:
+      CARGO_TARGET_DIR: /target
+    command: ["cargo", "test"]
+    profiles: ["tools"]
+
+volumes:
+  yielvy-pgdata:
+  yielvy-cargo-registry:
+  yielvy-cargo-target:

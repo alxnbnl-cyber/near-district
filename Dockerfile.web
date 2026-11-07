@@ -1,0 +1,28 @@
+# Next.js web app (standalone-ish runtime on Node 24)
+FROM node:24-alpine AS base
+RUN corepack enable && corepack prepare pnpm@10.30.1 --activate
+WORKDIR /repo
+
+FROM base AS deps
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
+COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
+COPY packages/core/package.json packages/core/
+COPY packages/db/package.json packages/db/
+COPY packages/near/package.json packages/near/
+RUN pnpm install --frozen-lockfile
+
+FROM deps AS build
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+ARG NEXT_PUBLIC_NEAR_NETWORK
+ARG NEXT_PUBLIC_NEAR_RPC_URLS
+RUN pnpm --filter @yielvy/web build
+
+FROM base AS run
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+COPY --from=build /repo /repo
+USER node
+EXPOSE 3210
+HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://127.0.0.1:3210/api/health || exit 1
+CMD ["pnpm", "--filter", "@yielvy/web", "start"]
