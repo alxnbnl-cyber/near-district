@@ -1,12 +1,15 @@
 import "server-only";
-import { and, campaigns, eq, inArray, organizations, spaces, worldBuildings } from "@yielvy/db";
+import { and, campaigns, campaignVersions, eq, inArray, organizations, spaces, worldBuildings } from "@yielvy/db";
+import { lotPosition, type DistrictId } from "@yielvy/core/world";
+import type { CampaignRules } from "@yielvy/core";
 import { db } from "./db";
-import type { ActivityFlag, WorldBuildingData, WorldData } from "@/world/types";
+import { effectiveStatus } from "./campaigns";
+import type { ActivityFlag, FeaturedCampaign, MarkerKind, WorldBuildingData, WorldData } from "@/world/types";
 
 const NEW_WINDOW_MS = 14 * 86_400_000;
 const ENDING_WINDOW_MS = 72 * 3_600_000;
 
-/** Everything the public world needs, in one query pass. Only approved Spaces appear. */
+/** Everything the public map needs. Only approved Spaces and approved, published campaigns appear. */
 export async function getWorldData(): Promise<WorldData> {
   const database = await db();
   const rows = await database
@@ -16,7 +19,6 @@ export async function getWorldData(): Promise<WorldData> {
       name: spaces.name,
       tagline: spaces.tagline,
       category: spaces.category,
-      style: spaces.buildingStyle,
       logoUploadId: spaces.logoUploadId,
       createdAt: spaces.createdAt,
       districtId: worldBuildings.districtId,
@@ -30,26 +32,48 @@ export async function getWorldData(): Promise<WorldData> {
   const ids = rows.map((r) => r.spaceId);
   const camps = ids.length
     ? await database
-        .select({
-          spaceId: campaigns.spaceId,
-          status: campaigns.status,
-          template: campaigns.template,
-          featured: campaigns.featured,
-          endsAt: campaigns.endsAt,
-        })
+        .select({ c: campaigns, rules: campaignVersions.rules })
         .from(campaigns)
+        .leftJoin(campaignVersions, and(eq(campaignVersions.campaignId, campaigns.id), eq(campaignVersions.version, campaigns.currentVersion)))
         .where(and(inArray(campaigns.spaceId, ids), inArray(campaigns.status, ["LIVE", "SCHEDULED"]), eq(campaigns.moderation, "approved")))
     : [];
 
   const now = Date.now();
   const buildings: WorldBuildingData[] = rows.map((r) => {
-    const mine = camps.filter((c) => c.spaceId === r.spaceId);
-    const live = mine.filter((c) => c.status === "LIVE");
+    const mine = camps
+      .map((x) => ({ ...x, eff: effectiveStatus(x.c as never) }))
+      .filter((x) => x.eff === "LIVE" || x.eff === "SCHEDULED");
+    const own = mine.filter((x) => x.c.spaceId === r.spaceId);
+    const live = own.filter((x) => x.eff === "LIVE");
+    const upcoming = own.filter((x) => x.eff === "SCHEDULED");
     const flags: ActivityFlag[] = [];
     if (live.length) flags.push("live");
-    if (live.some((c) => c.endsAt && c.endsAt.getTime() - now < ENDING_WINDOW_MS && c.endsAt.getTime() > now)) flags.push("ending_soon");
-    if (mine.some((c) => c.featured)) flags.push("featured");
+    if (live.some((x) => x.c.endsAt && x.c.endsAt.getTime() - now < ENDING_WINDOW_MS)) flags.push("ending_soon");
+    if (own.some((x) => x.c.featured)) flags.push("featured");
     if (now - r.createdAt.getTime() < NEW_WINDOW_MS) flags.push("new");
+    const kind: MarkerKind = live.some((x) => x.c.template === "treasure_hunt")
+      ? "hunt"
+      : live.some((x) => x.c.template === "creative_contest")
+        ? "contest"
+        : upcoming.length
+          ? "upcoming"
+          : "space";
+    const pick =
+      live.find((x) => x.c.featured) ??
+      [...live].sort((a, b) => (a.c.endsAt?.getTime() ?? Infinity) - (b.c.endsAt?.getTime() ?? Infinity))[0] ??
+      [...upcoming].sort((a, b) => (a.c.startsAt?.getTime() ?? 0) - (b.c.startsAt?.getTime() ?? 0))[0];
+    const featured: FeaturedCampaign | null = pick
+      ? {
+          title: pick.c.title,
+          slug: pick.c.slug,
+          template: pick.c.template as FeaturedCampaign["template"],
+          status: pick.eff as "LIVE" | "SCHEDULED",
+          startsAt: pick.c.startsAt?.toISOString() ?? null,
+          endsAt: pick.c.endsAt?.toISOString() ?? null,
+          rewards: (pick.rules as CampaignRules | null)?.fundingSource && (pick.rules as CampaignRules).fundingSource !== "none" ? "token" : "none",
+        }
+      : null;
+    const pos = lotPosition(r.districtId as DistrictId, r.plotIndex);
     return {
       spaceId: r.spaceId,
       slug: r.slug,
@@ -58,13 +82,16 @@ export async function getWorldData(): Promise<WorldData> {
       category: r.category,
       districtId: r.districtId,
       plotIndex: r.plotIndex,
-      style: r.style,
+      x: pos.x,
+      y: pos.y,
       logoUrl: r.logoUploadId ? `/api/uploads/${r.logoUploadId}` : null,
       flags,
+      kind,
       liveCampaigns: live.length,
-      upcomingCampaigns: mine.filter((c) => c.status === "SCHEDULED").length,
-      templates: [...new Set(live.map((c) => c.template))],
+      upcomingCampaigns: upcoming.length,
+      templates: [...new Set(live.map((x) => x.c.template))],
+      featured,
     };
   });
-  return { buildings, generatedAt: new Date().toISOString() };
+  return { buildings, routes: [], generatedAt: new Date().toISOString() };
 }

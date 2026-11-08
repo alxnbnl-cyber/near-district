@@ -7,11 +7,11 @@ type Size = "sm" | "md" | "lg";
 const base =
   "inline-flex items-center justify-center gap-2 font-semibold rounded-md transition-[background,box-shadow,transform,color] duration-150 active:translate-y-px disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap";
 const variants: Record<Variant, string> = {
-  primary: "bg-orange text-ink hover:bg-orange-deep hover:text-white shadow-[inset_0_-2px_0_rgb(0_0_0/0.12)]",
+  primary: "bg-orange text-[#140c05] hover:bg-orange-deep shadow-[0_8px_24px_-10px_rgb(255_145_56/0.6)]",
   secondary: "bg-card text-ink border border-line-strong hover:border-ink-3 hover:bg-paper",
   ghost: "text-ink-2 hover:text-ink hover:bg-paper-2",
   danger: "bg-danger text-white hover:brightness-95",
-  dark: "bg-night text-paper hover:bg-night-2",
+  dark: "bg-paper-2 text-ink border border-line-strong hover:border-ink-3",
 };
 const sizes: Record<Size, string> = {
   sm: "h-8 px-3 text-[13px]",
@@ -50,7 +50,7 @@ const tones: Record<Tone, string> = {
   gold: "bg-gold-wash text-gold-ink",
   violet: "bg-violet-wash text-violet-ink",
   danger: "bg-danger-wash text-danger",
-  dark: "bg-night text-paper",
+  dark: "bg-paper-2 text-ink",
 };
 
 export function Badge({ tone = "neutral", children, dot = false }: { tone?: Tone; children: ReactNode; dot?: boolean }) {

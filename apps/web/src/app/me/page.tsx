@@ -47,8 +47,8 @@ export default async function MyAdventures() {
         </div>
         {hunts.length === 0 && entries.length === 0 ? (
           <Card className="mt-8">
-            <EmptyState title="Your story starts on the map" action={<Link href="/" className={buttonClass("primary")}>Go exploring</Link>}>
-              Open a building with a LIVE sign and see what's inside.
+            <EmptyState title="Your story starts on the map" action={<Link href="/explore" className={buttonClass("primary")}>Go exploring</Link>}>
+              Open a Space with a live marker and see what's inside.
             </EmptyState>
           </Card>
         ) : (

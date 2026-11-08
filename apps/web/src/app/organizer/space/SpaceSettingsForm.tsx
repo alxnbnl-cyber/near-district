@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Card, Field, Notice, inputClass, textareaClass } from "@/components/ui";
-import { BUILDING_STYLE_IDS } from "@/lib/schemas";
 import { api, ApiError } from "@/lib/api";
 
 interface Initial {
@@ -90,11 +89,6 @@ export function SpaceSettingsForm({ initial }: { initial: Initial }) {
         <Field label="About" htmlFor="sdesc"><textarea id="sdesc" className={textareaClass} maxLength={2000} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Website" htmlFor="sweb"><input id="sweb" type="url" className={inputClass} value={f.websiteUrl} onChange={(e) => setF({ ...f, websiteUrl: e.target.value })} /></Field>
-          <Field label="Building" htmlFor="sstyle">
-            <select id="sstyle" className={inputClass} value={f.buildingStyle} onChange={(e) => setF({ ...f, buildingStyle: e.target.value })}>
-              {BUILDING_STYLE_IDS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </Field>
           {(["x", "discord", "telegram", "github"] as const).map((k) => (
             <Field key={k} label={k[0]!.toUpperCase() + k.slice(1)} htmlFor={`soc-${k}`}>
               <input id={`soc-${k}`} type="url" placeholder="https://" className={inputClass} value={f.socials[k] ?? ""} onChange={(e) => setF({ ...f, socials: { ...f.socials, [k]: e.target.value } })} />

@@ -43,7 +43,7 @@ export function SubmissionsPanel({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         {["all", "submitted", "shortlisted", "rejected", "winner"].map((f) => (
-          <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)} className={`h-7 rounded-full px-3 text-[12.5px] font-medium ${filter === f ? "bg-ink text-paper" : "bg-paper-2 text-ink-2"}`}>
+          <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)} className={`h-7 rounded-full px-3 text-[12.5px] font-medium ${filter === f ? "bg-orange-wash text-orange-ink ring-1 ring-orange/50" : "bg-paper-2 text-ink-2"}`}>
             {f[0]!.toUpperCase() + f.slice(1)} ({f === "all" ? rows.length : rows.filter((r) => r.status === f).length})
           </button>
         ))}

@@ -51,7 +51,8 @@ export const spaceInput = z.object({
     .object({ x: httpUrl.optional(), discord: httpUrl.optional(), telegram: httpUrl.optional(), github: httpUrl.optional() })
     .partial()
     .default({}),
-  buildingStyle: z.enum(BUILDING_STYLE_IDS),
+  /** Legacy marker style id (kept for data compatibility; the 2D map derives markers from activity). */
+  buildingStyle: z.enum(BUILDING_STYLE_IDS).default("workshop"),
 });
 export type SpaceInput = z.infer<typeof spaceInput>;
 

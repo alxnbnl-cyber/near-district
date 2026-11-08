@@ -47,7 +47,7 @@ export default async function SpacePage({ params }: { params: Promise<{ slug: st
               <h1 className="text-3xl font-semibold">{space.name}</h1>
             </div>
             <div className="flex gap-2 pb-1">
-              <Link href="/" className={buttonClass("secondary", "sm")}>
+              <Link href="/explore" className={buttonClass("secondary", "sm")}>
                 Back to the map
               </Link>
               <ReportButton targetType="space" targetId={space.id} />
@@ -59,6 +59,7 @@ export default async function SpacePage({ params }: { params: Promise<{ slug: st
               {space.tagline && <p className="text-lg text-ink-2">{space.tagline}</p>}
               {space.description && <p className="mt-4 whitespace-pre-line text-[15px] leading-relaxed text-ink">{space.description}</p>}
 
+              <div id="experiences" className="scroll-mt-24" />
               <CampaignList title="Happening now" items={active} slug={slug} empty="Nothing is running right now." />
               <CampaignList title="Coming up" items={upcoming} slug={slug} empty="No upcoming campaigns announced." />
               {past.length > 0 && <CampaignList title="Previously" items={past} slug={slug} empty="" />}

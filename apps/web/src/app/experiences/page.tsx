@@ -25,7 +25,7 @@ export default async function ExperiencesPage() {
             <h2 className="mb-3 text-lg font-semibold">{title as string}</h2>
             {(list as typeof rows).length === 0 ? (
               <Card>
-                <EmptyState title="Nothing here yet" action={<Link href="/" className={buttonClass("secondary", "sm")}>Wander the map</Link>}>
+                <EmptyState title="Nothing here yet" action={<Link href="/explore" className={buttonClass("secondary", "sm")}>Wander the map</Link>}>
                   New experiences appear as Spaces open them.
                 </EmptyState>
               </Card>

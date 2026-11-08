@@ -323,3 +323,27 @@ describe("world layout", () => {
     expect(nextFreePlotIndex([0, 1, 3])).toBe(2);
   });
 });
+
+describe("city atlas", async () => {
+  const { generateAtlas, lotPosition, isOnLand, ATLAS_VERSION } = await import("./world/atlas");
+  it("is deterministic and has capacity in every district", () => {
+    const a = generateAtlas();
+    expect(ATLAS_VERSION).toBe(1);
+    expect(a.blocks.length).toBeGreaterThan(300);
+    for (const d of DISTRICTS) expect(a.lots[d.id].length).toBeGreaterThanOrEqual(40);
+    expect(lotPosition("mystery", 3)).toEqual(lotPosition("mystery", 3));
+  });
+  it("never places a Space in water and keeps early lots apart", () => {
+    for (const d of DISTRICTS) {
+      const seen: { x: number; y: number }[] = [];
+      for (let i = 0; i < 30; i++) {
+        const p = lotPosition(d.id, i);
+        expect(isOnLand(p.x, p.y)).toBe(true);
+        expect(p.x).toBeGreaterThan(0);
+        expect(p.x).toBeLessThan(1);
+        for (const q of seen) expect(Math.hypot((p.x - q.x) * 4800, (p.y - q.y) * 3200)).toBeGreaterThanOrEqual(199);
+        seen.push(p);
+      }
+    }
+  });
+});

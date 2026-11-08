@@ -32,7 +32,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
       <SiteHeader />
       <main className="mx-auto max-w-5xl px-4 py-8">
         <nav aria-label="Breadcrumb" className="text-[13px] text-ink-3">
-          <Link href="/" className="hover:text-ink">Map</Link> <span aria-hidden>/</span>{" "}
+          <Link href="/explore" className="hover:text-ink">Map</Link> <span aria-hidden>/</span>{" "}
           <Link href={`/s/${space.slug}`} className="hover:text-ink">{space.name}</Link>
         </nav>
         <div className="mt-4 grid gap-8 md:grid-cols-[1fr_320px]">

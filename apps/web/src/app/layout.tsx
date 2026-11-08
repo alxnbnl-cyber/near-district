@@ -1,25 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Outfit } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit", weight: ["500", "600", "700"], display: "swap" });
+const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-grotesk", weight: ["500", "600", "700"], display: "swap" });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "Yielvy — Curiosity pays off.", template: "%s · Yielvy" },
-  description: "Explore a town of projects and communities. Solve hunts, enter creative challenges, and earn real rewards.",
+  title: { default: "Yielvy — There's a world worth exploring", template: "%s · Yielvy" },
+  description: "Discover projects, take on challenges, and uncover real rewards — all in one interactive world.",
   icons: { icon: "/assets/brand/favicon.svg" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#fff9f0",
+  themeColor: "#090b10",
   width: "device-width",
   initialScale: 1,
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${inter.variable}`}>
+    <html lang="en" className={`${grotesk.variable} ${inter.variable}`}>
       <body className="min-h-dvh">{children}</body>
     </html>
   );

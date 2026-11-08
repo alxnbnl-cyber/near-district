@@ -5,18 +5,8 @@ import { useMemo, useState } from "react";
 import { DISTRICTS, districtForCategory, SPACE_CATEGORIES } from "@yielvy/core/world";
 import { Button, Card, Field, Notice, inputClass, textareaClass } from "@/components/ui";
 import { WalletChooser } from "@/components/auth/WalletChooser";
-import { useBuildingPreviews } from "@/components/world/BuildingPreviews";
 import { BUILDING_STYLE_IDS, slugify, spaceInput } from "@/lib/schemas";
 import { api, ApiError } from "@/lib/api";
-
-const STYLE_LABELS: Record<string, string> = {
-  workshop: "Workshop",
-  tower: "Tower",
-  market: "Market hall",
-  atelier: "Atelier",
-  observatory: "Observatory",
-  pavilion: "Pavilion",
-};
 
 const CATEGORY_LABELS: Record<string, string> = {
   project: "Project / product",
@@ -52,7 +42,6 @@ export function Onboarding({ hasWallet, walletAccount }: { hasWallet: boolean; w
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const district = districtForCategory(form.category);
-  const previews = useBuildingPreviews(district.theme as "orange");
   const set = (k: keyof typeof form, v: string) =>
     setForm((f) => ({ ...f, [k]: v, ...(k === "name" && !slugTouched ? { slug: slugify(v) } : {}) }));
 
@@ -143,31 +132,17 @@ export function Onboarding({ hasWallet, walletAccount }: { hasWallet: boolean; w
         </Card>
 
         <Card className="p-5">
-          <fieldset>
-            <legend className="text-[13px] font-semibold">Building</legend>
-            <p className="mt-0.5 text-[12.5px] text-ink-3">Colours follow your district. Custom art can replace these later.</p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {BUILDING_STYLE_IDS.map((s) => (
-                <label
-                  key={s}
-                  className={`cursor-pointer rounded-md border p-2 text-center text-[12.5px] font-semibold ${
-                    form.buildingStyle === s ? "border-orange-deep bg-orange-wash" : "border-line hover:border-line-strong"
-                  }`}
-                >
-                  <input type="radio" name="style" value={s} className="sr-only" checked={form.buildingStyle === s} onChange={() => set("buildingStyle", s)} />
-                  <span className="block aspect-square">
-                    {previews?.[s] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={previews[s]} alt="" className="size-full object-contain" />
-                    ) : (
-                      <span className="block size-full rounded bg-paper-2" />
-                    )}
-                  </span>
-                  {STYLE_LABELS[s]}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <p className="text-[13px] font-semibold">Your place on the map</p>
+          <p className="mt-1 text-[13px] text-ink-2">
+            Your Space gets a fixed marker in <strong className="text-ink">{districtLine.name}</strong> ({districtLine.tagline.toLowerCase()}). The marker shows your logo
+            and lights up when you have a live experience.
+          </p>
+          <div className="mt-4 grid place-items-center rounded-[12px] border border-line bg-paper py-8">
+            <span className="grid size-12 place-items-center rounded-[12px] border-2 border-[#3a465a] bg-card font-display text-xl font-bold text-ink-2">
+              {(form.name || "Y").slice(0, 1).toUpperCase()}
+            </span>
+            <span className="mt-2 text-[12px] text-ink-3">Upload a logo after creating the Space</span>
+          </div>
         </Card>
       </div>
 

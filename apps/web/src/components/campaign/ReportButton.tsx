@@ -28,7 +28,7 @@ export function ReportButton({ targetType, targetId }: { targetType: "space" | "
     );
   }
   return (
-    <div role="dialog" aria-label="Report content" className="fixed inset-0 z-50 grid place-items-center bg-ink/30 p-4" onClick={() => setOpen(false)}>
+    <div role="dialog" aria-label="Report content" className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={() => setOpen(false)}>
       <div className="w-full max-w-md rounded-xl bg-card p-5 shadow-pop" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-semibold">Report this {targetType}</h2>
         {state === "done" ? (

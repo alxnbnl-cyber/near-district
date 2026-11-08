@@ -41,7 +41,7 @@ export function UserMenu({ user }: { user: { displayName: string; isAdmin: boole
         onClick={() => setOpen((o) => !o)}
         className="flex h-9 items-center gap-2 rounded-full border border-line bg-card pl-1 pr-3 text-[13px] font-medium hover:border-line-strong"
       >
-        <span className="grid size-7 place-items-center rounded-full bg-gold font-display font-bold text-ink">{initial}</span>
+        <span className="grid size-7 place-items-center rounded-full bg-orange font-display font-bold text-[#140c05]">{initial}</span>
         <span className="max-w-28 truncate">{user.displayName}</span>
       </button>
       {open && (

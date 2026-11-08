@@ -1,24 +1,19 @@
-# World art pipeline
+# World map & art pipeline
 
-All world art is resolved through `apps/web/src/world/manifest.ts`. Today every entry is `procedural` (original vector drawings in `world/art.ts`). To use commissioned art, change an entry to a sprite — no renderer changes.
+The explorer map is a dark, flat, top-down 2D fictional city ("Yielvy City").
 
-## Specs
-- Isometric tile: **128 × 64 px** (2:1 dimetric). Building footprint: **3 × 3 tiles = 384 × 192 px** diamond.
-- Building sprite canvas: **512 × 512 px** at 1×, plus **@2x** (1024 × 1024). Anchor = footprint centre on the ground (e.g. `[0.5, 0.86]`).
-- Max height above ground: 380 px (badges sit above `STYLE_TOP`).
-- Trees/props: 128 × 160 px canvases, anchor at the trunk base.
-- Format: PNG-24 with alpha (or WebP lossless). Run through `oxipng -o4` / `cwebp -lossless`.
-- Colour: sRGB, match the palette in `globals.css`; avoid baked drop shadows (the renderer draws ground shadows).
+## How it works
+- `packages/core/src/world/atlas.ts` generates the city deterministically (seeded): coastline, river, curved arterials, a rotated street grid per district, building footprints and **lots** (marker anchor points). Same output everywhere, `ATLAS_VERSION = 1`.
+- A Space's marker position = `lotPosition(district, plotIndex)` → normalized `(x, y)` in 0..1. Stable across sessions and screen sizes; computed on the server and sent to the client.
+- `apps/web/src/world/atlas-scene.ts` (PixiJS) draws the city as cached GPU geometry and owns the camera.
+- `apps/web/src/components/explore/MarkerLayer.tsx` renders HTML markers that follow the camera via CSS variables (no React re-render while panning), with clustering when zoomed out.
+- Routes (cross-Space adventures) are drawn by the scene from `WorldData.routes`; the list is empty until that feature ships.
 
-## Atlases
-Pack with TexturePacker / free-tex-packer into ≤ 2048 × 2048 sheets, JSON-hash format:
-`public/assets/world/atlas-buildings@2x.json` → reference frames as `"src": "/assets/world/atlas-buildings@2x.json#workshop.png"`.
+## Replacing the map with designed artwork
+Set `MAP_THEME.artwork` in `apps/web/src/world/theme.ts` to an image in `public/` sized **4800 × 3200** (PNG/WebP, or a flattened SVG). Keep the coastline/river roughly where the generator puts them, or regenerate lots to match — markers use normalized coordinates, so nothing else changes. Colours of the generated map are all in the same theme file.
 
-## Animation
-Optional `frames` + `fps` (≤ 12 fps, ≤ 8 frames). Animation runs only for on-screen objects and is disabled under reduced motion.
+## Marker art
+Markers show the Space's uploaded logo (square PNG/JPEG/WebP, ≥128 px). Experience badges (treasure hunt, contest, upcoming) are inline SVG icons in `components/explore/icons.tsx`.
 
-## Naming
-`<kind>_<name>[_<variant>]@<scale>.png`, e.g. `building_workshop_orange@2x.png`, `deco_tree_round_2@2x.png`.
-
-## Replaceable elsewhere
-Brand wordmark: `components/brand/Logo.tsx`. Favicon: `public/assets/brand/favicon.svg`. Space logos, banners and campaign covers are organizer uploads.
+## Changing the city
+Bumping `ATLAS_VERSION` moves every existing Space. Do it only with a migration that pins current positions (e.g. store `map_x/map_y` on `world_buildings` before switching).

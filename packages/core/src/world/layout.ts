@@ -32,8 +32,8 @@ export interface DistrictDef {
 export const DISTRICTS: readonly DistrictDef[] = [
   {
     id: "discovery",
-    name: "Discovery Quarter",
-    tagline: "New projects and featured Spaces",
+    name: "Northgate",
+    tagline: "Projects & products",
     sx: -1,
     sy: -1,
     theme: "orange",
@@ -41,8 +41,8 @@ export const DISTRICTS: readonly DistrictDef[] = [
   },
   {
     id: "mystery",
-    name: "Lantern Row",
-    tagline: "Treasure hunts, clues and puzzles",
+    name: "Old Quarter",
+    tagline: "Puzzles & treasure hunts",
     sx: 1,
     sy: -1,
     theme: "violet",
@@ -50,8 +50,8 @@ export const DISTRICTS: readonly DistrictDef[] = [
   },
   {
     id: "creators",
-    name: "Makers' Yard",
-    tagline: "Creative challenges and idea contests",
+    name: "Harbor Works",
+    tagline: "Creators & contests",
     sx: 1,
     sy: 1,
     theme: "mint",
@@ -59,8 +59,8 @@ export const DISTRICTS: readonly DistrictDef[] = [
   },
   {
     id: "community",
-    name: "Commons",
-    tagline: "Communities, DAOs and local groups",
+    name: "Westfield",
+    tagline: "Communities & DAOs",
     sx: -1,
     sy: 1,
     theme: "sky",
