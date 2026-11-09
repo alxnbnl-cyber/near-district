@@ -28,7 +28,7 @@ interface Initial {
   spaceSlug: string;
   role: string;
   questions: QuestionRow[];
-  check: { ok: boolean; problems: string[]; funding: { required: boolean; verified: boolean; detail: string } } | null;
+  check: { ok: boolean; problems: string[]; warnings?: string[]; funding: { required: boolean; verified: boolean; detail: string } } | null;
   rules: Rules;
   submissions: SubmissionRow[];
   token: { symbol: string; decimals: number };
@@ -279,6 +279,15 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
               </ul>
             </Notice>
           )}
+          {initial.check.warnings?.length ? (
+            <Notice tone="info" title="Worth a look">
+              <ul className="mt-1 list-disc pl-5">
+                {initial.check.warnings.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+            </Notice>
+          ) : null}
           <p className="text-[13px] text-ink-2">
             Publishing freezes the rules as version 1. After people join, changes that could disadvantage them are blocked; you'll only be able to extend the end date.
           </p>

@@ -36,6 +36,13 @@
       "when": 1794136337020,
       "tag": "0004_district_names",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794223316716,
+      "tag": "0005_hints_cooperation",
+      "breakpoints": true
     }
   ]
 }

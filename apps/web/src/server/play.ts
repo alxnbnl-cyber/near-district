@@ -8,6 +8,8 @@ import { badRequest, conflict, forbidden, HttpError, notFound } from "./http";
 import { rateLimit } from "./rate-limit";
 import { currentRules, effectiveStatus } from "./campaigns";
 import type { SessionUser } from "./session";
+import { hintCards, type HintCardView } from "./hints";
+import { assertExpeditionGate } from "./expeditions";
 
 /** Organizer team members may never take part in (or win) their own Space's campaigns. */
 export async function assertNotOrganizer(db: Db, userId: string, spaceId: string) {
@@ -43,6 +45,7 @@ export async function joinCampaign(db: Db, user: SessionUser, campaignId: string
     throw forbidden("This campaign isn't available in your region.");
   }
   await assertNotOrganizer(db, user.userId, c.spaceId);
+  await assertExpeditionGate(db, user.userId, c.id);
   if (rules.fundingSource !== "none" && rules.eligibility.requireVerifiedPayout && !user.payoutAccountId) {
     throw new HttpError(403, "Link a NEAR wallet you control first — that's where any reward would be sent.", "wallet_required");
   }
@@ -76,6 +79,8 @@ export interface PublicQuestion {
   maxAttempts: number;
   attemptsUsed: number;
   cooldownUntil: string | null;
+  /** Optional hints; locked content is never included. */
+  hints: HintCardView[];
 }
 
 export async function getPlayState(db: Db, user: SessionUser, campaignId: string) {
@@ -106,6 +111,7 @@ export async function getPlayState(db: Db, user: SessionUser, campaignId: string
       maxAttempts: q.maxAttempts,
       attemptsUsed: attempts.length,
       cooldownUntil: cooldownUntil && cooldownUntil > new Date() ? cooldownUntil.toISOString() : null,
+      hints: await hintCards(db, user.userId, q.id),
     };
   }
   return {

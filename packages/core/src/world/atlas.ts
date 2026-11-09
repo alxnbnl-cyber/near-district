@@ -1,57 +1,44 @@
 /**
- * Yielvy City — one fixed, original, fictional 2D city map, generated deterministically.
+ * Yielvy City v3 — one fixed, original, fictional city in a game-map style:
+ * organic street network, filled city blocks with building footprints, parks, a branching
+ * river, a coastline with piers and islands. No districts and no central hub: Spaces are
+ * scattered across the whole city.
  *
- * Same output on every machine and every run (seeded PRNG, no Math.random), so:
- *  - the server can compute a Space's marker position from (district, plotIndex),
- *  - positions are stable across sessions and screen sizes (normalized 0..1 coordinates),
- *  - nothing about the map lives in the database.
- *
+ * Deterministic (seeded PRNG + value noise, no Math.random), so a Space's position is a pure
+ * function of (districtId, plotIndex) and is stable across sessions and screen sizes.
  * Bump ATLAS_VERSION only together with a migration that pins existing Spaces' positions.
  */
 import { DISTRICTS, type DistrictId } from "./layout";
 
-export const ATLAS_VERSION = 1;
-export const ATLAS_W = 4800;
-export const ATLAS_H = 3200;
+export const ATLAS_VERSION = 3;
+export const ATLAS_W = 9000;
+export const ATLAS_H = 6000;
 
 export type Pt = [number, number];
 
 export interface AtlasBlock {
-  poly: number[]; // flat [x,y,...]
-  district: DistrictId | "central";
-  park: boolean;
-}
-
-export interface AtlasDistrict {
-  id: DistrictId;
-  name: string;
-  caption: string;
-  seed: Pt;
-  label: Pt;
+  poly: number[]; // flat [x,y,...], already inset from the street
+  chunk: number;
 }
 
 export interface Atlas {
   version: number;
   width: number;
   height: number;
-  coast: Pt[]; // polyline top→bottom; sea is everything east of it
-  river: Pt[];
-  riverWidth: number;
+  coast: Pt[];
+  sea: number[]; // polygon
+  rivers: { pts: Pt[]; width: number }[];
+  islands: Pt[][];
   blocks: AtlasBlock[];
-  buildings: { poly: number[]; shade: number; district: DistrictId | "central" }[];
-  arterials: { pts: Pt[]; width: number }[];
-  central: { center: Pt; radius: number };
-  districts: AtlasDistrict[];
+  parks: { poly: number[]; chunk: number }[];
+  buildings: { poly: number[]; shade: number; chunk: number }[];
+  roads: { pts: Pt[]; width: number }[];
+  piers: number[][];
+  chunks: { cols: number; rows: number; w: number; h: number };
   lots: Record<DistrictId, Pt[]>;
 }
 
-/** Fictional district names, each paired with a plain-language caption so function stays clear. */
-export const DISTRICT_META: Record<DistrictId, { name: string; caption: string; seed: Pt; angle: number }> = {
-  discovery: { name: "Northgate", caption: "Projects & products", seed: [0.24, 0.27], angle: 0.14 },
-  mystery: { name: "Old Quarter", caption: "Puzzles & treasure hunts", seed: [0.6, 0.24], angle: -0.32 },
-  creators: { name: "Harbor Works", caption: "Creators & contests", seed: [0.6, 0.73], angle: 0.42 },
-  community: { name: "Westfield", caption: "Communities & DAOs", seed: [0.22, 0.72], angle: -0.06 },
-};
+// ------------------------------------------------------------------ primitives
 
 function mulberry32(seed: number) {
   let a = seed >>> 0;
@@ -61,6 +48,21 @@ function mulberry32(seed: number) {
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function makeNoise(seed: number) {
+  const hash = (x: number, y: number) => {
+    let h = (x * 374761393 + y * 668265263 + seed * 1442695041) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  };
+  const fade = (t: number) => t * t * (3 - 2 * t);
+  return (x: number, y: number) => {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = fade(x - xi), yf = fade(y - yi);
+    const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
+    return (a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf) * 2 - 1;
   };
 }
 
@@ -80,7 +82,7 @@ function catmull(points: Pt[], steps = 12): Pt[] {
   return out;
 }
 
-function distToPolyline(p: Pt, line: Pt[]): number {
+export function distToPolyline(p: Pt, line: Pt[]): number {
   let best = Infinity;
   for (let i = 0; i < line.length - 1; i++) {
     const [ax, ay] = line[i]!, [bx, by] = line[i + 1]!;
@@ -92,7 +94,7 @@ function distToPolyline(p: Pt, line: Pt[]): number {
   return best;
 }
 
-function coastXAt(coast: Pt[], y: number): number {
+export function coastXAt(coast: Pt[], y: number): number {
   for (let i = 0; i < coast.length - 1; i++) {
     const a = coast[i]!, b = coast[i + 1]!;
     if ((a[1] <= y && y <= b[1]) || (b[1] <= y && y <= a[1])) {
@@ -103,154 +105,218 @@ function coastXAt(coast: Pt[], y: number): number {
   return ATLAS_W;
 }
 
+function pointInPoly(p: Pt, poly: Pt[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i]!, [xj, yj] = poly[j]!;
+    if (yi > p[1] !== yj > p[1] && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+function blob(c: Pt, r: number, noise: (x: number, y: number) => number, aspect = 1, rot = 0, n = 32): Pt[] {
+  const pts: Pt[] = [];
+  for (let i = 0; i < n; i++) {
+    const t = (i / n) * Math.PI * 2;
+    const rr = r * (1 + 0.32 * noise(Math.cos(t) * 1.7 + c[0] * 0.003, Math.sin(t) * 1.7 + c[1] * 0.003));
+    const ex = Math.cos(t) * rr * aspect, ey = Math.sin(t) * rr;
+    pts.push([c[0] + ex * Math.cos(rot) - ey * Math.sin(rot), c[1] + ex * Math.sin(rot) + ey * Math.cos(rot)]);
+  }
+  return pts;
+}
+
+// ------------------------------------------------------------------ generator
+
 let cached: Atlas | null = null;
 
 export function generateAtlas(): Atlas {
   if (cached) return cached;
   const W = ATLAS_W, H = ATLAS_H;
-  const rnd = mulberry32(0x5e1f17);
+  const rnd = mulberry32(0x7a11e5);
+  const nA = makeNoise(3), nB = makeNoise(7), nDen = makeNoise(13), nPark = makeNoise(17), nBlob = makeNoise(23);
 
+  // coastline (sea to the east / south-east)
   const coast = catmull(
     [
-      [W * 0.86, -40], [W * 0.83, H * 0.12], [W * 0.88, H * 0.26], [W * 0.84, H * 0.4], [W * 0.8, H * 0.52],
-      [W * 0.83, H * 0.64], [W * 0.76, H * 0.78], [W * 0.7, H * 0.9], [W * 0.66, H + 40],
-    ],
-    16,
-  );
-  const river = catmull(
-    [
-      [W * 0.36, -60], [W * 0.38, H * 0.14], [W * 0.46, H * 0.27], [W * 0.43, H * 0.4], [W * 0.5, H * 0.5],
-      [W * 0.58, H * 0.56], [W * 0.66, H * 0.6], [W * 0.75, H * 0.66], [W * 0.82, H * 0.66],
+      [W * 0.9, -60], [W * 0.86, H * 0.1], [W * 0.9, H * 0.22], [W * 0.84, H * 0.33], [W * 0.79, H * 0.42], [W * 0.83, H * 0.52],
+      [W * 0.77, H * 0.62], [W * 0.7, H * 0.7], [W * 0.73, H * 0.8], [W * 0.66, H * 0.9], [W * 0.62, H + 60],
     ],
     18,
   );
-  const riverWidth = 110;
-  const central = { center: [W * 0.47, H * 0.47] as Pt, radius: 300 };
+  const sea = [...coast.flat(), W + 4000, H + 4000, W + 4000, -4000];
 
-  const seeds = DISTRICTS.map((d) => ({ id: d.id, p: [DISTRICT_META[d.id].seed[0] * W, DISTRICT_META[d.id].seed[1] * H] as Pt }));
-  const districtOf = (p: Pt): DistrictId => {
-    let best = seeds[0]!, bd = Infinity;
-    for (const s of seeds) {
-      const d = Math.hypot(p[0] - s.p[0], p[1] - s.p[1]);
-      if (d < bd) {
-        bd = d;
-        best = s;
-      }
-    }
-    return best.id;
+  // a main river and a tributary that joins it
+  const main = catmull(
+    [[W * 0.3, -80], [W * 0.33, H * 0.12], [W * 0.42, H * 0.22], [W * 0.38, H * 0.36], [W * 0.47, H * 0.47], [W * 0.56, H * 0.52], [W * 0.66, H * 0.5], [W * 0.8, H * 0.47]],
+    20,
+  );
+  const branch = catmull([[-80, H * 0.66], [W * 0.12, H * 0.62], [W * 0.24, H * 0.68], [W * 0.36, H * 0.6], [W * 0.47, H * 0.48]], 18);
+  const rivers = [
+    { pts: main, width: 230 },
+    { pts: branch, width: 150 },
+  ];
+
+  // islands in the sea
+  const islands: Pt[][] = [];
+  const islandCentres: Pt[] = [];
+  for (let tries = 0; tries < 300 && islands.length < 7; tries++) {
+    const c: Pt = [W * (0.72 + rnd() * 0.27), H * (0.05 + rnd() * 0.92)];
+    const r = 90 + rnd() * 220;
+    if (c[0] < coastXAt(coast, c[1]) + r + 120) continue;
+    if (islandCentres.some((k) => Math.hypot(k[0] - c[0], k[1] - c[1]) < r + 500)) continue;
+    islandCentres.push(c);
+    islands.push(blob(c, r, nBlob, 0.8 + rnd() * 0.8, rnd() * Math.PI, 26));
+  }
+
+  const inWater = (p: Pt, margin: number) =>
+    p[0] > coastXAt(coast, p[1]) - margin || rivers.some((r) => distToPolyline(p, r.pts) < r.width / 2 + margin);
+  const inBounds = (p: Pt, m: number) => p[0] > m && p[1] > m && p[0] < W - m && p[1] < H - m;
+
+  // several town centres give density without a single hub
+  const towns: { c: Pt; s: number }[] = [];
+  for (let tries = 0; tries < 600 && towns.length < 9; tries++) {
+    const c: Pt = [W * (0.06 + rnd() * 0.8), H * (0.06 + rnd() * 0.88)];
+    if (inWater(c, 200) || towns.some((t) => Math.hypot(t.c[0] - c[0], t.c[1] - c[1]) < 1500)) continue;
+    towns.push({ c, s: 900 + rnd() * 900 });
+  }
+  const density = (p: Pt) => {
+    let d = 0;
+    for (const t of towns) d = Math.max(d, Math.exp(-((p[0] - t.c[0]) ** 2 + (p[1] - t.c[1]) ** 2) / (2 * t.s * t.s)));
+    return Math.min(1, d + 0.12 + nDen(p[0] * 0.0006, p[1] * 0.0006) * 0.18);
   };
-  const onLand = (p: Pt, margin: number) =>
-    p[0] > margin && p[1] > margin && p[0] < W - margin && p[1] < H - margin && p[0] < coastXAt(coast, p[1]) - margin && distToPolyline(p, river) > riverWidth / 2 + margin;
+  const isPark = (p: Pt) => nPark(p[0] * 0.0009, p[1] * 0.0009) > 0.5;
 
-  // ---- blocks & building footprints: one rotated street grid per district
+  // chunks for culling
+  const CH_W = 1500, CH_H = 1500;
+  const cols = Math.ceil(W / CH_W), rows = Math.ceil(H / CH_H);
+  const chunkOf = (p: Pt) => Math.min(cols - 1, Math.max(0, Math.floor(p[0] / CH_W))) + Math.min(rows - 1, Math.max(0, Math.floor(p[1] / CH_H))) * cols;
+
+  // warped street lattice
+  const SP = 120;
+  const ang = 0.18;
+  const ca = Math.cos(ang), sa = Math.sin(ang);
+  const span = Math.hypot(W, H) * 0.62;
+  const n = Math.ceil((span * 2) / SP);
+  const node = (i: number, j: number): Pt => {
+    const u = -span + i * SP, v = -span + j * SP;
+    const bx = u * ca - v * sa + W / 2, by = u * sa + v * ca + H / 2;
+    return [
+      bx + nA(bx * 0.00042, by * 0.00042) * 340 + nA(bx * 0.0016, by * 0.0016) * 60 + nA(bx * 0.006, by * 0.006) * 9,
+      by + nB(bx * 0.00042, by * 0.00042) * 340 + nB(bx * 0.0016, by * 0.0016) * 60 + nB(bx * 0.006, by * 0.006) * 9,
+    ];
+  };
+  const grid: Pt[][] = [];
+  for (let i = 0; i <= n; i++) {
+    grid.push([]);
+    for (let j = 0; j <= n; j++) grid[i]!.push(node(i, j));
+  }
+
   const blocks: AtlasBlock[] = [];
+  const parks: Atlas["parks"] = [];
   const buildings: Atlas["buildings"] = [];
-  const SX = 168, SY = 124, STREET = 26;
-  for (const d of DISTRICTS) {
-    const a = DISTRICT_META[d.id].angle;
-    const ca = Math.cos(a), sa = Math.sin(a);
-    const rot = (u: number, v: number): Pt => [u * ca - v * sa, u * sa + v * ca];
-    const span = Math.hypot(W, H);
-    for (let u = -span; u < span; u += SX) {
-      for (let v = -span; v < span; v += SY) {
-        const c = rot(u, v);
-        if (c[0] < -SX || c[1] < -SY || c[0] > W + SX || c[1] > H + SY) continue;
-        if (districtOf(c) !== d.id) continue;
-        const nearCentral = Math.hypot(c[0] - central.center[0], c[1] - central.center[1]) < central.radius + 40;
-        if (nearCentral || !onLand(c, 70)) continue;
-        // occasional larger super-blocks and empty lots keep the grid from looking mechanical
-        if (rnd() < 0.05) continue;
-        const hw = (SX - STREET) / 2, hh = (SY - STREET) / 2;
-        const corner = (du: number, dv: number) => rot(u + du, v + dv);
-        const poly = [corner(-hw, -hh), corner(hw, -hh), corner(hw, hh), corner(-hw, hh)].flat();
-        const park = rnd() < 0.07;
-        blocks.push({ poly, district: d.id, park });
-        if (park) continue;
-        // split the block into 2–5 buildings along its long side
-        const n = 2 + Math.floor(rnd() * 4);
-        const rows = rnd() < 0.5 ? 1 : 2;
-        const bw = (hw * 2) / n;
-        for (let r = 0; r < rows; r++) {
-          for (let i = 0; i < n; i++) {
-            const gap = 5;
-            const x0 = -hw + i * bw + gap, x1 = -hw + (i + 1) * bw - gap;
-            const y0 = rows === 1 ? -hh + gap : r === 0 ? -hh + gap : gap / 2;
-            const y1 = rows === 1 ? hh - gap : r === 0 ? -gap / 2 : hh - gap;
-            const shrink = rnd() * 6;
-            buildings.push({
-              poly: [corner(x0 + shrink, y0 + shrink), corner(x1 - shrink, y0 + shrink), corner(x1 - shrink, y1 - shrink), corner(x0 + shrink, y1 - shrink)].flat(),
-              shade: Math.floor(rnd() * 3),
-              district: d.id,
-            });
-          }
+  const kept: boolean[][] = [];
+  const centroids: { p: Pt; ok: boolean }[] = [];
+  const inset = (q: Pt[], d: number): Pt[] => {
+    const c: Pt = [(q[0]![0] + q[1]![0] + q[2]![0] + q[3]![0]) / 4, (q[0]![1] + q[1]![1] + q[2]![1] + q[3]![1]) / 4];
+    return q.map((p) => {
+      const dx = c[0] - p[0], dy = c[1] - p[1], len = Math.hypot(dx, dy) || 1;
+      return [p[0] + (dx / len) * d, p[1] + (dy / len) * d] as Pt;
+    });
+  };
+  const bilerp = (q: Pt[], u: number, v: number): Pt => {
+    const a: Pt = [q[0]![0] + (q[1]![0] - q[0]![0]) * u, q[0]![1] + (q[1]![1] - q[0]![1]) * u];
+    const b: Pt = [q[3]![0] + (q[2]![0] - q[3]![0]) * u, q[3]![1] + (q[2]![1] - q[3]![1]) * u];
+    return [a[0] + (b[0] - a[0]) * v, a[1] + (b[1] - a[1]) * v];
+  };
+
+  for (let i = 0; i < n; i++) {
+    kept.push([]);
+    for (let j = 0; j < n; j++) {
+      const q = [grid[i]![j]!, grid[i + 1]![j]!, grid[i + 1]![j + 1]!, grid[i]![j + 1]!];
+      const c: Pt = [(q[0]![0] + q[1]![0] + q[2]![0] + q[3]![0]) / 4, (q[0]![1] + q[1]![1] + q[2]![1] + q[3]![1]) / 4];
+      const keep = inBounds(c, 60) && !inWater(c, 70) && rnd() < 0.18 + density(c) * 0.9;
+      kept[i]!.push(keep);
+      if (!keep) continue;
+      const chunk = chunkOf(c);
+      if (isPark(c)) {
+        parks.push({ poly: q.flat(), chunk });
+        continue;
+      }
+      const major = i % 6 === 0 || j % 6 === 0 || (i + 1) % 6 === 0 || (j + 1) % 6 === 0;
+      const block = inset(q, major ? 22 : 13);
+      blocks.push({ poly: block.flat(), chunk });
+      centroids.push({ p: c, ok: density(c) > 0.35 });
+      const nu = 2 + Math.floor(rnd() * 2), nv = 2 + Math.floor(rnd() * 2);
+      for (let a = 0; a < nu; a++) {
+        for (let b = 0; b < nv; b++) {
+          if (rnd() < 0.14) continue;
+          const g = 0.07;
+          const u0 = a / nu + g, u1 = (a + 1) / nu - g, v0 = b / nv + g, v1 = (b + 1) / nv - g;
+          const fp = [bilerp(block, u0, v0), bilerp(block, u1, v0), bilerp(block, u1, v1), bilerp(block, u0, v1)];
+          buildings.push({ poly: fp.flat(), shade: Math.floor(rnd() * 3), chunk });
         }
       }
     }
   }
-  // central plaza: concentric ring of small blocks
-  for (let ring = 0; ring < 2; ring++) {
-    const r = 140 + ring * 95;
-    const count = 8 + ring * 6;
-    for (let i = 0; i < count; i++) {
-      const t0 = (i / count) * Math.PI * 2 + 0.06, t1 = ((i + 1) / count) * Math.PI * 2 - 0.06;
-      const r0 = r - 34, r1 = r + 34;
-      const pt = (t: number, rr: number): Pt => [central.center[0] + Math.cos(t) * rr, central.center[1] + Math.sin(t) * rr];
-      const poly = [pt(t0, r0), pt(t1, r0), pt(t1, r1), pt(t0, r1)].flat();
-      if (!onLand([central.center[0] + Math.cos((t0 + t1) / 2) * r, central.center[1] + Math.sin((t0 + t1) / 2) * r], 0)) continue;
-      blocks.push({ poly, district: "central", park: false });
-      buildings.push({ poly: [pt(t0 + 0.02, r0 + 6), pt(t1 - 0.02, r0 + 6), pt(t1 - 0.02, r1 - 6), pt(t0 + 0.02, r1 - 6)].flat(), shade: 2, district: "central" });
+
+  // major roads run along every 6th lattice line through the built-up area
+  const roads: Atlas["roads"] = [];
+  const isNear = (i: number, j: number) => Boolean(kept[i]?.[j] || kept[i - 1]?.[j] || kept[i]?.[j - 1] || kept[i - 1]?.[j - 1]);
+  const pushLine = (pts: Pt[]) => {
+    if (pts.length > 2) roads.push({ pts, width: 30 });
+  };
+  for (let i = 0; i <= n; i += 6) {
+    let run: Pt[] = [];
+    for (let j = 0; j <= n; j++) {
+      if (isNear(i, j)) run.push(grid[i]![j]!);
+      else {
+        pushLine(run);
+        run = [];
+      }
     }
+    pushLine(run);
+  }
+  for (let j = 0; j <= n; j += 6) {
+    let run: Pt[] = [];
+    for (let i = 0; i <= n; i++) {
+      if (isNear(i, j)) run.push(grid[i]![j]!);
+      else {
+        pushLine(run);
+        run = [];
+      }
+    }
+    pushLine(run);
   }
 
-  // ---- arterial roads: ring + radials + coastal road
-  const arterials: Atlas["arterials"] = [];
-  const ring: Pt[] = [];
-  for (let i = 0; i <= 64; i++) {
-    const t = (i / 64) * Math.PI * 2;
-    const r = 760 + Math.sin(t * 3) * 60;
-    ring.push([central.center[0] + Math.cos(t) * r * 1.25, central.center[1] + Math.sin(t) * r * 0.9]);
+  // harbour piers along the south-east coast
+  const piers: number[][] = [];
+  for (let y = H * 0.52; y < H * 0.97; y += 110 + rnd() * 90) {
+    if (rnd() < 0.3) continue;
+    const x = coastXAt(coast, y);
+    const len = 160 + rnd() * 220, w = 34 + rnd() * 26;
+    piers.push([x - 20, y, x + len, y, x + len, y + w, x - 20, y + w]);
   }
-  arterials.push({ pts: ring, width: 30 });
-  arterials.push({ pts: catmull([[central.center[0] - central.radius - 10, central.center[1]], [central.center[0], central.center[1] - central.radius - 10], [central.center[0] + central.radius + 10, central.center[1]], [central.center[0], central.center[1] + central.radius + 10], [central.center[0] - central.radius - 10, central.center[1]]], 10), width: 22 });
-  const radialTargets: Pt[] = [
-    [0, H * 0.18], [W * 0.18, -20], [W * 0.62, -20], [W * 0.84, H * 0.36], [W * 0.7, H + 20], [W * 0.38, H + 20], [-20, H * 0.62], [-20, H * 0.94],
-  ];
-  for (const tgt of radialTargets) {
-    const start: Pt = [central.center[0], central.center[1]];
-    const mid: Pt = [(start[0] + tgt[0]) / 2 + (rnd() - 0.5) * 380, (start[1] + tgt[1]) / 2 + (rnd() - 0.5) * 280];
-    arterials.push({ pts: catmull([start, mid, tgt], 20), width: 26 });
-  }
-  arterials.push({ pts: coast.map(([x, y]) => [x - 90, y] as Pt), width: 22 });
 
-  // ---- lots: marker anchor points per district (block centres, spaced, nearest the district heart first)
+  // lots: scattered across the whole city, spaced so each Space has room for its area
+  const pool = centroids.filter((c) => c.ok && inBounds(c.p, 300) && !inWater(c.p, 220));
+  for (let i = pool.length - 1; i > 0; i--) {
+    const k = Math.floor(rnd() * (i + 1));
+    [pool[i], pool[k]] = [pool[k]!, pool[i]!];
+  }
+  const picked: Pt[] = [];
+  for (const c of pool) {
+    if (picked.every((p) => Math.hypot(p[0] - c.p[0], p[1] - c.p[1]) >= 470)) picked.push(c.p);
+  }
   const lots = {} as Record<DistrictId, Pt[]>;
-  for (const d of DISTRICTS) {
-    const seed = seeds.find((s) => s.id === d.id)!.p;
-    const cands = blocks
-      .filter((b) => b.district === d.id && !b.park)
-      .map((b) => [(b.poly[0]! + b.poly[2]! + b.poly[4]! + b.poly[6]!) / 4, (b.poly[1]! + b.poly[3]! + b.poly[5]! + b.poly[7]!) / 4] as Pt)
-      .filter((p) => onLand(p, 110))
-      .sort((p, q) => Math.hypot(p[0] - seed[0], p[1] - seed[1]) - Math.hypot(q[0] - seed[0], q[1] - seed[1]));
-    const picked: Pt[] = [];
-    for (const c of cands) {
-      if (picked.every((p) => Math.hypot(p[0] - c[0], p[1] - c[1]) >= 200)) picked.push(c);
-      if (picked.length >= 120) break;
-    }
-    lots[d.id] = picked;
-  }
+  DISTRICTS.forEach((d, k) => (lots[d.id] = picked.filter((_, idx) => idx % DISTRICTS.length === k)));
 
-  const districts: AtlasDistrict[] = DISTRICTS.map((d) => {
-    const s = seeds.find((x) => x.id === d.id)!.p;
-    return { id: d.id, name: DISTRICT_META[d.id].name, caption: DISTRICT_META[d.id].caption, seed: s, label: [s[0], s[1] - 230] };
-  });
-
-  cached = { version: ATLAS_VERSION, width: W, height: H, coast, river, riverWidth, blocks, buildings, arterials, central, districts, lots };
+  cached = { version: ATLAS_VERSION, width: W, height: H, coast, sea, rivers, islands, blocks, parks, buildings, roads, piers, chunks: { cols, rows, w: CH_W, h: CH_H }, lots };
   return cached;
 }
 
 /**
- * Normalized (0..1) marker position for the n-th Space in a district. Deterministic and stable.
- * Beyond a district's lot capacity, positions spiral around earlier lots (markers then cluster).
+ * Normalized (0..1) marker position for the n-th Space of a placement group. Groups are
+ * interleaved across the whole city, so Spaces appear scattered, never clustered by category.
  */
 export function lotPosition(districtId: DistrictId, plotIndex: number): { x: number; y: number } {
   const a = generateAtlas();
@@ -259,8 +325,8 @@ export function lotPosition(districtId: DistrictId, plotIndex: number): { x: num
   let p = lots[plotIndex % lots.length]!;
   const lap = Math.floor(plotIndex / lots.length);
   if (lap > 0) {
-    const t = lap * 2.399; // golden angle
-    p = [p[0] + Math.cos(t) * 60 * Math.sqrt(lap), p[1] + Math.sin(t) * 60 * Math.sqrt(lap)];
+    const t = lap * 2.399;
+    p = [p[0] + Math.cos(t) * 140 * Math.sqrt(lap), p[1] + Math.sin(t) * 140 * Math.sqrt(lap)];
   }
   return { x: p[0] / a.width, y: p[1] / a.height };
 }
@@ -268,5 +334,7 @@ export function lotPosition(districtId: DistrictId, plotIndex: number): { x: num
 export function isOnLand(xNorm: number, yNorm: number): boolean {
   const a = generateAtlas();
   const p: Pt = [xNorm * a.width, yNorm * a.height];
-  return p[0] < coastXAt(a.coast, p[1]) && distToPolyline(p, a.river) > a.riverWidth / 2;
+  if (p[0] > coastXAt(a.coast, p[1])) return false;
+  if (a.rivers.some((r) => distToPolyline(p, r.pts) < r.width / 2)) return false;
+  return !a.islands.some((isl) => pointInPoly(p, isl));
 }

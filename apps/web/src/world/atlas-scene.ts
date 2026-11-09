@@ -7,7 +7,7 @@
  * Project data, markers, selection and search live in React components.
  */
 import { Application, Assets, Container, Graphics, Sprite, type FederatedPointerEvent } from "pixi.js";
-import type { Atlas, Pt } from "@yielvy/core/world";
+import { coastXAt, distToPolyline, type Atlas, type Pt } from "@yielvy/core/world";
 import { MAP_THEME } from "./theme";
 
 export interface Camera {
@@ -49,7 +49,9 @@ export class AtlasScene {
   private onWheel = (e: WheelEvent) => this.wheel(e);
   opts: SceneOptions;
   /** Extra screen padding (px) reserved by floating panels when centring on a point. */
-  focusPadding = { left: 0, bottom: 0 };
+  focusPadding = { left: 0, right: 0, bottom: 0 };
+  /** Where the camera opens (a live Space, chosen by the page). */
+  start: Pt = [0, 0];
 
   private constructor(private host: HTMLElement, private atlas: Atlas, opts: SceneOptions) {
     this.opts = opts;
@@ -92,7 +94,7 @@ export class AtlasScene {
     } else {
       this.world.addChild(this.drawCity());
     }
-    this.world.addChild(this.routeLayer);
+    this.world.addChild(this.areaLayer, this.routeLayer);
 
     app.stage.eventMode = "static";
     app.stage.hitArea = app.screen;
@@ -113,41 +115,95 @@ export class AtlasScene {
 
   // ------------------------------------------------------------------ drawing
 
-  private drawCity(): Graphics {
+  private drawCity(): Container {
     const a = this.atlas;
-    const g = new Graphics();
-    g.rect(0, 0, a.width, a.height).fill(MAP_THEME.land);
-    for (const b of a.blocks) g.poly(b.poly).fill(b.park ? MAP_THEME.park : MAP_THEME.blockByDistrict[b.district] ?? MAP_THEME.blockByDistrict.discovery!);
-    for (const b of a.buildings) g.poly(b.poly).fill(b.district === "central" ? MAP_THEME.centralBuilding : MAP_THEME.buildings[b.shade]!);
-    // water: sea east of the coast, then the river with a soft bank line
-    const sea: number[] = a.coast.flat();
-    sea.push(a.width + 50, a.height + 50, a.width + 50, -50);
-    g.poly(sea).fill(MAP_THEME.water);
-    g.moveTo(a.coast[0]![0], a.coast[0]![1]);
-    for (const p of a.coast) g.lineTo(p[0], p[1]);
-    g.stroke({ width: 6, color: MAP_THEME.waterEdge, alpha: 0.9 });
-    const riverPath = (w: number, color: number, alpha = 1) => {
-      g.moveTo(a.river[0]![0], a.river[0]![1]);
-      for (const p of a.river) g.lineTo(p[0], p[1]);
-      g.stroke({ width: w, color, alpha, cap: "round", join: "round" });
+    const T = MAP_THEME;
+    const root = new Container();
+    const base = new Graphics();
+    base.rect(-4000, -4000, a.width + 8000, a.height + 8000).fill(T.background);
+    base.rect(0, 0, a.width, a.height).fill(T.land);
+    root.addChild(base);
+
+    // city fabric, one cullable layer per chunk
+    const chunks = Array.from({ length: a.chunks.cols * a.chunks.rows }, () => new Graphics());
+    for (const p of a.parks) chunks[p.chunk]!.poly(p.poly).fill(T.park);
+    for (const bl of a.blocks) chunks[bl.chunk]!.poly(bl.poly).fill(T.block);
+    for (const bd of a.buildings) chunks[bd.chunk]!.poly(bd.poly).fill(T.buildings[bd.shade]!);
+    for (const g of chunks) {
+      g.cullable = true;
+      root.addChild(g);
+    }
+
+    const water = new Graphics();
+    const path = (g: Graphics, pts: [number, number][], close = false) => {
+      g.moveTo(pts[0]![0], pts[0]![1]);
+      for (const p of pts) g.lineTo(p[0], p[1]);
+      if (close) g.closePath();
     };
-    riverPath(a.riverWidth + 10, MAP_THEME.waterEdge);
-    riverPath(a.riverWidth, MAP_THEME.water);
-    // arterials drawn over water read as bridges
-    for (const r of a.arterials) {
-      g.moveTo(r.pts[0]![0], r.pts[0]![1]);
-      for (const p of r.pts) g.lineTo(p[0], p[1]);
-      g.stroke({ width: r.width, color: MAP_THEME.road, cap: "round", join: "round" });
+    water.poly(a.sea).fill(T.sea);
+    path(water, a.coast);
+    water.stroke({ color: T.coastEdge, width: 6, alpha: 0.9 });
+    for (const pier of a.piers) water.poly(pier).fill(T.pier);
+    for (const isl of a.islands) {
+      water.poly(isl.flat()).fill(T.island);
+      path(water, isl, true);
+      water.stroke({ color: T.parkEdge, width: 4, alpha: 0.8 });
     }
-    for (const r of a.arterials) {
-      g.moveTo(r.pts[0]![0], r.pts[0]![1]);
-      for (const p of r.pts) g.lineTo(p[0], p[1]);
-      g.stroke({ width: Math.max(2, r.width * 0.18), color: MAP_THEME.roadCenter, alpha: 0.8, cap: "round", join: "round" });
+    for (const r of a.rivers) {
+      path(water, r.pts);
+      water.stroke({ width: r.width + 14, color: T.riverEdge, cap: "round", join: "round" });
     }
-    // central plaza
-    g.circle(a.central.center[0], a.central.center[1], 70).fill(0x1b2333);
-    g.circle(a.central.center[0], a.central.center[1], 70).stroke({ width: 3, color: 0x34405a });
-    return g;
+    for (const r of a.rivers) {
+      path(water, r.pts);
+      water.stroke({ width: r.width, color: T.river, cap: "round", join: "round" });
+    }
+    root.addChild(water);
+
+    // major roads; segments over water become lighter bridges
+    const roads = new Graphics();
+    const overWater = (x: number, y: number) =>
+      x > coastXAt(a.coast, y) || a.rivers.some((r) => distToPolyline([x, y], r.pts) < r.width / 2 + 10);
+    for (const r of a.roads) {
+      path(roads, r.pts);
+      roads.stroke({ width: r.width, color: T.road, cap: "round", join: "round" });
+    }
+    for (const r of a.roads) {
+      for (let i = 0; i < r.pts.length - 1; i++) {
+        const [p, q] = [r.pts[i]!, r.pts[i + 1]!];
+        if (!overWater((p[0] + q[0]) / 2, (p[1] + q[1]) / 2)) continue;
+        roads.moveTo(p[0], p[1]).lineTo(q[0], q[1]);
+        roads.stroke({ width: r.width + 14, color: T.bridge, cap: "butt" });
+      }
+    }
+    root.addChild(roads);
+    return root;
+  }
+
+  // ------------------------------------------------------------------ Space areas
+
+  private areaLayer = new Graphics();
+
+  /** Soft outlined areas under Spaces; the selected one is orange. Positions in world units. */
+  setAreas(areas: { id: string; x: number; y: number; live: boolean }[], selectedId: string | null) {
+    const g = this.areaLayer;
+    g.clear();
+    const shape = (x: number, y: number, seed: number, r: number) => {
+      const pts: number[] = [];
+      for (let i = 0; i < 18; i++) {
+        const t = (i / 18) * Math.PI * 2;
+        const rr = r * (1 + 0.16 * Math.sin(t * 3 + seed) + 0.1 * Math.sin(t * 5 + seed * 1.7));
+        pts.push(x + Math.cos(t) * rr * 1.15, y + Math.sin(t) * rr * 0.9);
+      }
+      return pts;
+    };
+    for (const ar of areas) {
+      if (!ar.live && ar.id !== selectedId) continue;
+      const seed = [...ar.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 997, 7);
+      const sel = ar.id === selectedId;
+      const pts = shape(ar.x, ar.y, seed, sel ? 250 : 200);
+      g.poly(pts).fill({ color: sel ? MAP_THEME.selected : MAP_THEME.area, alpha: sel ? 0.2 : 0.08 });
+      g.poly(pts).stroke({ color: sel ? MAP_THEME.selected : MAP_THEME.area, width: sel ? 6 : 3.5, alpha: sel ? 0.95 : 0.45, join: "round" });
+    }
   }
 
   setRoutes(routes: RouteDraw[]) {
@@ -210,21 +266,28 @@ export class AtlasScene {
   /** Camera that centres world point (x,y) at scale s, honouring panel padding. */
   private cameraFor(x: number, y: number, s: number): Camera {
     const { width, height } = this.app.screen;
-    const cx = this.focusPadding.left + (width - this.focusPadding.left) / 2;
+    const cx = this.focusPadding.left + (width - this.focusPadding.left - this.focusPadding.right) / 2;
     const cy = (height - this.focusPadding.bottom) / 2;
     return { tx: cx - x * s, ty: cy - y * s, s };
   }
 
-  flyTo(x: number, y: number, s?: number) {
+  flyTo(x: number, y: number, s?: number, dur = 650) {
     const target = this.cameraFor(x, y, Math.min(ZOOM_MAX, Math.max(this.fitScale(), s ?? Math.max(this.world.scale.x, 0.55))));
     if (this.opts.reducedMotion) return this.apply(target);
-    this.tween = { from: this.camera(), to: target, t: 0, dur: 650 };
+    this.tween = { from: this.camera(), to: target, t: 0, dur };
   }
 
+  /** Welcome pose: start wide, then a slow cinematic push-in toward the start point. */
+  cinematic() {
+    const [x, y] = this.start;
+    this.apply(this.cameraFor(x, y, Math.max(this.fitScale(), 0.18)));
+    this.flyTo(x, y, 0.42, 9000);
+  }
+
+  /** Open zoomed in at the start point (near a live Space). */
   home(animate = true) {
-    const a = this.atlas;
-    const s = Math.max(this.fitScale(), this.app.screen.width < 768 ? 0.22 : 0.32);
-    const target = this.cameraFor(a.central.center[0], a.central.center[1], s);
+    const [x, y] = this.start;
+    const target = this.cameraFor(x, y, this.app.screen.width < 768 ? 0.5 : 0.62);
     if (!animate || this.opts.reducedMotion) this.apply(target);
     else this.tween = { from: this.camera(), to: target, t: 0, dur: 650 };
   }

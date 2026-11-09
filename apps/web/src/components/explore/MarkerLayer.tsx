@@ -7,9 +7,8 @@ import type { MarkerKind, WorldBuildingData } from "@/world/types";
 import { IconClock, IconCube, IconFlag, IconStar } from "./icons";
 
 /**
- * HTML marker layer. The scene publishes its camera; we write it into three CSS variables on
- * this root, and every marker positions itself with calc() — so panning/zooming never causes a
- * React render. React only re-renders when the zoom *bucket* changes (clustering / labels).
+ * HTML marker layer. The scene publishes its camera into three CSS variables on this root;
+ * markers position themselves with calc(), so pan/zoom never re-renders React.
  */
 export const KIND_COLOR: Record<MarkerKind, string> = {
   hunt: "#32C8EF",
@@ -18,8 +17,15 @@ export const KIND_COLOR: Record<MarkerKind, string> = {
   space: "#7C8AA0",
 };
 
-const CLUSTER_BELOW = 0.42;
-const LABEL_FROM = 0.6;
+const CLUSTER_BELOW = 0.14;
+const LABEL_FROM = 0.3;
+
+const KIND_TEXT: Record<MarkerKind, string> = {
+  hunt: "Treasure Hunt · live",
+  contest: "Creative Contest · live",
+  upcoming: "Starting soon",
+  space: "Space",
+};
 
 interface Props {
   atlas: Atlas;
@@ -32,16 +38,9 @@ interface Props {
   onZoomTo(x: number, y: number, s: number): void;
 }
 
-interface Cluster {
-  key: string;
-  x: number;
-  y: number;
-  members: WorldBuildingData[];
-}
-
 export function MarkerLayer({ atlas, scene, buildings, visibleIds, selectedId, interactive, onSelect, onZoomTo }: Props) {
   const root = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.3);
+  const [scale, setScale] = useState(0.6);
 
   useEffect(() => {
     if (!scene) return;
@@ -63,18 +62,18 @@ export function MarkerLayer({ atlas, scene, buildings, visibleIds, selectedId, i
 
   const shown = useMemo(() => buildings.filter((b) => !visibleIds || visibleIds.has(b.spaceId)), [buildings, visibleIds]);
 
-  const clusters: Cluster[] = useMemo(() => {
-    if (scale >= CLUSTER_BELOW) return shown.map((b) => ({ key: b.spaceId, x: b.x * atlas.width, y: b.y * atlas.height, members: [b] }));
-    const radius = 70 / scale; // world units ≈ 70 screen px
-    const out: Cluster[] = [];
-    for (const b of shown) {
-      const x = b.x * atlas.width, y = b.y * atlas.height;
-      const near = out.find((c) => Math.hypot(c.x - x, c.y - y) < radius);
-      if (near && b.spaceId !== selectedId && !near.members.some((m) => m.spaceId === selectedId)) {
-        near.members.push(b);
-        near.x = (near.x * (near.members.length - 1) + x) / near.members.length;
-        near.y = (near.y * (near.members.length - 1) + y) / near.members.length;
-      } else out.push({ key: b.spaceId, x, y, members: [b] });
+  const groups = useMemo(() => {
+    const pts = shown.map((b) => ({ b, x: b.x * atlas.width, y: b.y * atlas.height }));
+    if (scale >= CLUSTER_BELOW) return pts.map((p) => ({ key: p.b.spaceId, x: p.x, y: p.y, members: [p.b] }));
+    const radius = 46 / scale;
+    const out: { key: string; x: number; y: number; members: WorldBuildingData[] }[] = [];
+    for (const p of pts) {
+      const near = out.find((c) => Math.hypot(c.x - p.x, c.y - p.y) < radius);
+      if (near && p.b.spaceId !== selectedId) {
+        near.members.push(p.b);
+        near.x = (near.x * (near.members.length - 1) + p.x) / near.members.length;
+        near.y = (near.y * (near.members.length - 1) + p.y) / near.members.length;
+      } else out.push({ key: p.b.spaceId, x: p.x, y: p.y, members: [p.b] });
     }
     return out;
   }, [shown, scale, atlas, selectedId]);
@@ -84,55 +83,29 @@ export function MarkerLayer({ atlas, scene, buildings, visibleIds, selectedId, i
   });
 
   return (
-    <div ref={root} className="pointer-events-none absolute inset-0 overflow-hidden" style={{ ["--tx" as string]: 0, ["--ty" as string]: 0, ["--s" as string]: 0.3 }}>
-      {/* district & landmark labels */}
-      {atlas.districts.map((d) => (
-        <div key={d.id} className="absolute left-0 top-0 will-change-transform" style={pos(d.label[0], d.label[1])}>
-          <div
-            className="-translate-x-1/2 -translate-y-1/2 rounded-md border border-line-strong/80 bg-[#0e131bcc] px-3 py-1.5 text-center backdrop-blur-sm transition-opacity duration-300"
-            style={{ opacity: scale > 1.3 ? 0 : 1 }}
-          >
-            <p className="whitespace-nowrap font-display text-[13px] font-semibold uppercase tracking-[0.12em] text-ink">{d.name}</p>
-            <p className="whitespace-nowrap text-[10.5px] font-medium text-ink-3">{d.caption}</p>
-          </div>
-        </div>
-      ))}
-      <div className="absolute left-0 top-0" style={pos(atlas.central.center[0], atlas.central.center[1])}>
-        <div className="-translate-x-1/2 -translate-y-1/2 rounded-md border border-orange/40 bg-[#0e131bcc] px-3 py-1.5 font-display text-[12px] font-semibold uppercase tracking-[0.14em] text-orange-ink">
-          Central Plaza
-        </div>
-      </div>
-
-      {clusters.map((c) =>
-        c.members.length > 1 ? (
-          <div key={`c-${c.key}`} className="absolute left-0 top-0" style={pos(c.x, c.y)}>
+    <div ref={root} className="pointer-events-none absolute inset-0 overflow-hidden" style={{ ["--tx" as string]: 0, ["--ty" as string]: 0, ["--s" as string]: 0.6 }}>
+      {groups.map((g) =>
+        g.members.length > 1 ? (
+          <div key={`c-${g.key}`} className="absolute left-0 top-0" style={pos(g.x, g.y)}>
             <button
               type="button"
               disabled={!interactive}
-              onClick={() => onZoomTo(c.x, c.y, CLUSTER_BELOW * 1.6)}
-              aria-label={`${c.members.length} Spaces here. Zoom in`}
-              className="pointer-events-auto grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-orange/60 bg-[#151a25] font-display text-[14px] font-bold text-ink shadow-[0_0_0_6px_rgb(255_145_56/0.12)] transition-transform hover:scale-110"
+              onClick={() => onZoomTo(g.x, g.y, CLUSTER_BELOW * 2.2)}
+              aria-label={`${g.members.length} Spaces here. Zoom in`}
+              className="pointer-events-auto grid size-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-orange bg-[#0b0f15] font-display text-[13px] font-bold text-ink shadow-[0_6px_18px_-6px_rgb(0_0_0/.9)] transition-transform hover:scale-110"
             >
-              {c.members.length}
+              {g.members.length}
             </button>
           </div>
         ) : (
-          <Marker
-            key={c.key}
-            b={c.members[0]!}
-            style={pos(c.x, c.y)}
-            selected={c.members[0]!.spaceId === selectedId}
-            showLabel={scale >= LABEL_FROM}
-            interactive={interactive}
-            onSelect={onSelect}
-          />
+          <Pin key={g.key} b={g.members[0]!} style={pos(g.x, g.y)} selected={g.members[0]!.spaceId === selectedId} showLabel={scale >= LABEL_FROM} interactive={interactive} onSelect={onSelect} />
         ),
       )}
     </div>
   );
 }
 
-const Marker = memo(function Marker({
+const Pin = memo(function Pin({
   b,
   style,
   selected,
@@ -148,53 +121,50 @@ const Marker = memo(function Marker({
   onSelect(id: string): void;
 }) {
   const live = b.liveCampaigns > 0;
-  const accent = KIND_COLOR[b.kind];
-  const ring = selected ? "#FF9138" : live ? accent : "#3a465a";
-  const size = b.flags.includes("featured") ? 46 : live ? 42 : 36;
-  const Badge = b.kind === "hunt" ? IconFlag : b.kind === "contest" ? IconStar : b.kind === "upcoming" ? IconClock : null;
+  const fill = live || selected ? "#FF9138" : "#5d6879";
+  const size = selected ? 58 : live ? 46 : 38;
+  const Icon = b.kind === "hunt" ? IconFlag : b.kind === "contest" ? IconStar : b.kind === "upcoming" ? IconClock : IconCube;
   return (
-    <div className="absolute left-0 top-0" style={{ ...style, zIndex: selected ? 30 : live ? 20 : 10 }}>
+    <div className="absolute left-0 top-0" style={{ ...style, zIndex: selected ? 40 : live ? 20 : 10 }}>
       <button
         type="button"
         disabled={!interactive}
         onClick={() => onSelect(b.spaceId)}
-        aria-label={`${b.name}${live ? `, ${b.liveCampaigns} live experience${b.liveCampaigns > 1 ? "s" : ""}` : ""}`}
+        aria-label={`${b.name}${live ? `, ${KIND_TEXT[b.kind]}` : ""}`}
         aria-pressed={selected}
-        className="group pointer-events-auto relative block -translate-x-1/2 -translate-y-full pb-2 outline-none"
+        className="group pointer-events-auto relative block outline-none"
+        style={{ transform: `translate(-50%, -100%)` }}
       >
-        {live && !selected && (
-          <span aria-hidden className="absolute left-1/2 top-[calc(50%-4px)] size-10 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ boxShadow: `0 0 0 2px ${accent}55`, animation: "yv-pulse-ring 2.6s ease-out infinite" }} />
-        )}
+        {/* ground ring */}
         <span
-          className="relative grid place-items-center overflow-hidden rounded-[12px] bg-[#121722] transition-transform duration-150 group-hover:scale-110 group-focus-visible:scale-110"
-          style={{
-            width: size,
-            height: size,
-            border: `2px solid ${ring}`,
-            transform: selected ? "scale(1.12)" : undefined,
-            boxShadow: selected ? "0 0 0 5px rgb(255 145 56 / 0.18), 0 10px 24px -8px rgb(0 0 0 / .8)" : "0 8px 20px -8px rgb(0 0 0 / .8)",
-            color: live ? accent : "#9AA6B5",
-          }}
-        >
-          {b.logoUrl ? (
+          aria-hidden
+          className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1/2 rounded-[50%] border-2"
+          style={{ width: size * 0.9, height: size * 0.32, borderColor: selected ? "rgb(255 145 56 / .8)" : "rgb(255 255 255 / .35)", background: selected ? "rgb(255 145 56 / .18)" : "rgb(0 0 0 / .35)" }}
+        />
+        {/* teardrop pin */}
+        <svg width={size} height={size * 1.25} viewBox="0 0 40 50" className="relative block drop-shadow-[0_8px_14px_rgb(0_0_0/.75)] transition-transform duration-150 group-hover:-translate-y-1 group-focus-visible:-translate-y-1">
+          <path d="M20 49C20 49 3 30.5 3 18.5a17 17 0 0 1 34 0C37 30.5 20 49 20 49Z" fill={fill} stroke="#0b0f15" strokeWidth="2" />
+          <circle cx="20" cy="18.5" r="11.5" fill="#0b0f15" />
+        </svg>
+        <span className="absolute left-1/2 grid -translate-x-1/2 place-items-center overflow-hidden rounded-full" style={{ top: size * 0.155, width: size * 0.56, height: size * 0.56, color: fill }}>
+          {b.logoUrl && selected ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={b.logoUrl} alt="" className="size-full object-cover" />
           ) : (
-            <IconCube size={size * 0.5} />
+            <Icon size={size * 0.34} />
           )}
         </span>
-        <span aria-hidden className="absolute bottom-0.5 left-1/2 size-3 -translate-x-1/2 rotate-45 bg-[#121722]" style={{ borderRight: `2px solid ${ring}`, borderBottom: `2px solid ${ring}` }} />
-        {Badge && (
-          <span aria-hidden className="absolute -right-2 -top-1.5 grid size-[22px] place-items-center rounded-full border-2 border-[#090b10]" style={{ background: accent, color: "#090b10" }}>
-            <Badge size={12} />
-          </span>
-        )}
+        {/* name label */}
         <span
-          className={`pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded-md border border-line bg-[#0e131bee] px-2 py-1 text-[12px] font-semibold text-ink transition-opacity duration-150 ${
+          className={`pointer-events-none absolute top-[18%] whitespace-nowrap rounded-[10px] border border-white/10 bg-[#0b0f15f0] px-3 py-1.5 text-left shadow-[0_8px_20px_-8px_rgb(0_0_0/.9)] transition-opacity duration-150 ${
             showLabel || selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
           }`}
+          style={{ left: size * 0.86 }}
         >
-          {b.name}
+          <span className="block text-[13px] font-semibold leading-tight text-ink">{b.name}</span>
+          <span className="block text-[11px] leading-tight" style={{ color: live ? KIND_COLOR[b.kind] : "#7C8AA0" }}>
+            {KIND_TEXT[b.kind]}
+          </span>
         </span>
       </button>
     </div>

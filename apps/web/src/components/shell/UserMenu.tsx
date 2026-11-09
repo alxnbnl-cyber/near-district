@@ -47,7 +47,7 @@ export function UserMenu({ user }: { user: { displayName: string; isAdmin: boole
       {open && (
         <div role="menu" className="yv-enter absolute right-0 top-11 w-56 rounded-lg border border-line bg-card p-1.5 shadow-pop">
           {[
-            ["/me", "My Adventures"],
+            ["/explore?tab=adventures", "My Adventures"],
             ["/me/rewards", "My Rewards"],
             ["/me/profile", "Profile & wallet"],
             ["/organizer", "Organizer portal"],

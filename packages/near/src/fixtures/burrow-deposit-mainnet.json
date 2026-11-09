@@ -1,0 +1,98 @@
+{
+ "final_execution_status": "FINAL",
+ "status": {
+  "SuccessValue": "IjEyMDE5MzM0NjgwIg=="
+ },
+ "transaction": {
+  "hash": "8wXH3rW9i43VUMmiN9oH7bQ6wWNdD7oxC4iLs4hSoRP1",
+  "signer_id": "u_suck.near",
+  "receiver_id": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+  "actions": []
+ },
+ "transaction_outcome": {
+  "id": "8wXH3rW9i43VUMmiN9oH7bQ6wWNdD7oxC4iLs4hSoRP1",
+  "block_hash": "3441rSn77jnYJuKL8eABqdDJdCHKQAHAy9S4vWhouvBN",
+  "outcome": {
+   "logs": [],
+   "executor_id": "u_suck.near",
+   "status": {
+    "SuccessReceiptId": "EzztYYWrtcSK4z5jn9Wj5zRamRLveRrbNm47sph7bBpF"
+   }
+  }
+ },
+ "receipts_outcome": [
+  {
+   "id": "EzztYYWrtcSK4z5jn9Wj5zRamRLveRrbNm47sph7bBpF",
+   "block_hash": "ELUWJsroFJwPY3dP7SmqfmUt7xxyR91hd82XGpXr3mCM",
+   "outcome": {
+    "logs": [
+     "EVENT_JSON:{\"standard\":\"nep141\",\"version\":\"1.0.0\",\"event\":\"ft_transfer\",\"data\":[{\"old_owner_id\":\"u_suck.near\",\"new_owner_id\":\"contract.main.burrow.near\",\"amount\":\"12019334680\"}]}"
+    ],
+    "executor_id": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "status": {
+     "SuccessReceiptId": "39SRkN9UzkoMJag5URirYYpuVBr4xCA29bbzgoDm5cXp"
+    }
+   }
+  },
+  {
+   "id": "CzD6vYGwqvpFUZe9GdghMA9NGCKgPuvJxnizA6tVUM8k",
+   "block_hash": "789XuJjrfLK3HWxPFwfbHRaEUv9wxuGv8oAyKpiTghXF",
+   "outcome": {
+    "logs": [
+     "EVENT_JSON:{\"data\":[{\"fee_type\":\"normal\",\"interest\":\"21971892955643320379\",\"prot_fee\":\"5492973238910830094\",\"reserved\":\"0\",\"token_id\":\"17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1\"}],\"event\":\"fee_detail\",\"standard\":\"burrow\",\"version\":\"1.0.0\"}",
+     "EVENT_JSON:{\"data\":[{\"fee_type\":\"margin\",\"interest\":\"0\",\"prot_fee\":\"0\",\"reserved\":\"0\",\"token_id\":\"17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1\"}],\"event\":\"fee_detail\",\"standard\":\"burrow\",\"version\":\"1.0.0\"}",
+     "EVENT_JSON:{\"data\":[{\"account_id\":\"u_suck.near\",\"amount\":\"12019334680000000000000\",\"token_id\":\"17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1\"}],\"event\":\"deposit\",\"standard\":\"burrow\",\"version\":\"1.0.0\"}",
+     "EVENT_JSON:{\"data\":[{\"account_id\":\"u_suck.near\",\"amount\":\"12019334679999999999999\",\"position\":\"REGULAR\",\"token_id\":\"17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1\"}],\"event\":\"increase_collateral\",\"standard\":\"burrow\",\"version\":\"1.0.0\"}"
+    ],
+    "executor_id": "contract.main.burrow.near",
+    "status": {
+     "SuccessValue": "IjAi"
+    }
+   }
+  },
+  {
+   "id": "3RL54cqahV3zfmx6m9usb2LYW4Sk2E3dRWjrSuasQcwr",
+   "block_hash": "6aH4kHgsxxmcb3iobnLbdLLvyMHWBTYjdgxB1vgjKMHu",
+   "outcome": {
+    "logs": [],
+    "executor_id": "u_suck.near",
+    "status": {
+     "SuccessValue": ""
+    }
+   }
+  },
+  {
+   "id": "39SRkN9UzkoMJag5URirYYpuVBr4xCA29bbzgoDm5cXp",
+   "block_hash": "6aH4kHgsxxmcb3iobnLbdLLvyMHWBTYjdgxB1vgjKMHu",
+   "outcome": {
+    "logs": [],
+    "executor_id": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "status": {
+     "SuccessValue": "IjEyMDE5MzM0NjgwIg=="
+    }
+   }
+  },
+  {
+   "id": "Ba2rAh6xGdPeycqF29jwBkyf7YoCNZDrPPpnuEBHcDxh",
+   "block_hash": "A85usJt5DGoBFoD6RU5v2oviYCoXYz9247Bohwrtf79x",
+   "outcome": {
+    "logs": [],
+    "executor_id": "u_suck.near",
+    "status": {
+     "SuccessValue": ""
+    }
+   }
+  },
+  {
+   "id": "95eFcT3FWVX2ed4hYNyvME76bsPY5MMVveiod36zWiXq",
+   "block_hash": "789XuJjrfLK3HWxPFwfbHRaEUv9wxuGv8oAyKpiTghXF",
+   "outcome": {
+    "logs": [],
+    "executor_id": "u_suck.near",
+    "status": {
+     "SuccessValue": ""
+    }
+   }
+  }
+ ]
+}

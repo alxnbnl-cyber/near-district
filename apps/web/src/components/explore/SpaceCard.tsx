@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import type { WorldBuildingData } from "@/world/types";
-import { districtName } from "@/components/world/shared";
 import { buttonClass } from "@/components/ui";
 import { CATEGORY_LABEL, SpaceLogo } from "./DiscoverPanel";
 import { IconClose, IconFlag, IconStar } from "./icons";
@@ -24,7 +23,7 @@ export function SpaceCard({ b, onClose, className = "" }: { b: WorldBuildingData
         <SpaceLogo b={b} size={52} />
         <div className="min-w-0 flex-1">
           <p className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-ink-3">
-            {CATEGORY_LABEL[b.category] ?? b.category} · {districtName(b.districtId)}
+            {CATEGORY_LABEL[b.category] ?? b.category}
           </p>
           <h2 className="truncate text-[19px] font-semibold">{b.name}</h2>
           {b.tagline && <p className="mt-0.5 line-clamp-2 text-[13px] text-ink-2">{b.tagline}</p>}

@@ -3,16 +3,15 @@
 import Link from "next/link";
 import { forwardRef } from "react";
 import type { WorldBuildingData } from "@/world/types";
-import { districtName } from "@/components/world/shared";
 import { IconChevron, IconCube, IconFlag, IconSearch, IconStar } from "./icons";
 import { KIND_COLOR } from "./MarkerLayer";
 
 export type Filter = "all" | "live" | "treasure_hunt" | "creative_contest";
 export const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "live", label: "Live now" },
-  { id: "treasure_hunt", label: "Treasure Hunts" },
-  { id: "creative_contest", label: "Creative Contests" },
+  { id: "live", label: "Live" },
+  { id: "treasure_hunt", label: "Hunts" },
+  { id: "creative_contest", label: "Contests" },
 ];
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -31,11 +30,13 @@ interface Props {
   onFilter(f: Filter): void;
   onPick(id: string): void;
   onCollapse?(): void;
+  /** Hide the in-panel search when a search box lives in the top bar. */
+  showSearch?: boolean;
   onAbout(): void;
 }
 
 export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function DiscoverPanel(
-  { results, total, query, filter, selectedId, onQuery, onFilter, onPick, onCollapse, onAbout },
+  { results, total, query, filter, selectedId, onQuery, onFilter, onPick, onCollapse, onAbout, showSearch = true },
   searchRef,
 ) {
   return (
@@ -52,6 +53,7 @@ export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function Discov
         )}
       </div>
       <div className="px-5 pt-4">
+        {showSearch && (<>
         <label htmlFor="discover-search" className="sr-only">
           Search projects, challenges, or communities
         </label>
@@ -67,7 +69,8 @@ export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function Discov
             className="h-10 w-full rounded-[10px] border border-line-strong bg-paper pl-9 pr-3 text-[13.5px] text-ink placeholder:text-ink-3 focus:border-orange focus:outline-none focus:ring-2 focus:ring-orange/25"
           />
         </div>
-        <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter">
+        </>)}
+        <div className={`${showSearch ? "mt-3" : ""} flex gap-1.5`} role="group" aria-label="Filter">
           {FILTERS.map((f) => (
             <button
               key={f.id}
@@ -115,7 +118,7 @@ export function SpaceLogo({ b, size = 44 }: { b: WorldBuildingData; size?: numbe
     <img src={b.logoUrl} alt="" className="shrink-0 rounded-[10px] border border-line object-cover" style={{ width: size, height: size }} />
   ) : (
     <span aria-hidden className="grid shrink-0 place-items-center rounded-[10px] border border-line-strong bg-paper font-display font-bold" style={{ width: size, height: size, color, fontSize: size * 0.42 }}>
-      {b.name.slice(0, 1).toUpperCase()}
+      {(b.name.match(/[A-Za-z0-9]/)?.[0] ?? "Y").toUpperCase()}
     </span>
   );
 }
@@ -128,14 +131,14 @@ function SpaceRow({ b, selected, onPick }: { b: WorldBuildingData; selected: boo
       onClick={() => onPick(b.spaceId)}
       aria-current={selected}
       className={`group flex w-full items-center gap-3 rounded-[12px] border p-3 text-left transition-colors ${
-        selected ? "border-orange/70 bg-orange-wash" : "border-line bg-paper/40 hover:border-line-strong hover:bg-paper-2/60"
+        selected ? "border-orange/70 bg-[linear-gradient(100deg,rgb(255_145_56/0.28),rgb(255_145_56/0.06))]" : "border-line bg-[#121722] hover:border-line-strong"
       }`}
     >
       <SpaceLogo b={b} />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold">{b.name}</span>
         <span className="block truncate text-[12.5px] text-ink-3">
-          {CATEGORY_LABEL[b.category] ?? b.category} · {districtName(b.districtId)}
+          {CATEGORY_LABEL[b.category] ?? b.category}{b.tagline ? ` · ${b.tagline}` : ""}
         </span>
         <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
           {b.liveCampaigns > 0 ? (

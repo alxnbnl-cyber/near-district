@@ -14,6 +14,9 @@ const NAV = [
   ["/organizer/campaigns", "Campaigns"],
   ["/organizer/funding", "Funding"],
   ["/organizer/participants", "Participants"],
+  ["/organizer/partners", "Partners"],
+  ["/organizer/expeditions", "Expeditions"],
+  ["/organizer/reviews", "Reviews"],
   ["/organizer/settings", "Settings"],
 ] as const;
 

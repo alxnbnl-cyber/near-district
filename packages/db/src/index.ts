@@ -47,3 +47,4 @@ export function getDb(): Promise<Db> {
   return shared.then((h) => h.db);
 }
 export { assignBuildingPlot } from "./world";
+export * from "./hint-engine";

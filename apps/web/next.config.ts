@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  devIndicators: false,
   transpilePackages: ["@yielvy/core", "@yielvy/db", "@yielvy/near"],
   serverExternalPackages: ["@electric-sql/pglite", "pg"],
   images: { unoptimized: true },

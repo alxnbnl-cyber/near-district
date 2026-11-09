@@ -41,5 +41,12 @@
 - [ ] Teammate invites (editor/reviewer roles)
 - [ ] CI: tests, `pnpm audit`, `cargo audit`, secret scanning
 
+## Hint quests & expeditions (see `docs/architecture/hints-and-expeditions.md`)
+- [ ] On-chain hint activities (RHEA swap / lending) only verify on a **mainnet** deployment — players must prove mainnet wallet ownership
+- [ ] Legal review: hints that need a financial activity always need a free alternative in funded campaigns (enforced); confirm this is enough per country
+- [ ] Decide whether to build: partner-signed API events (needs per-partner keys + consent), USD thresholds (needs a price source), LP / holding / NFT adapters
+- [ ] Meteor attribution: ask Meteor for a verifiable attribution method before offering "Swap using Meteor"
+- [ ] Multi-sponsor expedition prize reserves — only after the vault accounting is reviewed for shared principal
+
 ## My notes
 - [ ] 

@@ -1,0 +1,49 @@
+{
+ "final_execution_status": "FINAL",
+ "status": {
+  "SuccessValue": "IjQxMzY5ODM2MzU4NDYwNzgwMDE1MzkxNTgi"
+ },
+ "transaction": {
+  "hash": "Fdp7vhmYxNeG8hiif3XP9zGYuzxp3YTX9p9XWrhaKswf",
+  "signer_id": "closemeat6237.near",
+  "receiver_id": "v2.ref-finance.near",
+  "actions": []
+ },
+ "transaction_outcome": {
+  "id": "Fdp7vhmYxNeG8hiif3XP9zGYuzxp3YTX9p9XWrhaKswf",
+  "block_hash": "8sEsLnfahKnxSTSUBm15MYaMZUzgcg8ijixiTCYTnhH9",
+  "outcome": {
+   "logs": [],
+   "executor_id": "closemeat6237.near",
+   "status": {
+    "SuccessReceiptId": "BgmstRWMdCBM3vFeWbuAPiZGEhFWWeP572VojWzMMBw"
+   }
+  }
+ },
+ "receipts_outcome": [
+  {
+   "id": "BgmstRWMdCBM3vFeWbuAPiZGEhFWWeP572VojWzMMBw",
+   "block_hash": "5q8asizPJLXyoDAjEGwhUN1rS7aSK9jzmqicWVR9AzWe",
+   "outcome": {
+    "logs": [
+     "Swapped 1200000 zec.omft.near for 4136983635846078001539158 wrap.near"
+    ],
+    "executor_id": "v2.ref-finance.near",
+    "status": {
+     "SuccessValue": "IjQxMzY5ODM2MzU4NDYwNzgwMDE1MzkxNTgi"
+    }
+   }
+  },
+  {
+   "id": "AvB9JAs7WELdJ1HL9jfeG8ahDf7rwP76q3s9wGYh6hbJ",
+   "block_hash": "4RfJ4GNC3LLs8ZU7pzg9pZ754zeQLxy5xsakqJEoVBUG",
+   "outcome": {
+    "logs": [],
+    "executor_id": "closemeat6237.near",
+    "status": {
+     "SuccessValue": ""
+    }
+   }
+  }
+ ]
+}

@@ -325,23 +325,21 @@ describe("world layout", () => {
 });
 
 describe("city atlas", async () => {
-  const { generateAtlas, lotPosition, isOnLand, ATLAS_VERSION } = await import("./world/atlas");
-  it("is deterministic and has capacity in every district", () => {
+  const { generateAtlas, lotPosition, isOnLand, ATLAS_VERSION, ATLAS_W, ATLAS_H } = await import("./world/atlas");
+  it("is deterministic and has capacity in every placement group", () => {
     const a = generateAtlas();
-    expect(ATLAS_VERSION).toBe(1);
-    expect(a.blocks.length).toBeGreaterThan(300);
-    for (const d of DISTRICTS) expect(a.lots[d.id].length).toBeGreaterThanOrEqual(40);
+    expect(ATLAS_VERSION).toBe(3);
+    expect(a.blocks.length).toBeGreaterThan(1500);
+    for (const d of DISTRICTS) expect(a.lots[d.id].length).toBeGreaterThanOrEqual(20);
     expect(lotPosition("mystery", 3)).toEqual(lotPosition("mystery", 3));
   });
-  it("never places a Space in water and keeps early lots apart", () => {
+  it("never places a Space in water and keeps Spaces apart across all groups", () => {
+    const seen: { x: number; y: number }[] = [];
     for (const d of DISTRICTS) {
-      const seen: { x: number; y: number }[] = [];
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 20; i++) {
         const p = lotPosition(d.id, i);
         expect(isOnLand(p.x, p.y)).toBe(true);
-        expect(p.x).toBeGreaterThan(0);
-        expect(p.x).toBeLessThan(1);
-        for (const q of seen) expect(Math.hypot((p.x - q.x) * 4800, (p.y - q.y) * 3200)).toBeGreaterThanOrEqual(199);
+        for (const q of seen) expect(Math.hypot((p.x - q.x) * ATLAS_W, (p.y - q.y) * ATLAS_H)).toBeGreaterThanOrEqual(469);
         seen.push(p);
       }
     }

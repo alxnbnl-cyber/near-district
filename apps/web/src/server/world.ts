@@ -4,13 +4,14 @@ import { lotPosition, type DistrictId } from "@yielvy/core/world";
 import type { CampaignRules } from "@yielvy/core";
 import { db } from "./db";
 import { effectiveStatus } from "./campaigns";
-import type { ActivityFlag, FeaturedCampaign, MarkerKind, WorldBuildingData, WorldData } from "@/world/types";
+import { publicExpeditions } from "./expeditions";
+import type { ActivityFlag, FeaturedCampaign, MarkerKind, WorldBuildingData, WorldData, WorldExperience } from "@/world/types";
 
 const NEW_WINDOW_MS = 14 * 86_400_000;
 const ENDING_WINDOW_MS = 72 * 3_600_000;
 
 /** Everything the public map needs. Only approved Spaces and approved, published campaigns appear. */
-export async function getWorldData(): Promise<WorldData> {
+export async function getWorldData(viewerId: string | null = null): Promise<WorldData> {
   const database = await db();
   const rows = await database
     .select({
@@ -93,5 +94,26 @@ export async function getWorldData(): Promise<WorldData> {
       featured,
     };
   });
-  return { buildings, routes: [], generatedAt: new Date().toISOString() };
+  const bySpace = new Map(rows.map((r) => [r.spaceId, r]));
+  const experiences: WorldExperience[] = camps
+    .map((x) => ({ ...x, eff: effectiveStatus(x.c as never) }))
+    .filter((x) => x.eff === "LIVE" || x.eff === "SCHEDULED")
+    .map((x) => ({
+      id: x.c.id,
+      title: x.c.title,
+      slug: x.c.slug,
+      summary: x.c.summary,
+      template: x.c.template as WorldExperience["template"],
+      status: x.eff as "LIVE" | "SCHEDULED",
+      startsAt: x.c.startsAt?.toISOString() ?? null,
+      endsAt: x.c.endsAt?.toISOString() ?? null,
+      rewards: ((x.rules as CampaignRules | null)?.fundingSource ?? "none") === "none" ? ("none" as const) : ("token" as const),
+      spaceId: x.c.spaceId,
+      spaceSlug: bySpace.get(x.c.spaceId)!.slug,
+      spaceName: bySpace.get(x.c.spaceId)!.name,
+    }))
+    .sort((a, b) => (a.status === b.status ? (a.endsAt ?? "").localeCompare(b.endsAt ?? "") : a.status === "LIVE" ? -1 : 1));
+  const visible = new Set(buildings.map((b) => b.spaceId));
+  const routes = (await publicExpeditions(database, viewerId)).filter((r) => r.chapters.every((c) => visible.has(c.spaceId)));
+  return { buildings, experiences, routes, generatedAt: new Date().toISOString() };
 }

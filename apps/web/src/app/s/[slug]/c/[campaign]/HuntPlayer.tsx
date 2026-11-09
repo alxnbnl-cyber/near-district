@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Card, Notice, buttonClass, inputClass } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { HintCards, type HintCard } from "@/components/campaign/HintCards";
 
 interface Question {
   id: string;
@@ -18,6 +19,7 @@ interface Question {
   maxAttempts: number;
   attemptsUsed: number;
   cooldownUntil: string | null;
+  hints: HintCard[];
 }
 type PlayState =
   | { status: string; joined: false; total: number }
@@ -42,6 +44,14 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
 
   useEffect(() => {
     if (signedIn) void load();
+  }, [signedIn, load]);
+
+  // Coming back from a partner Space: refresh hint status without losing the current question.
+  useEffect(() => {
+    if (!signedIn) return;
+    const onVisible = () => document.visibilityState === "visible" && void load();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [signedIn, load]);
 
   const cooldown = state?.joined ? state.question?.cooldownUntil : null;
@@ -171,7 +181,7 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
         )}
         {q.clue && (
           <details className="mt-4 rounded-md bg-paper-2 px-4 py-2.5 text-sm">
-            <summary className="cursor-pointer font-semibold">Need a hint?</summary>
+            <summary className="cursor-pointer font-semibold">A quick nudge</summary>
             <p className="mt-1.5 whitespace-pre-line text-ink-2">{q.clue}</p>
           </details>
         )}
@@ -240,6 +250,12 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
           <Notice tone={feedback.tone}>{feedback.text}</Notice>
         </div>
       )}
+      <HintCards
+        campaignId={campaignId}
+        hints={q.hints}
+        returnTo={returnTo}
+        onChange={(hints) => setState((prev) => (prev && prev.joined && prev.question ? { ...prev, question: { ...prev.question, hints } } : prev))}
+      />
     </Card>
   );
 }

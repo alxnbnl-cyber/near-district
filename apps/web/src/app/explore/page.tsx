@@ -1,21 +1,18 @@
-import { SiteHeader } from "@/components/shell/SiteHeader";
-import { MobileNav } from "@/components/shell/NavLinks";
 import { WorldExperience } from "@/components/explore/WorldExperience";
 import { getWorldData } from "@/server/world";
+import { getSessionUser } from "@/server/session";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Explore" };
 
-export default async function ExplorePage() {
-  const data = await getWorldData();
+/** Full-screen map: no top navigation — the HUD on the map is the navigation. */
+export default async function Page() {
+  const user = await getSessionUser();
+  const data = await getWorldData(user?.userId ?? null);
   return (
-    <div className="flex h-dvh flex-col">
-      <SiteHeader mobileRow={false} />
-      <main className="relative min-h-0 flex-1">
-        <h1 className="sr-only">Explore the Yielvy map</h1>
-        <WorldExperience data={data} initialMode="explore" />
-      </main>
-      <MobileNav />
-    </div>
+    <main className="h-dvh w-full">
+      <h1 className="sr-only">Yielvy — explore a map of projects, treasure hunts and creative challenges</h1>
+      <WorldExperience data={data} initialMode="explore" viewer={user ? { displayName: user.displayName, isAdmin: user.adminRoles.length > 0 } : null} />
+    </main>
   );
 }

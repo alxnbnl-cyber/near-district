@@ -6,8 +6,8 @@ import { IconCompass, IconFlag, IconMap, IconPlus } from "@/components/explore/i
 
 const NAV = [
   { href: "/explore", label: "Explore", icon: IconCompass, match: (p: string) => p === "/" || p.startsWith("/explore") || p.startsWith("/s/") },
-  { href: "/experiences", label: "Experiences", icon: IconFlag, match: (p: string) => p.startsWith("/experiences") },
-  { href: "/me", label: "My Adventures", icon: IconMap, match: (p: string) => p.startsWith("/me") },
+  { href: "/explore?tab=experiences", label: "Experiences", icon: IconFlag, match: (p: string) => p.startsWith("/experiences") },
+  { href: "/explore?tab=adventures", label: "My Adventures", icon: IconMap, match: (p: string) => p.startsWith("/me") },
   { href: "/host", label: "Host a Space", icon: IconPlus, match: (p: string) => p.startsWith("/host") || p.startsWith("/organizer") },
 ];
 

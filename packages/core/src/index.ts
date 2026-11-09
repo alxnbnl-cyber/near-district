@@ -8,3 +8,4 @@ export * from "./economics";
 export * from "./state-machines";
 export * from "./campaign-rules";
 export * from "./world/layout";
+export * from "./activities";

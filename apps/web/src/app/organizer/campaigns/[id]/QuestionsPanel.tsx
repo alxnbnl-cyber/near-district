@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Badge, Button, Field, Notice, inputClass, textareaClass } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { QuestionHints, useHintData } from "./HintsEditor";
 
 export interface QuestionRow {
   id: string;
@@ -25,6 +26,7 @@ export function QuestionsPanel({ campaignId, questions, editable }: { campaignId
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const hintData = useHintData(campaignId);
 
   const move = async (idx: number, dir: -1 | 1) => {
     const order = questions.map((q) => q.id);
@@ -71,6 +73,7 @@ export function QuestionsPanel({ campaignId, questions, editable }: { campaignId
                       )}
                     </div>
                   )}
+                  <QuestionHints campaignId={campaignId} questionId={q.id} editable={editable} data={hintData} />
                 </div>
                 <div className="flex gap-1">
                   <Button variant="ghost" size="sm" onClick={() => setPreview(preview === q.id ? null : q.id)}>Preview</Button>

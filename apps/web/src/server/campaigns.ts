@@ -33,6 +33,7 @@ import { audit } from "./audit";
 import { badRequest, conflict, HttpError, notFound } from "./http";
 import { vault } from "./near";
 import type { SessionUser } from "./session";
+import { hintPublishProblems } from "./hints";
 
 export function defaultRules(template: "treasure_hunt" | "creative_contest"): RulesInput {
   const start = new Date(Date.now() + 86_400_000);
@@ -285,6 +286,7 @@ export async function reorderQuestions(db: Db, user: SessionUser, c: typeof camp
 export interface PublishCheck {
   ok: boolean;
   problems: string[];
+  warnings: string[];
   funding: { required: boolean; verified: boolean; detail: string };
 }
 
@@ -311,9 +313,13 @@ export async function checkPublishable(db: Db, c: typeof campaigns.$inferSelect)
     }
     if (c.template === "creative_contest") problems.push(...validateCriteria(rules.judgingCriteria ?? []));
   }
+  const warnings: string[] = [];
   if (c.template === "treasure_hunt") {
     const qs = await listQuestions(db, c.id);
     if (qs.length === 0) problems.push("Add at least one question.");
+    const hp = await hintPublishProblems(db, c, rules?.fundingSource ?? "none");
+    problems.push(...hp.problems);
+    warnings.push(...hp.warnings);
   }
   const [space] = await db.select({ moderation: spaces.moderation }).from(spaces).where(eq(spaces.id, c.spaceId)).limit(1);
   if (space?.moderation !== "approved") problems.push("Your Space must be approved before campaigns can go public.");
@@ -342,7 +348,7 @@ export async function checkPublishable(db: Db, c: typeof campaigns.$inferSelect)
     }
     if (!funding.verified) problems.push(funding.detail);
   }
-  return { ok: problems.length === 0, problems, funding };
+  return { ok: problems.length === 0, problems, warnings, funding };
 }
 
 export async function publishCampaign(db: Db, user: SessionUser, c: typeof campaigns.$inferSelect) {

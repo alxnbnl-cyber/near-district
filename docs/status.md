@@ -37,6 +37,18 @@ Legend: ✅ implemented and tested here · 🟡 implemented, not verified end-to
 | External security review requirements documented | ✅ | `docs/security/threat-model.md` |
 | Jurisdiction/compliance launch gates documented | ✅ | `docs/compliance/launch-gates.md` |
 
+## Hint quests & cooperation (2026-11-09)
+| Item | Status | Evidence |
+|---|---|---|
+| Hint engine (ANY / ALL, nested groups, versioned unlocks) | ✅ | `packages/core/src/activities.test.ts`, `packages/db/src/hint-engine.ts` |
+| Internal verifiers (campaign, quiz, question sequence, contest entry) | ✅ | `apps/web/src/server/cooperation.test.ts` |
+| Manual review (owner's team, no self-review, audited) | ✅ | same, plus checked in the local app |
+| RHEA swap + lending supply verifiers | ✅ (mainnet deployments) | Decoders tested against real finalized mainnet txs (`packages/near/src/fixtures`); live RPC refusal checked locally |
+| Partner hints (invitations, offerings, withdrawal policy) | ✅ | Acceptance scenario steps 1–20 in `cooperation.test.ts` |
+| Shared expeditions (approval, order, progress, reward chapter, map route) | ✅ | Expedition scenario in `cooperation.test.ts`; route checked on the local map |
+| Partner API, LP, holding, NFT, Meteor attribution, USD thresholds | ⛔ Not supported | Disabled in the builder with the reason shown |
+| Multi-sponsor expedition prizes | ⛔ Deferred | Needs vault accounting review |
+
 ## Known gaps / next steps
 1. Deploy the vault to **testnet** with a RHEA testnet deployment and run the lifecycle (needs: your accounts, approval).
 2. Automated Playwright E2E suite (explore → hunt → contest → winners → claim).

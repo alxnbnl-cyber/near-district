@@ -34,15 +34,48 @@ export interface WorldBuildingData {
   featured: FeaturedCampaign | null;
 }
 
-/** A cross-Space adventure route. Empty until the Adventures feature ships — never invented. */
+/** A published shared expedition: chapter order approved by every participating organization. */
+export interface WorldRouteChapter {
+  campaignId: string;
+  title: string;
+  campaignSlug: string;
+  template: string;
+  spaceId: string;
+  spaceSlug: string;
+  spaceName: string;
+  /** Viewer's real progress (false for signed-out visitors). */
+  completed: boolean;
+  unlocked: boolean;
+  reward: boolean;
+}
+
 export interface WorldRoute {
   id: string;
+  slug: string;
   title: string;
-  stops: { spaceId: string; completed: boolean }[];
+  summary: string;
+  completedAt: string | null;
+  chapters: WorldRouteChapter[];
+}
+
+export interface WorldExperience {
+  id: string;
+  title: string;
+  slug: string;
+  summary: string;
+  template: "treasure_hunt" | "creative_contest";
+  status: "LIVE" | "SCHEDULED";
+  startsAt: string | null;
+  endsAt: string | null;
+  rewards: "none" | "token";
+  spaceId: string;
+  spaceSlug: string;
+  spaceName: string;
 }
 
 export interface WorldData {
   buildings: WorldBuildingData[];
+  experiences: WorldExperience[];
   routes: WorldRoute[];
   generatedAt: string;
 }

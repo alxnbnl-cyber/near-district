@@ -21,6 +21,8 @@ import {
 import { campaignMachine, fundingMachine, type CampaignRules, type CampaignState, type FundingState } from "@yielvy/core";
 import { ledgerMovesForEvent, mapIntentsStatus, sharesToTokens, type NearRpc, type OneClickClient, type RheaClient, type VaultClient, type VaultEvent } from "@yielvy/near";
 import type { AllowedToken } from "@yielvy/core";
+import { duePendingVerifications, processVerification, type EngineDeps } from "@yielvy/db";
+import { NearActivityVerifier } from "@yielvy/near";
 import { enqueue, RetryLater } from "./queue";
 import { processPeriod } from "./rewards";
 import type { OperatorSigner } from "./operator";
@@ -253,6 +255,35 @@ export async function pruneRateLimits(ctx: JobCtx): Promise<string> {
   return "pruned";
 }
 
+/**
+ * Re-runs pending hint verifications (finality, holding periods, RPC recovery). Uses the same engine as the
+ * web app, so a pending activity is never marked complete until the chain evidence is final and valid.
+ */
+export function hintEngineDeps(ctx: JobCtx): EngineDeps {
+  const mainnet = ctx.network === "mainnet";
+  const v = mainnet ? new NearActivityVerifier(ctx.rpc) : null;
+  return {
+    walletNetwork: mainnet ? "mainnet" : "testnet",
+    onchain: v
+      ? {
+          verify: (def, input) =>
+            def.type === "near_rhea_swap" ? v.verifySwap(def, input) : def.type === "near_rhea_lending_supply" ? v.verifyLendingSupply(def, input) : Promise.resolve({ status: "failed" as const, reason: "unsupported_activity" }),
+        }
+      : null,
+  };
+}
+
+export async function hintsReconcile(ctx: JobCtx): Promise<string> {
+  const ids = await duePendingVerifications(ctx.db, new Date(), 25);
+  const deps = hintEngineDeps(ctx);
+  const tally: Record<string, number> = {};
+  for (const id of ids) {
+    const r = await processVerification(ctx.db, deps, id);
+    tally[r.status] = (tally[r.status] ?? 0) + 1;
+  }
+  return ids.length ? JSON.stringify(tally) : "nothing due";
+}
+
 export const HANDLERS: Record<string, (ctx: JobCtx, payload: Record<string, unknown>) => Promise<string>> = {
   "campaign.tick": (c) => campaignTick(c),
   "rewards.period": (c, p) => rewardsPeriod(c, p as { periodId: string }),
@@ -262,6 +293,7 @@ export const HANDLERS: Record<string, (ctx: JobCtx, payload: Record<string, unkn
   "ledger.index": (c) => indexLedger(c),
   "claims.reconcile": (c) => claimsReconcile(c),
   "maintenance.prune": (c) => pruneRateLimits(c),
+  "hints.reconcile": (c) => hintsReconcile(c),
 };
 
 /** Recurring schedule: [job, every N seconds]. Idempotency keys per time bucket prevent duplicates across replicas. */
@@ -273,6 +305,7 @@ export const SCHEDULE: [string, number][] = [
   ["vault.reconcile", 600],
   ["vault.snapshot", 3600],
   ["maintenance.prune", 3600],
+  ["hints.reconcile", 60],
 ];
 
 export { RetryLater };

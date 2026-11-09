@@ -668,6 +668,167 @@ export const moderationReports = pgTable("moderation_reports", {
   createdAt: createdAt(),
 }, (t) => [index("moderation_reports_status_idx").on(t.status, t.createdAt)]);
 
+// ------------------------------------------------------------------ hints, cooperation & expeditions
+
+export const invitationStatus = pgEnum("invitation_status", ["PENDING", "ACCEPTED", "REJECTED", "CANCELLED", "EXPIRED"]);
+export const verificationStatus = pgEnum("verification_status", ["pending", "under_review", "verified", "failed"]);
+export const expeditionStatus = pgEnum("expedition_status", ["DRAFT", "PUBLISHED", "ARCHIVED"]);
+
+/**
+ * Optional clues on a treasure question. `content` is secret until unlocked and is never part of a
+ * public response. `unlock` is a RuleNode (null = free). Locked with the question once published.
+ */
+export const treasureHints = pgTable("treasure_hints", {
+  id: id(),
+  questionId: uuid("question_id").notNull().references(() => treasureQuestions.id, { onDelete: "cascade" }),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  position: integer("position").notNull(),
+  title: text("title").notNull(),
+  teaser: text("teaser").notNull().default(""),
+  content: text("content").notNull(),
+  imageUploadId: uuid("image_upload_id").references(() => uploads.id),
+  unlock: jsonb("unlock"),
+  rulesHash: text("rules_hash").notNull(),
+  availableFrom: ts("available_from"),
+  availableUntil: ts("available_until"),
+  /** What happens if a partner withdraws after launch: "disable" new unlocks or make the hint "free". */
+  withdrawalPolicy: text("withdrawal_policy").notNull().default("disable"),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [uniqueIndex("treasure_hints_pos_uq").on(t.questionId, t.position), index("treasure_hints_campaign_idx").on(t.campaignId)]);
+
+export const organizationPartnerships = pgTable("organization_partnerships", {
+  id: id(),
+  inviterOrgId: uuid("inviter_org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  inviteeOrgId: uuid("invitee_org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  status: invitationStatus("status").notNull().default("PENDING"),
+  message: text("message").notNull().default(""),
+  invitedBy: uuid("invited_by").notNull().references(() => users.id),
+  decidedBy: uuid("decided_by").references(() => users.id),
+  expiresAt: ts("expires_at").notNull(),
+  decidedAt: ts("decided_at"),
+  createdAt: createdAt(),
+}, (t) => [
+  index("org_partnerships_invitee_idx").on(t.inviteeOrgId, t.status),
+  index("org_partnerships_inviter_idx").on(t.inviterOrgId, t.status),
+]);
+
+/** An activity an organization owns and makes available to its accepted partners. */
+export const activityOfferings = pgTable("activity_offerings", {
+  id: id(),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  activity: jsonb("activity").notNull(),
+  definitionHash: text("definition_hash").notNull(),
+  status: text("status").notNull().default("active"), // active | withdrawn
+  createdBy: uuid("created_by").notNull().references(() => users.id),
+  createdAt: createdAt(),
+  withdrawnAt: ts("withdrawn_at"),
+}, (t) => [index("activity_offerings_org_idx").on(t.organizationId, t.status)]);
+
+/** Every verification attempt, including pending/under-review ones the worker reconciles. */
+export const activityVerifications = pgTable("activity_verifications", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  hintId: uuid("hint_id").notNull().references(() => treasureHints.id, { onDelete: "cascade" }),
+  leafId: text("leaf_id").notNull(),
+  activityType: text("activity_type").notNull(),
+  ownerOrgId: uuid("owner_org_id").notNull().references(() => organizations.id),
+  status: verificationStatus("status").notNull().default("pending"),
+  /** Player-supplied pointer (tx hash, manual submission). Never treated as proof by itself. */
+  input: jsonb("input").notNull().default({}),
+  reasonCode: text("reason_code"),
+  attempts: integer("attempts").notNull().default(0),
+  nextAttemptAt: ts("next_attempt_at"),
+  reviewedBy: uuid("reviewed_by").references(() => users.id),
+  reviewNote: text("review_note"),
+  rulesHash: text("rules_hash").notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  index("activity_verifications_user_idx").on(t.userId, t.hintId),
+  index("activity_verifications_review_idx").on(t.ownerOrgId, t.status),
+  index("activity_verifications_retry_idx").on(t.status, t.nextAttemptAt),
+]);
+
+/** Verified evidence. One per (user, hint, requirement); a transaction can satisfy one requirement per campaign. */
+export const activityCompletions = pgTable("activity_completions", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  hintId: uuid("hint_id").notNull().references(() => treasureHints.id, { onDelete: "cascade" }),
+  leafId: text("leaf_id").notNull(),
+  verificationId: uuid("verification_id").references(() => activityVerifications.id),
+  provider: text("provider").notNull(),
+  evidenceRef: text("evidence_ref").notNull(),
+  /** Set for evidence that may not be reused (on-chain tx), unique per campaign. */
+  exclusiveRef: text("exclusive_ref"),
+  evidence: jsonb("evidence").notNull().default({}),
+  verifiedAmount: amount("verified_amount"),
+  rulesHash: text("rules_hash").notNull(),
+  verifiedAt: ts("verified_at").notNull(),
+}, (t) => [
+  uniqueIndex("activity_completions_uq").on(t.userId, t.hintId, t.leafId),
+  uniqueIndex("activity_completions_exclusive_uq").on(t.campaignId, t.exclusiveRef),
+]);
+
+export const hintUnlocks = pgTable("hint_unlocks", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  hintId: uuid("hint_id").notNull().references(() => treasureHints.id, { onDelete: "cascade" }),
+  rulesHash: text("rules_hash").notNull(),
+  completionIds: jsonb("completion_ids").$type<string[]>().notNull().default([]),
+  unlockedAt: createdAt(),
+}, (t) => [primaryKey({ columns: [t.userId, t.hintId] })]);
+
+export const expeditions = pgTable("expeditions", {
+  id: id(),
+  primaryOrgId: uuid("primary_org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  slug: text("slug").notNull(),
+  summary: text("summary").notNull().default(""),
+  status: expeditionStatus("status").notNull().default("DRAFT"),
+  /** Optional campaign of the primary organizer whose join requires a completed expedition. */
+  rewardCampaignId: uuid("reward_campaign_id").references(() => campaigns.id),
+  /** Published definition (chapter order + campaigns) and its hash. */
+  definition: jsonb("definition"),
+  definitionHash: text("definition_hash"),
+  createdBy: uuid("created_by").notNull().references(() => users.id),
+  publishedAt: ts("published_at"),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [uniqueIndex("expeditions_slug_uq").on(t.slug)]);
+
+export const expeditionPartners = pgTable("expedition_partners", {
+  expeditionId: uuid("expedition_id").notNull().references(() => expeditions.id, { onDelete: "cascade" }),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  status: invitationStatus("status").notNull().default("PENDING"),
+  invitedBy: uuid("invited_by").notNull().references(() => users.id),
+  decidedBy: uuid("decided_by").references(() => users.id),
+  decidedAt: ts("decided_at"),
+  createdAt: createdAt(),
+}, (t) => [primaryKey({ columns: [t.expeditionId, t.organizationId] })]);
+
+export const expeditionChapters = pgTable("expedition_chapters", {
+  id: id(),
+  expeditionId: uuid("expedition_id").notNull().references(() => expeditions.id, { onDelete: "cascade" }),
+  position: integer("position").notNull(),
+  campaignId: uuid("campaign_id").notNull().references(() => campaigns.id),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id),
+  addedBy: uuid("added_by").notNull().references(() => users.id),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex("expedition_chapters_pos_uq").on(t.expeditionId, t.position), uniqueIndex("expedition_chapters_campaign_uq").on(t.expeditionId, t.campaignId)]);
+
+export const expeditionProgress = pgTable("expedition_progress", {
+  expeditionId: uuid("expedition_id").notNull().references(() => expeditions.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  completedChapters: integer("completed_chapters").notNull().default(0),
+  definitionHash: text("definition_hash").notNull(),
+  completedAt: ts("completed_at"),
+  updatedAt: updatedAt(),
+}, (t) => [primaryKey({ columns: [t.expeditionId, t.userId] })]);
+
 export const auditLogs = pgTable("audit_logs", {
   id: id(),
   actorUserId: uuid("actor_user_id").references(() => users.id),
