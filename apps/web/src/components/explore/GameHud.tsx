@@ -14,7 +14,7 @@ const INK = "rgb(214 219 225";
  * Game-style status bar over the map: the player's real rewards and missions, plus live missions.
  * Signed-out players see a prompt instead of numbers.
  */
-export function StatusBar({ viewer, live, demo }: { viewer: ViewerStats | null; live: number; demo: boolean }) {
+export function StatusBar({ viewer, live }: { viewer: ViewerStats | null; live: number; demo?: boolean }) {
   const chip = "flex items-center gap-2.5 bg-[#05070ae0] px-3.5 py-2 backdrop-blur-sm";
   const label = "font-mono text-[9.5px] font-bold uppercase tracking-[0.22em]";
   return (
@@ -50,11 +50,6 @@ export function StatusBar({ viewer, live, demo }: { viewer: ViewerStats | null; 
         <Link href="/signin?next=/explore" className={`${chip} font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-orange hover:text-orange-ink`} style={{ ...plate(9), boxShadow: "inset 0 0 0 1px rgb(255 145 56 / .45)" }}>
           Sign in to track ›
         </Link>
-      )}
-      {demo && (
-        <span className={`${chip} font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-sky-ink`} style={{ ...plate(9), boxShadow: "inset 0 0 0 1px rgb(50 200 239 / .35)" }} title="Sample prizes for local testing — not real funds">
-          Demo prizes
-        </span>
       )}
     </div>
   );

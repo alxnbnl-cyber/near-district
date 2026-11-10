@@ -247,6 +247,7 @@ export class AtlasScene {
   }
 
   camera(): Camera {
+    if (this.world.destroyed) return { tx: 0, ty: 0, s: 1 };
     return { tx: this.world.x, ty: this.world.y, s: this.world.scale.x };
   }
 
@@ -284,6 +285,12 @@ export class AtlasScene {
     const target = this.cameraFor(x, y, Math.min(this.zoomMax, Math.max(this.fitScale(), s ?? Math.max(this.world.scale.x, 0.55))));
     if (this.opts.reducedMotion) return this.apply(target);
     this.tween = { from: this.camera(), to: target, t: 0, dur };
+  }
+
+  /** Snap (no tween) to world point (x,y) at scale s. */
+  jumpTo(x: number, y: number, s: number) {
+    this.tween = null;
+    this.apply(this.cameraFor(x, y, Math.min(this.zoomMax, Math.max(this.fitScale(), s))));
   }
 
   /** Welcome pose: start wide, then a slow cinematic push-in toward the start point. */

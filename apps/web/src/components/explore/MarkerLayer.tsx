@@ -195,7 +195,6 @@ const Pin = memo(function Pin({
                 {prize.amount} {prize.symbol}
               </span>
               {prize.apy && <span className="text-mint-ink">{prize.apy} APY</span>}
-              {prize.demo && <span className="rounded-sm bg-sky/20 px-1 text-[8.5px] tracking-[0.18em] text-sky-ink">Demo</span>}
             </span>
           ) : funded ? (
             <span className="mt-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-reward">Token reward</span>

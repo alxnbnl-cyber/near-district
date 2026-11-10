@@ -75,7 +75,6 @@ export default async function QuestPage({ params }: { params: Promise<{ slug: st
               </div>
               <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-gold-ink">
                 {funded ? (prize?.kind === "yield" ? "Yield prize pool" : "Prize pool") : "Prize"}
-                {prize?.demo && <span className="rounded-sm bg-sky/20 px-1.5 py-0.5 text-[9.5px] tracking-[0.2em] text-sky-ink" title="Sample prize for local testing, not real funds">Demo</span>}
               </p>
               {funded ? (
                 <>

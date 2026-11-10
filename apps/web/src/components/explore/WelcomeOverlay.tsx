@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import type { Atlas } from "@yielvy/core/world";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ARTWORK_LOTS, type Atlas } from "@yielvy/core/world";
 import type { AtlasScene } from "@/world/atlas-scene";
 import type { WorldBuildingData } from "@/world/types";
 import { buttonClass } from "@/components/ui";
@@ -10,16 +10,24 @@ import { CoinStack, TreasureChest, TreasureMap } from "@/components/art/Art";
 import { IconChevron } from "./icons";
 
 /**
- * Opening scene: the real map (with the tactical HUD) behind a short headline, and targeting
- * callouts locked onto real live missions. Every name and prize shown comes from real data.
+ * Opening scene: the camera tours random spots on the real map. At each stop a reticle locks on,
+ * a leader line draws itself and an info plate opens. Mission stops show real mission data;
+ * scan stops show only the grid position — nothing is invented.
  */
 const WORDS = ["secret missions", "hidden rewards", "real prizes"];
+const DRIFT_MS = 9000;
+const HOLD_MS = 3800;
+const GAP_MS = 500;
 
 const HOW = [
   { art: TreasureMap, title: "Explore", body: "Scan the map for glowing mission pins." },
   { art: CoinStack, title: "Play", body: "Solve the clues. Stuck? Unlock a hint with an activity." },
   { art: TreasureChest, title: "Earn", body: "Finish the mission to qualify for the prize." },
 ];
+
+type Stop =
+  | { kind: "mission"; b: WorldBuildingData; x: number; y: number }
+  | { kind: "scan"; x: number; y: number };
 
 export function WelcomeOverlay({
   atlas,
@@ -38,6 +46,12 @@ export function WelcomeOverlay({
   const root = useRef<HTMLDivElement>(null);
   const [word, setWord] = useState(0);
   const [how, setHow] = useState(false);
+  const [stop, setStop] = useState<{ s: Stop; n: number; flip: boolean } | null>(null);
+
+  const missions = useMemo(
+    () => buildings.filter((b) => b.liveCampaigns > 0 && b.featured).map((b) => ({ kind: "mission" as const, b, x: b.x * atlas.width, y: b.y * atlas.height })),
+    [buildings, atlas],
+  );
 
   useEffect(() => {
     const t = setInterval(() => setWord((w) => (w + 1) % WORDS.length), 2200);
@@ -52,39 +66,82 @@ export function WelcomeOverlay({
     };
   }, [onEnter]);
 
-  // Callouts follow the live camera without React renders.
+  // Pins/plates follow the live camera without React renders.
   useEffect(() => {
     if (!scene) return;
-    scene.cinematic();
     return scene.onCamera((c) => {
       const el = root.current;
       if (!el) return;
       el.style.setProperty("--tx", String(c.tx));
       el.style.setProperty("--ty", String(c.ty));
       el.style.setProperty("--s", String(c.s));
-      // Show a callout only when the whole thing (reticle + plate) fits on the map side of the screen.
-      const w = el.clientWidth, h = el.clientHeight;
-      el.querySelectorAll<HTMLElement>("[data-callout]").forEach((n) => {
-        const [px, py] = n.dataset.callout!.split(",").map(Number);
-        const sx = px! * c.s + c.tx, sy = py! * c.s + c.ty;
-        // Near the right edge the plate flips to the left of the reticle instead of being cut off.
-        const flip = sx > w - 380;
-        n.dataset.flip = flip ? "1" : "0";
-        const ok = (flip ? sx - 380 > w * 0.46 && sx < w - 40 : sx > w * 0.5) && sy > 120 && sy < h - 60;
-        n.style.opacity = ok ? "1" : "0";
-      });
     });
   }, [scene]);
 
+  // The camera drifts gently around the map centre; meanwhile a random point that is currently
+  // on the right side of the screen gets locked on, then the next one, and so on.
+  useEffect(() => {
+    if (!scene) return;
+    let alive = true;
+    let n = 0;
+    let last: Stop | null = null;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const { min, max } = scene.zoomRange();
+    // a little above fit, so the drift has room to move both ways without hitting the map edge
+    const zoom = Math.min(max, min * 1.6);
+    const cx = atlas.width / 2, cy = atlas.height / 2;
+    const R = Math.min(atlas.width, atlas.height) * 0.07;
+    let a = Math.random() * Math.PI * 2;
+    const drift = () => {
+      if (!alive) return;
+      a += 0.9 + Math.random() * 0.6;
+      scene.flyTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R * 0.7, zoom, DRIFT_MS);
+      timers.push(setTimeout(drift, DRIFT_MS));
+    };
+    const scans: Stop[] = ARTWORK_LOTS.map(([lx, ly]) => ({ kind: "scan" as const, x: lx * atlas.width, y: ly * atlas.height }));
+    const pick = (): Stop | null => {
+      const el = root.current;
+      if (!el) return null;
+      const w = el.clientWidth, h = el.clientHeight;
+      const cam = scene.camera();
+      // right side only, leaving room for the plate and away from the edges
+      const onRight = (s: Stop) => {
+        const sx = s.x * cam.s + cam.tx, sy = s.y * cam.s + cam.ty;
+        return sx > w * 0.56 && sx < w - 420 && sy > 160 && sy < h - 140 && s !== last;
+      };
+      const m = missions.filter(onRight);
+      const pool = m.length && Math.random() < 0.65 ? m : scans.filter(onRight);
+      return pool[Math.floor(Math.random() * pool.length)] ?? null;
+    };
+    const step = () => {
+      if (!alive) return;
+      const s = pick();
+      if (s) {
+        last = s;
+        setStop({ s, n: ++n, flip: false });
+      }
+      timers.push(setTimeout(step, s ? HOLD_MS + GAP_MS : 400));
+    };
+    scene.jumpTo(cx, cy, zoom);
+    timers.push(setTimeout(drift, 60), setTimeout(step, 900));
+    return () => {
+      alive = false;
+      timers.forEach(clearTimeout);
+    };
+  }, [scene, missions, atlas]);
+
   const at = (x: number, y: number) => ({ transform: `translate(calc(${x} * var(--s) * 1px + var(--tx) * 1px), calc(${y} * var(--s) * 1px + var(--ty) * 1px))` });
-  const live = buildings.filter((b) => b.liveCampaigns > 0 && b.featured).slice(0, 3);
-  const callouts = live.map((b, i) => ({
-    b,
-    i,
-    p: [b.x * atlas.width, b.y * atlas.height] as const,
-    hunt: b.featured!.template === "treasure_hunt",
-    prize: b.featured!.prize ? `${b.featured!.prize.amount} ${b.featured!.prize.symbol}` : b.featured!.rewards === "token" ? "TOKEN PRIZE" : null,
-  }));
+  const active = stop?.s;
+  const tone = active?.kind === "mission" ? (active.b.featured!.template === "treasure_hunt" ? "#FF9138" : "#B9A8FF") : "#9fb3c8";
+  const prize =
+    active?.kind === "mission"
+      ? active.b.featured!.prize
+        ? `${active.b.featured!.prize.amount} ${active.b.featured!.prize.symbol}`
+        : active.b.featured!.rewards === "token"
+          ? "TOKEN PRIZE"
+          : null
+      : null;
+  const grid = active ? `${String(Math.round(active.x)).padStart(4, "0")} · ${String(Math.round(active.y)).padStart(4, "0")}` : "";
 
   return (
     <section
@@ -97,56 +154,68 @@ export function WelcomeOverlay({
       <div aria-hidden className="absolute inset-0 bg-[linear-gradient(90deg,rgb(5_7_10/0.95)_0%,rgb(5_7_10/0.82)_32%,rgb(5_7_10/0.15)_66%,rgb(5_7_10/0.3)_100%)]" />
       <div aria-hidden className="yv-scan absolute inset-x-0 h-[26%] bg-[linear-gradient(180deg,transparent,rgb(220_225_232/0.05),transparent)]" />
 
-      {/* targeting callouts on real live missions */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
-        {callouts.map((c) => {
-          const tone = c.hunt ? "#FF9138" : "#B9A8FF";
-          return (
-            <div key={c.b.spaceId} data-callout={`${c.p[0]},${c.p[1]}`} className="absolute left-0 top-0 transition-opacity duration-500" style={at(c.p[0], c.p[1])}>
-              <div className="yv-callout relative" style={{ animationDelay: `${700 + c.i * 500}ms` }}>
-                {/* reticle */}
-                <svg width="96" height="96" viewBox="0 0 96 96" className="absolute -left-12 -top-12">
-                  <circle cx="48" cy="48" r="30" fill="none" stroke={tone} strokeOpacity=".55" strokeWidth="1.5" strokeDasharray="6 7" className="yv-spin-slow" style={{ transformOrigin: "48px 48px", animationDuration: "9s" }} />
-                  <circle cx="48" cy="48" r="20" fill={tone} fillOpacity=".08" stroke={tone} strokeOpacity=".9" strokeWidth="1.5" />
-                  {[
-                    "M14 26 V14 H26",
-                    "M70 14 H82 V26",
-                    "M82 70 V82 H70",
-                    "M26 82 H14 V70",
-                  ].map((d) => (
-                    <path key={d} d={d} fill="none" stroke={tone} strokeWidth="2" />
-                  ))}
-                  <circle cx="48" cy="48" r="4" fill={tone} />
-                  <circle cx="48" cy="48" r="4" fill="none" stroke={tone} strokeWidth="2" style={{ animation: "yv-ping 1.8s ease-out infinite", transformOrigin: "48px 48px" }} />
-                </svg>
-                {/* leader line */}
-                <svg width="90" height="60" viewBox="0 0 90 60" className="yv-cl-line absolute left-5 -top-[58px]">
-                  <path d="M2 58 L32 10 L90 10" fill="none" stroke={tone} strokeWidth="1.5" strokeOpacity=".85" />
-                </svg>
-                {/* label */}
-                <div
-                  className="yv-cl-plate absolute left-[110px] -top-[84px] w-[250px] bg-[#05070ae6] px-3.5 py-2.5 font-mono backdrop-blur-sm"
-                  style={{ clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))", boxShadow: `inset 0 0 0 1px ${tone}66` }}
-                >
-                  <p className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: tone }}>
-                    <span className="flex items-center gap-1.5">
-                      <span className="size-1.5 animate-pulse rounded-full" style={{ background: tone }} />
-                      {c.hunt ? "Mission live" : "Challenge live"}
-                    </span>
-                    <span className="text-[rgb(214_219_225/.45)]">#{String(c.i + 1).padStart(2, "0")}</span>
-                  </p>
-                  <p className="mt-1 font-display text-[15px] font-bold uppercase tracking-[0.04em] text-ink">{c.b.featured!.title}</p>
-                  <p className="text-[10.5px] uppercase tracking-[0.16em] text-[rgb(214_219_225/.55)]">{c.b.name}</p>
-                  <div className="mt-2 flex items-center justify-between border-t border-[rgb(214_219_225/.12)] pt-1.5 text-[10px] uppercase tracking-[0.16em]">
-                    <span className="text-[rgb(214_219_225/.5)]">{c.prize ? "Reward" : "Objective"}</span>
-                    <span className={c.prize ? "font-bold text-reward" : "text-[rgb(214_219_225/.8)]"}>{c.prize ?? (c.hunt ? "Solve the clues" : "Submit an idea")}</span>
-                  </div>
+      {/* active lock-on */}
+      {active && (
+        <div aria-hidden key={stop!.n} className={`pointer-events-none absolute left-0 top-0 hidden lg:block ${stop!.flip ? "yv-flip" : ""}`} style={at(active.x, active.y)}>
+          {/* reticle snaps in */}
+          <svg width="104" height="104" viewBox="0 0 104 104" className="yv-lock absolute -left-[52px] -top-[52px]">
+            <circle cx="52" cy="52" r="34" fill="none" stroke={tone} strokeOpacity=".55" strokeWidth="1.5" strokeDasharray="6 7" className="yv-spin-slow" style={{ transformOrigin: "52px 52px", animationDuration: "8s" }} />
+            <circle cx="52" cy="52" r="22" fill={tone} fillOpacity=".08" stroke={tone} strokeOpacity=".9" strokeWidth="1.5" />
+            {["M14 28 V14 H28", "M76 14 H90 V28", "M90 76 V90 H76", "M28 90 H14 V76"].map((d) => (
+              <path key={d} d={d} fill="none" stroke={tone} strokeWidth="2" />
+            ))}
+            <path d="M52 22 V34 M52 70 V82 M22 52 H34 M70 52 H82" stroke={tone} strokeOpacity=".7" strokeWidth="1.2" />
+            <circle cx="52" cy="52" r="4" fill={tone} />
+            <circle cx="52" cy="52" r="4" fill="none" stroke={tone} strokeWidth="2" style={{ animation: "yv-ping 1.8s ease-out infinite", transformOrigin: "52px 52px" }} />
+          </svg>
+          {/* leader line draws itself */}
+          <svg width="96" height="64" viewBox="0 0 96 64" className="yv-line absolute left-6 -top-[62px]">
+            <path d="M2 62 L34 10 L96 10" fill="none" stroke={tone} strokeWidth="1.5" pathLength={1} className="yv-draw" />
+            <circle cx="2" cy="62" r="2.5" fill={tone} />
+          </svg>
+          {/* info plate wipes open */}
+          <div
+            className="yv-plate absolute left-[120px] -top-[90px] w-[260px] bg-[#05070ae8] px-3.5 py-2.5 font-mono backdrop-blur-sm"
+            style={{ clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))", boxShadow: `inset 0 0 0 1px ${tone}66` }}
+          >
+            <p className="yv-row flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: tone, animationDelay: "900ms" }}>
+              <span className="flex items-center gap-1.5">
+                <span className="size-1.5 animate-pulse rounded-full" style={{ background: tone }} />
+                {active.kind === "mission" ? (active.b.featured!.template === "treasure_hunt" ? "Mission live" : "Challenge live") : "Scanning sector"}
+              </span>
+              <span className="text-[rgb(214_219_225/.45)]">#{String(stop!.n).padStart(2, "0")}</span>
+            </p>
+            {active.kind === "mission" ? (
+              <>
+                <p className="yv-row mt-1 font-display text-[15px] font-bold uppercase tracking-[0.04em] text-ink" style={{ animationDelay: "1050ms" }}>
+                  {active.b.featured!.title}
+                </p>
+                <p className="yv-row text-[10.5px] uppercase tracking-[0.16em] text-[rgb(214_219_225/.55)]" style={{ animationDelay: "1150ms" }}>
+                  {active.b.name}
+                </p>
+                <div className="yv-row mt-2 flex items-center justify-between border-t border-[rgb(214_219_225/.12)] pt-1.5 text-[10px] uppercase tracking-[0.16em]" style={{ animationDelay: "1300ms" }}>
+                  <span className="text-[rgb(214_219_225/.5)]">{prize ? "Reward" : "Objective"}</span>
+                  <span className={prize ? "font-bold text-reward" : "text-[rgb(214_219_225/.8)]"}>
+                    {prize ?? (active.b.featured!.template === "treasure_hunt" ? "Solve the clues" : "Submit an idea")}
+                  </span>
                 </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+              </>
+            ) : (
+              <>
+                <p className="yv-row mt-1 font-display text-[15px] font-bold uppercase tracking-[0.04em] text-ink" style={{ animationDelay: "1050ms" }}>
+                  Grid {grid}
+                </p>
+                <div className="yv-row mt-2 h-1 overflow-hidden bg-[rgb(214_219_225/.1)]" style={{ animationDelay: "1150ms" }}>
+                  <div className="yv-bar h-full bg-[rgb(159_179_200/.7)]" />
+                </div>
+                <p className="yv-row mt-1.5 text-[10px] uppercase tracking-[0.16em] text-[rgb(214_219_225/.5)]" style={{ animationDelay: "1250ms" }}>
+                  Searching for signals…
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* content */}
       <div className="relative flex h-full flex-col justify-center overflow-y-auto px-6 py-10 sm:px-12 lg:px-20">
@@ -223,11 +292,22 @@ export function WelcomeOverlay({
         .yv-scan { animation: yv-scan 8s linear infinite }
         @keyframes yv-word { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
         .yv-word { animation: yv-word 380ms ease-out both }
-        @keyframes yv-callout { from { opacity: 0; transform: scale(.8) } to { opacity: 1; transform: none } }
-        .yv-callout { animation: yv-callout 600ms cubic-bezier(.2,.7,.2,1) both }
-        [data-flip="1"] .yv-cl-line { left: auto; right: 20px; transform: scaleX(-1) }
-        [data-flip="1"] .yv-cl-plate { left: auto; right: 110px }
         @keyframes yv-ping { 0% { transform: scale(1); opacity: .9 } 100% { transform: scale(4.5); opacity: 0 } }
+        /* lock-on: reticle snaps in → line draws → plate wipes open → rows appear; all fade before the next stop */
+        @keyframes yv-lock-in { 0% { opacity: 0; transform: scale(2.2) rotate(45deg) } 60% { opacity: 1 } 100% { opacity: 1; transform: none } }
+        .yv-lock { animation: yv-lock-in 520ms cubic-bezier(.2,.8,.2,1) both, yv-out 400ms ease-in ${HOLD_MS - 450}ms forwards }
+        @keyframes yv-draw-in { from { stroke-dashoffset: 1 } to { stroke-dashoffset: 0 } }
+        .yv-draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: yv-draw-in 420ms ease-out 450ms forwards }
+        .yv-line { animation: yv-out 400ms ease-in ${HOLD_MS - 450}ms forwards }
+        @keyframes yv-wipe { from { clip-path: inset(0 100% 0 0) } to { clip-path: inset(0 0 0 0) } }
+        .yv-plate { animation: yv-wipe 380ms cubic-bezier(.2,.8,.2,1) 820ms both, yv-out 400ms ease-in ${HOLD_MS - 450}ms forwards }
+        @keyframes yv-row-in { from { opacity: 0; transform: translateX(-6px) } to { opacity: 1; transform: none } }
+        .yv-row { animation: yv-row-in 260ms ease-out both }
+        @keyframes yv-bar-fill { from { width: 0 } to { width: 100% } }
+        .yv-bar { animation: yv-bar-fill 2400ms linear 1200ms both }
+        @keyframes yv-out { to { opacity: 0 } }
+        .yv-flip .yv-line { left: auto; right: 24px; transform: scaleX(-1) }
+        .yv-flip .yv-plate { left: auto; right: 120px }
       `}</style>
     </section>
   );
