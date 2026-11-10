@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { buttonClass } from "@/components/ui";
 import { api } from "@/lib/api";
 
-export function UserMenu({ user }: { user: { displayName: string; isAdmin: boolean } | null }) {
+/** `avatar` replaces the default pill trigger (e.g. the game HUD profile badge). */
+export function UserMenu({ user, avatar, dark = false }: { user: { displayName: string; isAdmin: boolean } | null; avatar?: React.ReactNode; dark?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -25,6 +26,12 @@ export function UserMenu({ user }: { user: { displayName: string; isAdmin: boole
   }, [open]);
 
   if (!user) {
+    if (avatar)
+      return (
+        <Link href="/signin?next=/explore" aria-label="Sign in" title="Sign in">
+          {avatar}
+        </Link>
+      );
     return (
       <Link href="/signin" className={buttonClass("dark", "sm")}>
         Sign in
@@ -39,13 +46,21 @@ export function UserMenu({ user }: { user: { displayName: string; isAdmin: boole
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-9 items-center gap-2 rounded-full border border-line bg-card pl-1 pr-3 text-[13px] font-medium hover:border-line-strong"
+        aria-label={avatar ? `Account: ${user.displayName}` : undefined}
+        className={avatar ? "block" : "flex h-9 items-center gap-2 rounded-full border border-line bg-card pl-1 pr-3 text-[13px] font-medium hover:border-line-strong"}
       >
+        {avatar ?? (
+          <>
         <span className="grid size-7 place-items-center rounded-full bg-orange font-display font-bold text-[#140c05]">{initial}</span>
         <span className="max-w-28 truncate">{user.displayName}</span>
+          </>
+        )}
       </button>
       {open && (
-        <div role="menu" className="yv-enter absolute right-0 top-11 w-56 rounded-lg border border-line bg-card p-1.5 shadow-pop">
+        <div
+          role="menu"
+          className={`yv-enter absolute right-0 z-50 w-56 border p-1.5 shadow-pop ${dark ? "top-[calc(100%+8px)] border-[rgb(214_219_225/.16)] bg-[#06080bf2] backdrop-blur" : "top-11 rounded-lg border-line bg-card"}`}
+        >
           {[
             ["/me/rewards", "My rewards"],
             ["/me/profile", "Wallet & profile"],

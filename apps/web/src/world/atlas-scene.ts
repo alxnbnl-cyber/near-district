@@ -240,6 +240,11 @@ export class AtlasScene {
 
   // ------------------------------------------------------------------ camera
 
+  /** Screen size; safe to call after destroy (a late React effect must not crash). */
+  private get screen(): { width: number; height: number } {
+    return this.app.renderer ? this.app.screen : { width: 1, height: 1 };
+  }
+
   onCamera(fn: (c: Camera) => void): () => void {
     this.listeners.add(fn);
     fn(this.camera());
@@ -252,7 +257,7 @@ export class AtlasScene {
   }
 
   private fitScale(): number {
-    const { width, height } = this.app.screen;
+    const { width, height } = this.screen;
     return Math.max(width / this.atlas.width, height / this.atlas.height);
   }
 
@@ -264,7 +269,7 @@ export class AtlasScene {
   }
 
   private clamp() {
-    const { width, height } = this.app.screen;
+    const { width, height } = this.screen;
     const minS = this.fitScale() * ZOOM_MIN_FACTOR;
     const s = Math.min(this.zoomMax, Math.max(minS, this.world.scale.x));
     this.world.scale.set(s);
@@ -275,7 +280,7 @@ export class AtlasScene {
 
   /** Camera that centres world point (x,y) at scale s, honouring panel padding. */
   private cameraFor(x: number, y: number, s: number): Camera {
-    const { width, height } = this.app.screen;
+    const { width, height } = this.screen;
     const cx = this.focusPadding.left + (width - this.focusPadding.left - this.focusPadding.right) / 2;
     const cy = (height - this.focusPadding.bottom) / 2;
     return { tx: cx - x * s, ty: cy - y * s, s };
@@ -305,12 +310,12 @@ export class AtlasScene {
   /** Open zoomed in at the start point (near a live Space). */
   home(animate = true) {
     const [x, y] = this.start;
-    const target = this.cameraFor(x, y, Math.min(this.zoomMax * 0.82, this.app.screen.width < 768 ? 0.5 : 0.62));
+    const target = this.cameraFor(x, y, Math.min(this.zoomMax * 0.82, this.screen.width < 768 ? 0.5 : 0.62));
     if (!animate || this.opts.reducedMotion) this.apply(target);
     else this.tween = { from: this.camera(), to: target, t: 0, dur: 650 };
   }
 
-  zoomBy(f: number, sx = this.app.screen.width / 2, sy = this.app.screen.height / 2) {
+  zoomBy(f: number, sx = this.screen.width / 2, sy = this.screen.height / 2) {
     this.tween = null;
     const s0 = this.world.scale.x;
     const s1 = Math.min(this.zoomMax, Math.max(this.fitScale(), s0 * f));
@@ -335,7 +340,7 @@ export class AtlasScene {
 
   /** Viewport in normalized map coordinates (for the minimap). */
   viewport(): { x: number; y: number; w: number; h: number } {
-    const { width, height } = this.app.screen;
+    const { width, height } = this.screen;
     const s = this.world.scale.x;
     return { x: -this.world.x / s / this.atlas.width, y: -this.world.y / s / this.atlas.height, w: width / s / this.atlas.width, h: height / s / this.atlas.height };
   }

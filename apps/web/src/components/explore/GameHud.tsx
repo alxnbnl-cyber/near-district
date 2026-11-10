@@ -113,3 +113,77 @@ export function ZoomSlider({ scene }: { scene: AtlasScene | null }) {
     </div>
   );
 }
+
+/** Tab stuck to the right edge, like a game's slide-out drawer handle. */
+export function SearchTab({ open, onToggle }: { open: boolean; onToggle(): void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-label={open ? "Close search" : "Open search"}
+      className="group flex w-[58px] flex-col items-center gap-1 bg-[#05070ae8] py-3 pl-1 backdrop-blur-sm transition-colors hover:bg-[#0b0f15]"
+      style={{ clipPath: "polygon(14px 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px), 0 14px)", boxShadow: "inset 0 0 0 1px rgb(255 145 56 / .45)" }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/assets/ui/icon-explore.webp" alt="" className="size-9 transition-transform group-hover:scale-110" />
+      <span className="font-mono text-[9px] font-bold tracking-[0.24em] text-orange">{open ? "CLOSE" : "SEARCH"}</span>
+      <span aria-hidden className={`font-mono text-[10px] text-[rgb(214_219_225/.5)] transition-transform ${open ? "rotate-180" : ""}`}>‹</span>
+    </button>
+  );
+}
+
+export type DockId = "explore" | "progress" | "guide";
+
+/** Square action buttons at the bottom centre; "Host a mission" stands apart in orange. */
+export function Dock({ active, onPick }: { active: DockId | null; onPick(id: DockId): void }) {
+  const items: { id: DockId; label: string; icon: string }[] = [
+    { id: "explore", label: "Explore", icon: "/assets/ui/icon-explore.webp" },
+    { id: "progress", label: "Progress", icon: "/assets/ui/icon-earn.webp" },
+    { id: "guide", label: "Guide", icon: "/assets/ui/icon-play.webp" },
+  ];
+  const sq = "group relative flex size-[74px] flex-col items-center justify-center gap-1 backdrop-blur-sm transition-transform hover:-translate-y-1";
+  return (
+    <nav aria-label="Game menu" className="yv-enter pointer-events-auto flex items-end gap-2">
+      {items.map((it) => (
+        <button
+          key={it.id}
+          type="button"
+          onClick={() => onPick(it.id)}
+          aria-pressed={active === it.id}
+          className={`${sq} ${active === it.id ? "bg-[#1a1209f0]" : "bg-[#05070ae8]"}`}
+          style={{ ...plate(10), boxShadow: `inset 0 0 0 1px ${active === it.id ? "rgb(255 145 56 / .8)" : `${INK} / .2)`}` }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={it.icon} alt="" className="size-9 transition-transform group-hover:scale-110" />
+          <span className={`font-mono text-[9.5px] font-bold uppercase tracking-[0.16em] ${active === it.id ? "text-orange" : "text-[rgb(214_219_225/.75)]"}`}>{it.label}</span>
+        </button>
+      ))}
+      <span aria-hidden className="mx-1 h-12 w-px self-center bg-[rgb(214_219_225/.18)]" />
+      <Link
+        href="/host"
+        className={`${sq} yv-host size-[84px] bg-[linear-gradient(160deg,#ff9f4d,#e2620d)]`}
+        style={{ ...plate(12), boxShadow: "inset 0 0 0 1px rgb(255 230 200 / .5), 0 0 24px rgb(255 145 56 / .45)" }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/assets/ui/icon-host.webp" alt="" className="size-10 drop-shadow-[0_2px_4px_rgb(0_0_0/.5)] transition-transform group-hover:scale-110" />
+        <span className="font-mono text-[9.5px] font-black uppercase leading-tight tracking-[0.12em] text-[#1a0d02]">Host mission</span>
+      </Link>
+      <style>{`@keyframes yv-host-glow { 50% { box-shadow: inset 0 0 0 1px rgb(255 230 200 / .7), 0 0 34px rgb(255 145 56 / .7) } } .yv-host { animation: yv-host-glow 2.6s ease-in-out infinite }`}</style>
+    </nav>
+  );
+}
+
+/** The player's badge, top right (opens the account menu when signed in). */
+export function ProfileBadge({ name }: { name: string | null }) {
+  return (
+    <span className="group flex items-center gap-2.5">
+      <span className="hidden text-right font-mono sm:block">
+        <span className="block text-[9px] font-bold uppercase tracking-[0.24em] text-[rgb(214_219_225/.45)]">{name ? "Player" : "Guest"}</span>
+        <span className="block max-w-36 truncate text-[12px] font-bold uppercase tracking-[0.08em] text-white">{name ?? "Sign in"}</span>
+      </span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/assets/ui/icon-profile.webp" alt="" className="size-14 transition-transform group-hover:scale-105" />
+    </span>
+  );
+}

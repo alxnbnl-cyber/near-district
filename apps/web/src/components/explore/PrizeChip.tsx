@@ -15,7 +15,6 @@ export function PrizeChip({ prize, rewards, size = "sm", className = "" }: { pri
       className={`yv-shine inline-flex items-center gap-1.5 rounded-full bg-reward font-display font-bold text-[#2a1600] ${lg ? "px-3.5 py-1.5 text-[15px]" : "px-2.5 py-0.5 text-[11.5px]"} ${className}`}
     >
       <IconTrophy size={lg ? 17 : 13} />
-      {prize?.kind === "yield" && <span className="opacity-70">Yield</span>}
       {prize ? `${prize.amount} ${prize.symbol}` : "Token prize"}
     </span>
   );

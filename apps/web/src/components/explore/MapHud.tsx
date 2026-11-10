@@ -32,10 +32,9 @@ const ZONES: [number, number, number, number][] = [
 
 /**
  * Grey tactical HUD over the map: crosshair grid and faint grid lines locked to the world, lighter
- * survey zones, scanlines, a framed border with corner brackets, a title, a north mark and a live
- * coordinate readout. Purely visual: never intercepts input; the colourful pins render above it.
+ * survey zones, scanlines, a framed border with corner brackets and a live coordinate readout. Purely visual: never intercepts input; the colourful pins render above it.
  */
-export function MapHud({ scene, right, visible, title, subtitle, compact = false }: { scene: AtlasScene | null; right: number; visible: boolean; title: string; subtitle: string; compact?: boolean }) {
+export function MapHud({ scene, right, visible, compact = false }: { scene: AtlasScene | null; right: number; visible: boolean; compact?: boolean }) {
   const grid = useRef<HTMLDivElement>(null);
   const zones = useRef<HTMLDivElement>(null);
   const major = useRef<HTMLDivElement>(null);
@@ -99,27 +98,8 @@ export function MapHud({ scene, right, visible, title, subtitle, compact = false
           <span key={c} className={`absolute size-5 ${c}`} style={{ borderColor: `${ink} / .6)` }} />
         ))}
       </div>
-      {/* title */}
-      <div className={`absolute left-7 top-[78px] font-mono uppercase transition-opacity duration-500 ${compact ? "opacity-0" : "opacity-100"}`}>
-        <p className="text-[10px] tracking-[0.3em]" style={{ color: `${ink} / .45)` }}>
-          Yielvy · live map
-        </p>
-        <p className="mt-1 font-display text-[19px] font-bold tracking-[0.06em]" style={{ color: `${ink} / .9)` }}>
-          {title}
-        </p>
-        <p className="mt-0.5 text-[10.5px] tracking-[0.22em]" style={{ color: `${ink} / .5)` }}>
-          {subtitle}
-        </p>
-      </div>
-      {/* north mark */}
-      <div className="absolute right-7 top-6 flex flex-col items-center font-display" style={{ color: `${ink} / .85)` }}>
-        <span className="text-[15px] font-bold tracking-wider">N.</span>
-        <svg width="14" height="18" viewBox="0 0 14 18" className="mt-0.5">
-          <path d="M7 0 L13 18 L7 13 L1 18 Z" fill="currentColor" opacity=".85" />
-        </svg>
-      </div>
       {/* live coordinates */}
-      <span ref={coords} className={`absolute bottom-6 right-7 transition-opacity duration-500 ${compact ? "opacity-0" : "opacity-100"} font-mono text-[10.5px] tracking-[0.2em]`} style={{ color: `${ink} / .5)` }} />
+      <span ref={coords} className={`absolute bottom-6 left-7 transition-opacity duration-500 ${compact ? "opacity-0" : "opacity-100"} font-mono text-[10.5px] tracking-[0.2em]`} style={{ color: `${ink} / .5)` }} />
     </div>
   );
 }

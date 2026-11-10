@@ -6,27 +6,22 @@ import { generateAtlas } from "@yielvy/core/world";
 import type { AtlasScene } from "@/world/atlas-scene";
 import type { WorldData } from "@/world/types";
 import { buttonClass } from "@/components/ui";
-import { Logo } from "@/components/brand/Logo";
 import { UserMenu } from "@/components/shell/UserMenu";
-import { NotificationBell } from "@/components/shell/NotificationBell";
 import { MarkerLayer } from "./MarkerLayer";
-import { StatusBar, ZoomSlider } from "./GameHud";
+import { Dock, plate, ProfileBadge, SearchTab, StatusBar, ZoomSlider, type DockId } from "./GameHud";
 import { DiscoverPanel, type Filter } from "./DiscoverPanel";
-import { AdventuresTab, ExperiencesTab } from "./PanelTabs";
+import { AdventuresTab } from "./PanelTabs";
 import { SpaceCard } from "./SpaceCard";
 import { ExpeditionCard } from "./ExpeditionCard";
 import { MapHud } from "./MapHud";
 import { WelcomeOverlay } from "./WelcomeOverlay";
-import { IconCompass, IconFlag, IconMap, IconSearch } from "./icons";
+import { AmbientLayer } from "./AmbientLayer";
+import { Minimap } from "./Minimap";
+import { Tutorial, tutorialSeen } from "./Tutorial";
+import { IconSearch } from "./icons";
 
-const PANEL_W = 380;
-
-export type Tab = "discover" | "experiences" | "adventures";
-const TABS: { id: Tab; label: string; icon: typeof IconCompass }[] = [
-  { id: "discover", label: "Explore", icon: IconCompass },
-  { id: "experiences", label: "Missions", icon: IconFlag },
-  { id: "adventures", label: "Me", icon: IconMap },
-];
+const DRAWER_W = 400;
+type Panel = Exclude<DockId, "guide">;
 
 
 type Mode = "pending" | "welcome" | "explore";
@@ -44,8 +39,8 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
   const [failed, setFailed] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(initialMode === "explore" ? "explore" : "pending");
   const [leaving, setLeaving] = useState(false);
-  const [tab, setTab] = useState<Tab>("discover");
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [panel, setPanel] = useState<Panel | null>(null);
+  const [tutorial, setTutorial] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -69,10 +64,8 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
     mq.addEventListener("change", onMq);
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
-    if (t === "experiences" || t === "adventures" || t === "discover") {
-      setTab(t);
-      if (mq.matches) setSheetOpen(true);
-    }
+    if (t === "discover") setPanel("explore");
+    if (t === "adventures" || t === "experiences") setPanel("progress");
     const b = params.get("back");
     if (b && /^\/s\/[a-z0-9-]+\/c\/[a-z0-9-]+$/.test(b)) setBack(b);
     deepLinked.current = { space: params.get("space") ?? undefined, expedition: params.get("expedition") ?? undefined };
@@ -152,7 +145,6 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
       if (!r) return;
       setRouteId(id);
       setSelectedId(null);
-      setSheetOpen(false);
       const bs = r.chapters.map((c) => data.buildings.find((b) => b.spaceId === c.spaceId)).filter(Boolean);
       if (!scene || !bs.length) return;
       const xs = bs.map((b) => b!.x * atlas.width), ys = bs.map((b) => b!.y * atlas.height);
@@ -193,7 +185,6 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
       const b = data.buildings.find((x) => x.spaceId === id);
       if (!b) return;
       setSelectedId(id);
-      setSheetOpen(false);
       scene?.flyTo(b.x * atlas.width, b.y * atlas.height, Math.max(0.6, scene.camera().s));
     },
     [data, scene, atlas],
@@ -208,6 +199,13 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
       scene?.home();
     }, 380);
   }, [scene]);
+
+  // First visit to the game (however the player got here): show the tutorial once.
+  useEffect(() => {
+    if (mode !== "explore" || tutorialSeen()) return;
+    const t = setTimeout(() => setTutorial(true), 700);
+    return () => clearTimeout(t);
+  }, [mode]);
 
   // Deep links: ?space=<slug> (partner hints) and ?expedition=<slug>.
   useEffect(() => {
@@ -230,10 +228,14 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
       const typing = (e.target as HTMLElement)?.closest("input,textarea,select");
       if (e.key === "/" && !typing) {
         e.preventDefault();
-        setTab("discover");
-        if (mobile) setSheetOpen(true);
-        setTimeout(() => searchRef.current?.focus(), 50);
-      } else if (e.key === "Escape") setSelectedId(null);
+        setPanel("explore");
+        setTimeout(() => searchRef.current?.focus(), 80);
+      } else if (e.key === "Escape" && !typing) {
+        setSelectedId((id) => {
+          if (!id) setPanel(null);
+          return null;
+        });
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -257,39 +259,17 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
   };
 
   const exploring = mode === "explore";
-  /** The map stops where the side panel begins (desktop); the panel never covers it. */
-  const mapRight = exploring && !mobile ? PANEL_W : 0;
   const empty = data.buildings.length === 0;
-  const openTab = (t: Tab) => {
-    setTab(t);
-    if (mobile) setSheetOpen(true);
+  const openPanel = (p: Panel) => {
+    setPanel((cur) => (cur === p ? null : p));
+    if (p === "explore") setTimeout(() => searchRef.current?.focus(), 80);
   };
-
-  const panelContent = (
-    <>
-      {tab === "discover" && (
-        <DiscoverPanel
-          ref={mobile ? searchRef : undefined}
-          showSearch={mobile}
-          results={results}
-          total={data.buildings.length}
-          query={query}
-          filter={filter}
-          selectedId={selectedId}
-          onQuery={setQuery}
-          onFilter={setFilter}
-          onPick={select}
-          onAbout={() => {
-            setSelectedId(null);
-            setMode("welcome");
-            scene?.cinematic();
-          }}
-        />
-      )}
-      {tab === "experiences" && <ExperiencesTab items={data.experiences} routes={data.routes} selectedRouteId={routeId} onSelectRoute={focusRoute} onFocusSpace={select} />}
-      {tab === "adventures" && <AdventuresTab signedIn={Boolean(viewer)} onFocusSpace={select} />}
-    </>
-  );
+  const onDock = (id: DockId) => {
+    if (id === "guide") setTutorial(true);
+    else openPanel(id);
+  };
+  const ink = "rgb(214 219 225";
+  const drawerOpen = exploring && panel !== null;
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-paper">
@@ -300,35 +280,29 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
         aria-roledescription="map"
         aria-label="Yielvy map. Drag or use arrow keys to pan, scroll or plus and minus to zoom."
         onKeyDown={onMapKey}
-        className={`absolute inset-y-0 left-0 outline-none transition-[opacity,right] duration-700 ${scene ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-0 outline-none transition-opacity duration-700 ${scene ? "opacity-100" : "opacity-0"}`}
         // tactical grade: grey map so the orange pins pop
-        style={{ right: mapRight, filter: "grayscale(1) contrast(1.12) brightness(1.08)", transition: "filter 700ms" }}
+        style={{ filter: "grayscale(1) contrast(1.12) brightness(1.08)", transition: "filter 700ms" }}
       />
+      {/* living city: cars on the roads, drifting cloud shadows, flickering lights */}
+      <AmbientLayer scene={scene} atlas={atlas} />
       {/* soft vignette: darkens the edges and corners so the map feels framed (never blocks input) */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-0"
+        className="pointer-events-none absolute inset-0"
         style={{
-          right: mapRight,
           background:
             "radial-gradient(ellipse 75% 70% at 50% 50%, transparent 55%, rgb(5 7 11 / 0.55) 85%, rgb(5 7 11 / 0.85) 100%), linear-gradient(180deg, rgb(5 7 11 / 0.55), transparent 14%, transparent 86%, rgb(5 7 11 / 0.6))",
         }}
       />
-      <MapHud
-        scene={scene}
-        right={mapRight}
-        visible={exploring || mode === "welcome"}
-        compact={!exploring}
-        title="Explore map"
-        subtitle={`${stats.spaces} project${stats.spaces === 1 ? "" : "s"} · ${stats.live} live mission${stats.live === 1 ? "" : "s"}`}
-      />
+      <MapHud scene={scene} right={0} visible={exploring || mode === "welcome"} compact={!exploring} />
       {failed && (
         <div className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-ink-3">
           <p>The map couldn&apos;t start ({failed}).</p>
         </div>
       )}
 
-      <div className={`pointer-events-none absolute inset-y-0 left-0 transition-opacity duration-500 ${exploring ? "opacity-100" : "opacity-0"}`} style={{ right: mapRight }}>
+      <div className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${exploring ? "opacity-100" : "opacity-0"}`}>
         <MarkerLayer
           atlas={atlas}
           scene={scene}
@@ -345,110 +319,147 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
 
       {exploring && (
         <>
-          {/* brand, floating on the map */}
-          <Link
-            href="/explore"
-            onClick={() => scene?.home()}
-            aria-label="Yielvy"
-            className="yv-enter absolute left-4 top-4 z-30 rounded-[14px] border border-line bg-[#0b0f15e6] px-3.5 py-2.5 shadow-pop backdrop-blur hover:border-line-strong"
-          >
-            <Logo height={mobile ? 22 : 26} />
+          {/* top left: brand + map title */}
+          <Link href="/explore" onClick={() => scene?.home()} className="yv-enter group absolute left-6 top-6 z-30 flex items-center gap-3" aria-label="Yielvy map: back to start">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/brand/yielvy-mark.webp" alt="" className="size-11 drop-shadow-[0_0_12px_rgb(255_145_56/.35)] transition-transform group-hover:rotate-[-8deg] sm:size-12" />
+            <span className="font-mono">
+              <span className="block font-display text-[19px] font-bold leading-none tracking-[0.12em] text-white sm:text-[22px]">YIELVY MAP</span>
+              <span className="mt-1 block text-[9.5px] uppercase tracking-[0.24em]" style={{ color: `${ink} / .55)` }}>
+                {stats.spaces} project{stats.spaces === 1 ? "" : "s"} · {stats.live} live mission{stats.live === 1 ? "" : "s"}
+              </span>
+            </span>
           </Link>
 
-          {/* the one navigation: right-side panel */}
+          {/* top centre: player status */}
           {!mobile && (
-            <aside
-              aria-label="Explore panel"
-              className="yv-enter absolute inset-y-0 right-0 z-20 flex flex-col overflow-hidden border-l border-[#1a2029] bg-[#05070a] shadow-pop"
-              style={{ width: PANEL_W }}
-            >
-              <div className="flex items-center gap-2 px-4 pt-4">
-                <label className="relative block flex-1">
-                  <span className="sr-only">Search missions and projects</span>
-                  <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
-                  <input
-                    ref={searchRef}
-                    type="search"
-                    value={query}
-                    onChange={(e) => {
-                      setQuery(e.target.value);
-                      setTab("discover");
-                    }}
-                    placeholder="Search missions & projects"
-                    className="h-10 w-full rounded-[12px] border border-line-strong bg-[#0b0e13] pl-9 pr-3 text-[13.5px] text-ink placeholder:text-ink-3 focus:border-orange focus:outline-none focus:ring-2 focus:ring-orange/25"
-                  />
-                </label>
-                {viewer && <NotificationBell />}
-                <UserMenu user={viewer} />
-              </div>
-              <nav aria-label="Sections" className="mx-4 mt-3 grid grid-cols-3 gap-1 rounded-[12px] bg-[#0b0e13] p-1">
-                {TABS.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => openTab(t.id)}
-                    aria-current={tab === t.id ? "page" : undefined}
-                    className={`flex items-center justify-center gap-1.5 rounded-[9px] py-2 text-[13px] font-semibold transition-colors ${tab === t.id ? "bg-orange text-[#140c05] shadow-[0_6px_18px_-8px_rgb(255_145_56/.8)]" : "text-ink-3 hover:text-ink"}`}
-                  >
-                    <t.icon size={15} />
-                    {t.label}
-                  </button>
-                ))}
-              </nav>
-              <div key={tab} className="yv-enter min-h-0 flex-1">{panelContent}</div>
-            </aside>
+            <div className="pointer-events-none absolute inset-x-0 top-6 z-30 flex justify-center">
+              <StatusBar viewer={data.viewer} live={stats.live} />
+            </div>
           )}
 
-          {/* mobile: account chip + section bar + sheet */}
-          {mobile && (
-            <>
-              <div className="absolute right-3 top-4 z-30 flex items-center gap-1 rounded-full border border-line bg-[#0b0f15e6] p-1 backdrop-blur">
-                {viewer && <NotificationBell />}
-                <UserMenu user={viewer} />
+          {/* top right: player badge */}
+          <div className="yv-enter absolute right-5 top-4 z-40">
+            <UserMenu user={viewer} dark avatar={<ProfileBadge name={viewer?.displayName ?? null} />} />
+          </div>
+
+          {/* left centre: zoom */}
+          {!mobile && (
+            <div className="absolute left-6 top-1/2 z-20 -translate-y-1/2">
+              <ZoomSlider scene={scene} />
+            </div>
+          )}
+
+          {/* right centre: search drawer handle, rides on the drawer edge */}
+          <div
+            className="absolute top-1/2 z-40 -translate-y-1/2 transition-[right] duration-300 ease-out"
+            style={{ right: drawerOpen && panel === "explore" && !mobile ? DRAWER_W : 0 }}
+          >
+            <SearchTab open={panel === "explore"} onToggle={() => openPanel("explore")} />
+          </div>
+
+          {/* right drawer: search + results (or progress) */}
+          <aside
+            aria-label={panel === "progress" ? "Progress" : "Search"}
+            aria-hidden={!drawerOpen}
+            className={`absolute inset-y-0 right-0 z-30 flex flex-col bg-[#040608f5] font-mono backdrop-blur-md transition-transform duration-300 ease-out ${drawerOpen ? "translate-x-0" : "translate-x-full"}`}
+            style={{ width: mobile ? "100%" : DRAWER_W, boxShadow: `inset 1px 0 0 ${ink} / .14), -30px 0 60px -20px rgb(0 0 0 / .8)` }}
+          >
+            <span aria-hidden className="absolute inset-y-0 left-0 w-[2px] bg-[linear-gradient(180deg,transparent,rgb(255_145_56/.8)_20%,rgb(255_145_56/.8)_80%,transparent)]" />
+            <div className="flex items-center justify-between px-5 pb-3 pt-5">
+              <div>
+                <p className="text-[9.5px] font-bold uppercase tracking-[0.32em] text-orange">{panel === "progress" ? "// Player" : "// Recon"}</p>
+                <h2 className="mt-0.5 font-display text-[20px] font-bold uppercase tracking-[0.1em] text-white">{panel === "progress" ? "Progress" : "Search"}</h2>
               </div>
-              <nav aria-label="Sections" className="absolute inset-x-3 bottom-3 z-20 grid grid-cols-3 rounded-[14px] border border-line bg-[#0b0f15f2] shadow-pop backdrop-blur">
-                {TABS.map((t) => (
-                  <button key={t.id} type="button" onClick={() => openTab(t.id)} className="flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold text-ink-2">
-                    <t.icon size={18} className="text-orange" />
-                    {t.label}
-                  </button>
-                ))}
-              </nav>
-              {sheetOpen && (
-                <div className="absolute inset-0 z-50 flex flex-col justify-end bg-black/55" onClick={() => setSheetOpen(false)}>
-                  <div role="dialog" aria-label="Explore panel" className="yv-enter flex h-[80dvh] flex-col rounded-t-[20px] border-t border-line bg-card" onClick={(e) => e.stopPropagation()}>
-                    <div aria-hidden className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-line-strong" />
-                    <div className="flex shrink-0 border-b border-line">
-                      {TABS.map((t) => (
-                        <button key={t.id} type="button" onClick={() => setTab(t.id)} className={`flex-1 py-3 text-[13px] font-semibold ${tab === t.id ? "text-orange" : "text-ink-3"}`}>
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="min-h-0 flex-1">{panelContent}</div>
+              <button type="button" onClick={() => setPanel(null)} className="grid size-8 place-items-center text-[rgb(214_219_225/.6)] hover:text-white" aria-label="Close panel" style={{ boxShadow: `inset 0 0 0 1px ${ink} / .2)` }}>
+                ✕
+              </button>
+            </div>
+            {panel === "progress" ? (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="mx-5 grid grid-cols-2 gap-2">
+                  <div className="bg-[rgb(255_194_75/.06)] px-3 py-2.5" style={{ ...plate(9), boxShadow: "inset 0 0 0 1px rgb(255 194 75 / .3)" }}>
+                    <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[rgb(255_194_75/.75)]">Rewards earned</p>
+                    <p className="mt-0.5 font-display text-[18px] font-bold text-reward">{data.viewer ? `${data.viewer.rewardsClaimed} ${data.viewer.symbol}` : "—"}</p>
+                  </div>
+                  <div className="px-3 py-2.5" style={{ ...plate(9), boxShadow: `inset 0 0 0 1px ${ink} / .18)` }}>
+                    <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.55)]">Missions done</p>
+                    <p className="mt-0.5 font-display text-[18px] font-bold text-white">{data.viewer ? `${data.viewer.missionsCompleted} / ${data.viewer.missionsStarted}` : "—"}</p>
                   </div>
                 </div>
-              )}
-            </>
+                <div className="mt-2 min-h-0 flex-1 font-sans">
+                  <AdventuresTab signedIn={Boolean(viewer)} onFocusSpace={select} />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="px-5">
+                  <label className="relative block">
+                    <span className="sr-only">Search missions and projects</span>
+                    <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-orange" />
+                    <input
+                      ref={searchRef}
+                      type="search"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="SEARCH MISSIONS & PROJECTS"
+                      className="h-11 w-full bg-[#0a0d12] pl-9 pr-3 text-[12px] uppercase tracking-[0.12em] text-white placeholder:text-[rgb(214_219_225/.35)] focus:outline-none focus:ring-1 focus:ring-orange"
+                      style={{ ...plate(10), boxShadow: `inset 0 0 0 1px ${ink} / .2)` }}
+                    />
+                  </label>
+                </div>
+                <div className="min-h-0 flex-1 font-sans">
+                  <DiscoverPanel
+                    showSearch={false}
+                    hideFooter
+                    results={results}
+                    total={data.buildings.length}
+                    query={query}
+                    filter={filter}
+                    selectedId={selectedId}
+                    onQuery={setQuery}
+                    onFilter={setFilter}
+                    onPick={(id) => {
+                      select(id);
+                      if (mobile) setPanel(null);
+                    }}
+                    onAbout={() => setTutorial(true)}
+                  />
+                </div>
+              </>
+            )}
+          </aside>
+
+          {/* bottom centre: game menu */}
+          <div className={`pointer-events-none absolute inset-x-0 bottom-5 z-30 flex justify-center ${mobile ? "origin-bottom scale-[.78]" : ""}`}>
+            <Dock active={panel} onPick={onDock} />
+          </div>
+
+          {/* bottom right: minimap */}
+          {!mobile && (
+            <div className="absolute bottom-5 z-20 transition-[right] duration-300" style={{ right: drawerOpen ? DRAWER_W + 20 : 20 }}>
+              <Minimap scene={scene} atlas={atlas} buildings={data.buildings} />
+            </div>
           )}
 
-          {/* selected quest */}
+          {/* selected mission */}
           {selected &&
             (mobile ? (
-              <div className="absolute inset-x-0 bottom-0 z-30 p-2">
+              <div className="absolute inset-x-0 bottom-0 z-40 p-2">
                 <SpaceCard b={selected} onClose={() => setSelectedId(null)} />
               </div>
             ) : (
-              <div className="absolute bottom-4 z-30 w-[400px]" style={{ right: PANEL_W + 16 }}>
+              <div className="yv-enter absolute bottom-6 left-[88px] z-30 w-[380px]">
                 <SpaceCard b={selected} onClose={() => setSelectedId(null)} />
               </div>
             ))}
 
-          {/* back to the quest that sent the player here */}
+          {/* back to the mission that sent the player here */}
           {back && (
             <Link
               href={back}
-              className="yv-pop absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-orange/60 bg-[#0b0f15f2] px-4 py-2 text-[13px] font-semibold text-orange shadow-pop backdrop-blur hover:bg-[#151b25]"
+              className="yv-pop absolute left-1/2 top-[92px] z-30 flex -translate-x-1/2 items-center gap-2 border border-orange/60 bg-[#0b0f15f2] px-4 py-2 font-mono text-[12px] font-bold uppercase tracking-[0.14em] text-orange shadow-pop backdrop-blur hover:bg-[#151b25]"
+              style={plate(9)}
             >
               ← Back to your mission
             </Link>
@@ -456,34 +467,23 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
 
           {/* selected trail */}
           {route && (
-            <div className={`absolute z-30 ${mobile ? "inset-x-2 bottom-[76px]" : "w-[360px]"}`} style={mobile ? undefined : { left: 72, bottom: 16, maxHeight: "calc(100% - 100px)" }}>
+            <div className={`absolute z-30 ${mobile ? "inset-x-2 bottom-[96px]" : "w-[360px]"}`} style={mobile ? undefined : { left: 88, bottom: selected ? 340 : 24, maxHeight: "calc(100% - 140px)" }}>
               <ExpeditionCard route={route} onClose={() => setRouteId(null)} onChapter={(spaceId) => select(spaceId)} />
             </div>
           )}
 
-          {!mobile && (
-            <div className="absolute bottom-6 left-6 z-20">
-              <ZoomSlider scene={scene} />
-            </div>
-          )}
-
-          {/* game status bar: real rewards and missions for the player */}
-          {!mobile && (
-            <div className="pointer-events-none absolute top-5 z-30 flex justify-center" style={{ left: 0, right: mapRight }}>
-              <StatusBar viewer={data.viewer} live={stats.live} demo={data.demo} />
-            </div>
-          )}
-
           {empty && (
-            <div className="yv-pop absolute left-1/2 top-1/2 z-20 w-[min(420px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 rounded-[18px] border border-line bg-[#0b0f15f2] p-6 text-center shadow-pop backdrop-blur">
+            <div className="yv-pop absolute left-1/2 top-1/2 z-20 w-[min(420px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 border border-line bg-[#0b0f15f2] p-6 text-center shadow-pop backdrop-blur" style={plate(14)}>
               <h2 className="text-xl font-semibold">The map is waiting for its first mission.</h2>
-              <Link href="/organizer" className={buttonClass("primary", "md", "mt-4")}>
+              <Link href="/host" className={buttonClass("primary", "md", "mt-4")}>
                 Host a mission
               </Link>
             </div>
           )}
         </>
       )}
+
+      <Tutorial open={tutorial} onClose={() => setTutorial(false)} />
     </div>
   );
 }

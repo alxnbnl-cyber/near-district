@@ -74,7 +74,7 @@ export default async function QuestPage({ params }: { params: Promise<{ slug: st
                 {hunt ? <TreasureChest size={150} className="yv-float" /> : <Lightbulb size={130} className="yv-float" />}
               </div>
               <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-gold-ink">
-                {funded ? (prize?.kind === "yield" ? "Yield prize pool" : "Prize pool") : "Prize"}
+                {funded ? (prize?.kind === "yield" ? "Growing reward pool" : "Reward pool") : "Prize"}
               </p>
               {funded ? (
                 <>

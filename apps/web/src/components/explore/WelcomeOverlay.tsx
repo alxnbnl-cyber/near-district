@@ -6,8 +6,9 @@ import { ARTWORK_LOTS, type Atlas } from "@yielvy/core/world";
 import type { AtlasScene } from "@/world/atlas-scene";
 import type { WorldBuildingData } from "@/world/types";
 import { buttonClass } from "@/components/ui";
-import { CoinStack, TreasureChest, TreasureMap } from "@/components/art/Art";
 import { IconChevron } from "./icons";
+import { formatRate, LiveReward, rewardRate } from "./LiveReward";
+import { Tutorial } from "./Tutorial";
 
 /**
  * Opening scene: the camera tours random spots on the real map. At each stop a reticle locks on,
@@ -19,11 +20,6 @@ const DRIFT_MS = 9000;
 const HOLD_MS = 3800;
 const GAP_MS = 500;
 
-const HOW = [
-  { art: TreasureMap, title: "Explore", body: "Scan the map for glowing mission pins." },
-  { art: CoinStack, title: "Play", body: "Solve the clues. Stuck? Unlock a hint with an activity." },
-  { art: TreasureChest, title: "Earn", body: "Finish the mission to qualify for the prize." },
-];
 
 type Stop =
   | { kind: "mission"; b: WorldBuildingData; x: number; y: number }
@@ -49,14 +45,18 @@ export function WelcomeOverlay({
   const [stop, setStop] = useState<{ s: Stop; n: number; flip: boolean } | null>(null);
 
   const missions = useMemo(
-    () => buildings.filter((b) => b.liveCampaigns > 0 && b.featured).map((b) => ({ kind: "mission" as const, b, x: b.x * atlas.width, y: b.y * atlas.height })),
+    () => {
+      // only missions with a reward to show (the orange lock-on); any live mission if none has one yet
+      const live = buildings.filter((b) => b.liveCampaigns > 0 && b.featured);
+      const rewarded = live.filter((b) => b.topPrize || b.featured!.prize);
+      return (rewarded.length ? rewarded : live).map((b) => ({ kind: "mission" as const, b, x: b.x * atlas.width, y: b.y * atlas.height }));
+    },
     [buildings, atlas],
   );
 
   useEffect(() => {
     const t = setInterval(() => setWord((w) => (w + 1) % WORDS.length), 2200);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setHow(false);
       if (e.key === "Enter" && !(e.target as HTMLElement)?.closest("a,button,input")) onEnter();
     };
     window.addEventListener("keydown", onKey);
@@ -99,31 +99,58 @@ export function WelcomeOverlay({
       timers.push(setTimeout(drift, DRIFT_MS));
     };
     const scans: Stop[] = ARTWORK_LOTS.map(([lx, ly]) => ({ kind: "scan" as const, x: lx * atlas.width, y: ly * atlas.height }));
-    const pick = (): Stop | null => {
+    // Rewarded missions closest to the centre: the camera glides gently between them, and the
+    // welcome padding keeps each one on the right side of the screen.
+    const near = [...missions].sort((p, q) => Math.hypot(p.x - cx, p.y - cy) - Math.hypot(q.x - cx, q.y - cy)).slice(0, 6);
+    const pickNear = (): Stop | null => {
+      const pool = near.filter((m) => m !== last);
+      return pool[Math.floor(Math.random() * pool.length)] ?? near[0] ?? null;
+    };
+    const pickScan = (): Stop | null => {
       const el = root.current;
       if (!el) return null;
       const w = el.clientWidth, h = el.clientHeight;
       const cam = scene.camera();
-      // right side only, leaving room for the plate and away from the edges
-      const onRight = (s: Stop) => {
+      const pool = scans.filter((s) => {
         const sx = s.x * cam.s + cam.tx, sy = s.y * cam.s + cam.ty;
         return sx > w * 0.56 && sx < w - 420 && sy > 160 && sy < h - 140 && s !== last;
-      };
-      const m = missions.filter(onRight);
-      const pool = m.length && Math.random() < 0.65 ? m : scans.filter(onRight);
+      });
       return pool[Math.floor(Math.random() * pool.length)] ?? null;
     };
-    const step = () => {
+    const GLIDE_MS = 3200;
+    const tour = () => {
       if (!alive) return;
-      const s = pick();
+      const s = pickNear();
+      if (!s) return;
+      last = s;
+      setStop(null);
+      scene.flyTo(s.x, s.y, zoom, GLIDE_MS);
+      timers.push(
+        setTimeout(() => {
+          if (!alive) return;
+          setStop({ s, n: ++n, flip: false });
+          timers.push(setTimeout(tour, HOLD_MS + GAP_MS));
+        }, GLIDE_MS - 300),
+      );
+    };
+    // Fallback when no mission is live: drift around the centre and scan empty sectors.
+    const scan = () => {
+      if (!alive) return;
+      const s = pickScan();
       if (s) {
         last = s;
         setStop({ s, n: ++n, flip: false });
       }
-      timers.push(setTimeout(step, s ? HOLD_MS + GAP_MS : 400));
+      timers.push(setTimeout(scan, s ? HOLD_MS + GAP_MS : 400));
     };
-    scene.jumpTo(cx, cy, zoom);
-    timers.push(setTimeout(drift, 60), setTimeout(step, 900));
+    if (near.length) {
+      scene.jumpTo(near[0]!.x, near[0]!.y, zoom);
+      last = null;
+      timers.push(setTimeout(tour, 500));
+    } else {
+      scene.jumpTo(cx, cy, zoom);
+      timers.push(setTimeout(drift, 60), setTimeout(scan, 900));
+    }
     return () => {
       alive = false;
       timers.forEach(clearTimeout);
@@ -132,15 +159,9 @@ export function WelcomeOverlay({
 
   const at = (x: number, y: number) => ({ transform: `translate(calc(${x} * var(--s) * 1px + var(--tx) * 1px), calc(${y} * var(--s) * 1px + var(--ty) * 1px))` });
   const active = stop?.s;
-  const tone = active?.kind === "mission" ? (active.b.featured!.template === "treasure_hunt" ? "#FF9138" : "#B9A8FF") : "#9fb3c8";
-  const prize =
-    active?.kind === "mission"
-      ? active.b.featured!.prize
-        ? `${active.b.featured!.prize.amount} ${active.b.featured!.prize.symbol}`
-        : active.b.featured!.rewards === "token"
-          ? "TOKEN PRIZE"
-          : null
-      : null;
+  const tone = active?.kind === "mission" ? "#FF9138" : "#9fb3c8";
+  const prize = active?.kind === "mission" ? (active.b.topPrize ?? active.b.featured!.prize) : null;
+  const rate = prize ? rewardRate(prize).perDay : null;
   const grid = active ? `${String(Math.round(active.x)).padStart(4, "0")} · ${String(Math.round(active.y)).padStart(4, "0")}` : "";
 
   return (
@@ -193,12 +214,23 @@ export function WelcomeOverlay({
                 <p className="yv-row text-[10.5px] uppercase tracking-[0.16em] text-[rgb(214_219_225/.55)]" style={{ animationDelay: "1150ms" }}>
                   {active.b.name}
                 </p>
-                <div className="yv-row mt-2 flex items-center justify-between border-t border-[rgb(214_219_225/.12)] pt-1.5 text-[10px] uppercase tracking-[0.16em]" style={{ animationDelay: "1300ms" }}>
-                  <span className="text-[rgb(214_219_225/.5)]">{prize ? "Reward" : "Objective"}</span>
-                  <span className={prize ? "font-bold text-reward" : "text-[rgb(214_219_225/.8)]"}>
-                    {prize ?? (active.b.featured!.template === "treasure_hunt" ? "Solve the clues" : "Submit an idea")}
-                  </span>
-                </div>
+                {prize ? (
+                  <div className="yv-row -mx-3.5 -mb-2.5 mt-2 border-t border-dashed border-[rgb(255_194_75/.4)] bg-[linear-gradient(90deg,rgb(255_194_75/.12),rgb(255_194_75/.02))] px-3.5 pb-2.5 pt-1.5" style={{ animationDelay: "1300ms" }}>
+                    <div className="flex items-center justify-between text-[9.5px] font-bold uppercase tracking-[0.22em]">
+                      <span className="text-[rgb(255_194_75/.8)]">Reward</span>
+                      {rate ? <span className="text-mint-ink">{formatRate(rate, prize.symbol)}</span> : <span className="text-[rgb(214_219_225/.45)]">Fixed</span>}
+                    </div>
+                    <p className="mt-0.5 font-display text-[17px] font-bold text-reward">
+                      <span className="mr-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[rgb(255_194_75/.75)]">Up to</span>
+                      <LiveReward prize={prize} />
+                    </p>
+                  </div>
+                ) : (
+                  <div className="yv-row mt-2 flex items-center justify-between border-t border-[rgb(214_219_225/.12)] pt-1.5 text-[10px] uppercase tracking-[0.16em]" style={{ animationDelay: "1300ms" }}>
+                    <span className="text-[rgb(214_219_225/.5)]">Objective</span>
+                    <span className="text-[rgb(214_219_225/.8)]">{active.b.featured!.template === "treasure_hunt" ? "Solve the clues" : "Submit an idea"}</span>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -251,39 +283,7 @@ export function WelcomeOverlay({
         </div>
       </div>
 
-      {/* how it works */}
-      {how && (
-        <div className="absolute inset-0 z-10 grid place-items-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setHow(false)}>
-          <div
-            role="dialog"
-            aria-label="How it works"
-            className="yv-pop relative w-full max-w-[760px] bg-[#07090ce6] p-6 sm:p-8"
-            style={{ clipPath: "polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 22px 100%, 0 calc(100% - 22px))", boxShadow: "inset 0 0 0 1px rgb(214 219 225 / .18)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-orange">Briefing</p>
-            <h2 className="mt-1 text-[28px] font-bold">How it works</h2>
-            <ol className="yv-stagger mt-6 grid gap-3 sm:grid-cols-3">
-              {HOW.map((h, i) => (
-                <li key={h.title} className="border border-[rgb(214_219_225/.12)] bg-[#0b0e13] p-4">
-                  <p className="font-mono text-[11px] tracking-[0.25em] text-[rgb(214_219_225/.45)]">0{i + 1}</p>
-                  <h.art size={84} className="mx-auto my-2" />
-                  <p className="font-display text-[18px] font-bold">{h.title}</p>
-                  <p className="mt-1 text-[13px] text-ink-2">{h.body}</p>
-                </li>
-              ))}
-            </ol>
-            <div className="mt-6 flex gap-3">
-              <button type="button" onClick={onEnter} className={buttonClass("primary", "md")}>
-                Start exploring →
-              </button>
-              <button type="button" onClick={() => setHow(false)} className={buttonClass("ghost", "md")}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Tutorial open={how} onClose={() => setHow(false)} onStart={onEnter} />
 
       <style>{`
         @keyframes yv-rise { from { opacity: 0; transform: translateY(14px); filter: blur(4px) } to { opacity: 1; transform: none; filter: none } }

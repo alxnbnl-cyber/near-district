@@ -4,6 +4,7 @@
     "jsx": "react-jsx",
     "allowJs": false,
     "incremental": true,
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.tsbuildinfo",
     "types": ["node"],
     "plugins": [{ "name": "next" }],
     "paths": { "@/*": ["./src/*"] }

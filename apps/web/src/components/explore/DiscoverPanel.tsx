@@ -33,12 +33,14 @@ interface Props {
   onCollapse?(): void;
   /** Hide the in-panel search when a search box lives elsewhere. */
   showSearch?: boolean;
+  /** Hide the "How it works / Host a mission" footer (the game HUD has its own). */
+  hideFooter?: boolean;
   onAbout(): void;
 }
 
 /** Explore tab: every quest on the map, live prizes first. */
 export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function DiscoverPanel(
-  { results, total, query, filter, selectedId, onQuery, onFilter, onPick, onAbout, showSearch = true },
+  { results, total, query, filter, selectedId, onQuery, onFilter, onPick, onAbout, showSearch = true, hideFooter = false },
   searchRef,
 ) {
   return (
@@ -66,8 +68,8 @@ export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function Discov
               type="button"
               aria-pressed={filter === f.id}
               onClick={() => onFilter(f.id)}
-              className={`h-7 rounded-full border px-3 text-[12.5px] font-semibold transition-colors ${
-                filter === f.id ? "border-orange bg-orange-wash text-orange-ink" : "border-line-strong text-ink-2 hover:border-ink-3 hover:text-ink"
+              className={`h-7 border px-3 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] transition-colors ${
+                filter === f.id ? "border-orange bg-orange/15 text-orange" : "border-[rgb(214_219_225/.18)] text-[rgb(214_219_225/.6)] hover:border-[rgb(214_219_225/.4)] hover:text-white"
               }`}
             >
               {f.label}
@@ -75,10 +77,10 @@ export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function Discov
           ))}
         </div>
       </div>
-      <p className="mt-3 px-4 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-ink-3">
+      <p className="mt-3 px-4 font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-[rgb(214_219_225/.45)]">
         {query || filter !== "all" ? `${results.length} of ${total} projects` : `${total} project${total === 1 ? "" : "s"}`}
       </p>
-      <ul className="yv-stagger mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3" aria-label="Projects">
+      <ul className="yv-stagger mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-28" aria-label="Projects">
         {results.length === 0 && (
           <li className="px-2 py-6 text-center text-[13px] text-ink-3">{total === 0 ? "No missions are open yet." : "Nothing matches that search."}</li>
         )}
@@ -88,6 +90,7 @@ export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function Discov
           </li>
         ))}
       </ul>
+      {!hideFooter && (
       <div className="flex items-center justify-between border-t border-line px-4 py-3 text-[12.5px]">
         <button type="button" onClick={onAbout} className="font-medium text-ink-3 hover:text-ink">
           How it works
@@ -96,6 +99,7 @@ export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function Discov
           Host a mission →
         </Link>
       </div>
+      )}
     </div>
   );
 });
@@ -119,9 +123,10 @@ function VaultRow({ b, selected, onPick }: { b: WorldBuildingData; selected: boo
       type="button"
       onClick={() => onPick(b.spaceId)}
       aria-current={selected}
-      className={`group flex w-full items-center gap-3 rounded-[14px] border p-3 text-left transition-all hover:-translate-y-px ${
-        selected ? "border-orange/70 bg-[linear-gradient(100deg,rgb(255_145_56/0.26),rgb(255_145_56/0.05))]" : "border-line bg-[#0b0e13] hover:border-line-strong"
+      className={`group flex w-full items-center gap-3 p-3 text-left transition-all hover:-translate-y-px ${
+        selected ? "bg-[linear-gradient(100deg,rgb(255_145_56/0.24),rgb(255_145_56/0.04))] shadow-[inset_0_0_0_1px_rgb(255_145_56/.7)]" : "bg-[#0a0d12] shadow-[inset_0_0_0_1px_rgb(214_219_225/.1)] hover:shadow-[inset_0_0_0_1px_rgb(214_219_225/.28)]"
       }`}
+      style={{ clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))" }}
     >
       <SpaceLogo b={b} />
       <span className="min-w-0 flex-1">

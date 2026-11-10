@@ -5,6 +5,7 @@ import type { Atlas } from "@yielvy/core/world";
 import type { AtlasScene } from "@/world/atlas-scene";
 import type { MarkerKind, WorldBuildingData } from "@/world/types";
 import { IconClock, IconCube, IconFlag, IconStar } from "./icons";
+import { formatRate, LiveReward, rewardRate } from "./LiveReward";
 
 /**
  * HTML marker layer. The scene publishes its camera into three CSS variables on this root;
@@ -18,7 +19,7 @@ export const KIND_COLOR: Record<MarkerKind, string> = {
 };
 
 const CLUSTER_BELOW = 0.14;
-const LABEL_FROM = 0.25;
+const LABEL_FROM = 0.42;
 
 const KIND_TEXT: Record<MarkerKind, string> = {
   hunt: "Mission · live",
@@ -101,6 +102,17 @@ export function MarkerLayer({ atlas, scene, buildings, visibleIds, selectedId, i
           <Pin key={g.key} b={g.members[0]!} style={pos(g.x, g.y)} selected={g.members[0]!.spaceId === selectedId} showLabel={scale >= LABEL_FROM} interactive={interactive} onSelect={onSelect} />
         ),
       )}
+      <style>{`
+        @keyframes yv-radar { 0% { transform: scale(.6); opacity: .9 } 100% { transform: scale(2.6); opacity: 0 } }
+        /* lock-on reveal, same language as the opening scene: line draws, then the plate wipes open */
+        .yv-pin .yv-ln path { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 240ms ease-out }
+        .yv-pin .yv-ln { opacity: 0; transition: opacity 120ms }
+        .yv-pin .yv-pl { clip-path: inset(0 100% 0 0); transition: clip-path 300ms cubic-bezier(.2,.8,.2,1) }
+        .yv-pin:hover .yv-ln, .yv-pin:focus-within .yv-ln, .yv-pin[data-open="true"] .yv-ln { opacity: 1 }
+        .yv-pin:hover .yv-ln path, .yv-pin:focus-within .yv-ln path, .yv-pin[data-open="true"] .yv-ln path { stroke-dashoffset: 0 }
+        .yv-pin:hover .yv-pl, .yv-pin:focus-within .yv-pl, .yv-pin[data-open="true"] .yv-pl { clip-path: inset(0 0 0 0); transition-delay: 200ms }
+        .yv-pin:hover { z-index: 50 !important }
+      `}</style>
     </div>
   );
 }
@@ -132,7 +144,7 @@ const Pin = memo(function Pin({
   const Icon = b.kind === "hunt" ? IconFlag : b.kind === "contest" ? IconStar : b.kind === "upcoming" ? IconClock : IconCube;
   const typeLabel = b.kind === "contest" ? "Challenge" : b.kind === "upcoming" ? "Mission · soon" : "Mission";
   return (
-    <div className="absolute left-0 top-0" style={{ ...style, zIndex: selected ? 40 : funded ? 30 : live ? 20 : 10 }}>
+    <div className="yv-pin absolute left-0 top-0" data-open={showLabel || selected} style={{ ...style, zIndex: selected ? 40 : funded ? 30 : live ? 20 : 10 }}>
       <button
         type="button"
         disabled={!interactive}
@@ -174,34 +186,40 @@ const Pin = memo(function Pin({
             </span>
           )}
         </span>
-        {/* info plate */}
-        <span
-          className={`pointer-events-none absolute top-0 whitespace-nowrap bg-[#05070af2] px-3 py-2 text-left font-mono transition-opacity duration-150 ${
-            showLabel || selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
-          }`}
-          style={{ left: size + 8, clipPath: PLATE, boxShadow: `inset 0 0 0 1px ${tone}55` }}
-        >
-          <span className="flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-[0.2em]" style={{ color: tone }}>
-            {live && <span className="size-1.5 animate-pulse rounded-full" style={{ background: tone }} />}
-            {typeLabel}
-            {live ? " · live" : ""}
-          </span>
-          <span className="mt-0.5 block font-display text-[13.5px] font-bold uppercase tracking-[0.03em] text-ink">{b.featured?.title ?? b.name}</span>
-          {b.featured && <span className="block text-[9.5px] uppercase tracking-[0.16em] text-[rgb(214_219_225/.5)]">{b.name}</span>}
-          {prize ? (
-            <span className="mt-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.1em]">
-              <span className="text-[rgb(214_219_225/.55)]">{prize.kind === "yield" ? "Yield" : "Reward"}</span>
-              <span className="text-reward">
-                {prize.amount} {prize.symbol}
+        {/* leader line: draws itself from the badge to the plate */}
+        <svg aria-hidden width="46" height="34" viewBox="0 0 46 34" className="yv-ln pointer-events-none absolute overflow-visible" style={{ left: size * 0.78, top: -16 }}>
+          <path d="M1 33 L18 2 L46 2" fill="none" stroke={tone} strokeWidth="1.4" pathLength={1} />
+          <circle cx="1" cy="33" r="2" fill={tone} />
+        </svg>
+        {/* info plate: wipes open after the line */}
+        <span className="yv-pl pointer-events-none absolute whitespace-nowrap text-left" style={{ left: size * 0.78 + 46, top: -30 }}>
+          <span className="block min-w-[210px] bg-[#05070af2] font-mono" style={{ clipPath: PLATE, boxShadow: `inset 0 0 0 1px ${tone}55` }}>
+            <span className="block px-3 pb-2 pt-2">
+              <span className="flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-[0.2em]" style={{ color: tone }}>
+                {live && <span className="size-1.5 animate-pulse rounded-full" style={{ background: tone }} />}
+                {typeLabel}
+                {live ? " · live" : ""}
               </span>
-              {prize.apy && <span className="text-mint-ink">{prize.apy} APY</span>}
+              <span className="mt-0.5 block font-display text-[13.5px] font-bold uppercase tracking-[0.03em] text-ink">{b.featured?.title ?? b.name}</span>
+              {b.featured && <span className="block text-[9.5px] uppercase tracking-[0.16em] text-[rgb(214_219_225/.5)]">{b.name}</span>}
             </span>
-          ) : funded ? (
-            <span className="mt-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-reward">Token reward</span>
-          ) : null}
+            {prize ? (
+              <span className="block border-t border-dashed border-[rgb(255_194_75/.35)] bg-[linear-gradient(90deg,rgb(255_194_75/.1),rgb(255_194_75/.02))] px-3 pb-2 pt-1.5">
+                <span className="flex items-center justify-between gap-3 text-[9px] font-bold uppercase tracking-[0.22em]">
+                  <span className="text-[rgb(255_194_75/.75)]">Reward</span>
+                  {rewardRate(prize).perDay ? <span className="text-mint-ink">{formatRate(rewardRate(prize).perDay!, prize.symbol)}</span> : <span className="text-[rgb(214_219_225/.45)]">Fixed</span>}
+                </span>
+                <span className="mt-0.5 block font-display text-[15px] font-bold text-reward">
+                  <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[rgb(255_194_75/.7)]">Up to</span>
+                  <LiveReward prize={prize} />
+                </span>
+              </span>
+            ) : funded ? (
+              <span className="block border-t border-dashed border-[rgb(255_194_75/.35)] px-3 pb-2 pt-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-reward">Token reward</span>
+            ) : null}
+          </span>
         </span>
       </button>
-      <style>{`@keyframes yv-radar { 0% { transform: scale(.6); opacity: .9 } 100% { transform: scale(2.6); opacity: 0 } }`}</style>
     </div>
   );
 });
