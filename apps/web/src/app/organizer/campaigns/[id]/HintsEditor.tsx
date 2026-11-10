@@ -188,7 +188,7 @@ function HintForm({ campaignId, questionId, existing, options, onDone, onCancel 
           <input id={`ht-${questionId}`} className={inputClass} value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder="The Lending Secret" />
         </Field>
         <Field label="Teaser (public)" htmlFor={`hte-${questionId}`} hint="Shown while the hint is locked.">
-          <input id={`hte-${questionId}`} className={inputClass} value={teaser} maxLength={300} onChange={(e) => setTeaser(e.target.value)} placeholder="A clue about the vault's engine" />
+          <input id={`hte-${questionId}`} className={inputClass} value={teaser} maxLength={300} onChange={(e) => setTeaser(e.target.value)} placeholder="A clue about the hidden engine" />
         </Field>
       </div>
       <Field label="Hidden clue" htmlFor={`hc-${questionId}`} hint="Never sent to players until they unlock it.">
@@ -409,7 +409,7 @@ export function ActivityConfig({ type, options, onPick }: { type: string; option
   return (
     <div className="mt-4 flex flex-col gap-3">
       {type.startsWith("internal_") && (
-        <Field label="Quest" htmlFor="act-camp" hint="One of your own quests.">
+        <Field label="Mission" htmlFor="act-camp" hint="One of your own missions.">
           <select id="act-camp" className={inputClass} value={campaignId} onChange={(e) => setCampaignId(e.target.value)}>
             <option value="">Choose…</option>
             {pickFrom.map((c) => (
@@ -468,8 +468,8 @@ export function ActivityConfig({ type, options, onPick }: { type: string; option
           <summary className="cursor-pointer font-medium">How verification works</summary>
           <p className="mt-1.5">
             Players paste their transaction hash. Yielvy fetches the final transaction from NEAR itself and checks that it was signed by a wallet the
-            player proved they own, that the RHEA receipt succeeded, the exact token contracts, the amount and that it happened while your hunt was open.
-            A transaction can unlock only one requirement per hunt. USD thresholds and Meteor-specific swaps aren&apos;t supported.
+            player proved they own, that the RHEA receipt succeeded, the exact token contracts, the amount and that it happened while your mission was open.
+            A transaction can unlock only one requirement per mission. USD thresholds and Meteor-specific swaps aren&apos;t supported.
           </p>
         </details>
       )}

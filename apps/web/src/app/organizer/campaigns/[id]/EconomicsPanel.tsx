@@ -49,7 +49,7 @@ export function EconomicsPanel({ periods, winners, minPayout, budget, token }: {
         <Field label={`Deposit (${token.symbol})`} htmlFor="econ-p">
           <input id="econ-p" inputMode="decimal" className={inputClass} value={principal} onChange={(e) => setPrincipal(e.target.value)} />
         </Field>
-        <Field label="Quest length (days)" htmlFor="econ-d">
+        <Field label="Mission length (days)" htmlFor="econ-d">
           <input id="econ-d" type="number" min={1} max={730} className={inputClass} value={days} onChange={(e) => setDays(Number(e.target.value))} />
         </Field>
       </div>

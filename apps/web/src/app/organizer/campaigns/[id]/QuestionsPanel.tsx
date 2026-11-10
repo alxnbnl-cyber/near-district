@@ -171,7 +171,7 @@ function ClueForm({
       <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">Clue {index + 1}</p>
       <label>
         <span className="text-[13px] font-semibold">Question</span>
-        <textarea className={`${textareaClass} mt-1.5 min-h-20 text-[15px]`} maxLength={1000} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Which lending protocol powers our vault?" />
+        <textarea className={`${textareaClass} mt-1.5 min-h-20 text-[15px]`} maxLength={1000} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Which lending protocol powers our app?" />
       </label>
       <label>
         <span className="text-[13px] font-semibold">Answer</span>

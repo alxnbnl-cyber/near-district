@@ -54,7 +54,7 @@ export async function invitePartner(db: Db, user: SessionUser, orgId: string, in
     await notifyOrgAdmins(db, them.id, {
       kind: "partnership_invite",
       title: `${me.name} invited you to cooperate`,
-      body: input.message || "Review the invitation to team up on quests and trails.",
+      body: input.message || "Review the invitation to team up on missions and trails.",
       link: "/organizer/partners",
       dedupeKey: `partnership:${row!.id}`,
     });
@@ -151,7 +151,7 @@ export async function assertActivityOwnership(db: Db, orgId: string, a: Activity
       .where(eq(campaigns.id, a.campaignId))
       .limit(1);
     if (!c || c.org !== orgId) throw badRequest("Activities can only use your own organization's campaigns.");
-    if (c.id === excludeCampaignId) throw badRequest("A hint can't require finishing the same hunt it belongs to.");
+    if (c.id === excludeCampaignId) throw badRequest("A hint can't require finishing the same mission it belongs to.");
     const needsHunt = a.type === "internal_quiz" || a.type === "internal_question_sequence";
     if (needsHunt && c.template !== "treasure_hunt") throw badRequest("Quizzes and question sequences must be Treasure Hunts.");
     if (a.type === "internal_contest_entry" && c.template !== "creative_contest") throw badRequest("Contest entries need a Creative Contest.");

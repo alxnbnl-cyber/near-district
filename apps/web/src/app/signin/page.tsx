@@ -17,7 +17,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
       <main className="mx-auto grid max-w-5xl gap-10 px-4 py-12 md:grid-cols-[1fr_420px] md:py-20">
         <section className="hidden md:block">
           <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-orange-ink">Welcome in</p>
-          <h1 className="mt-2 text-4xl font-semibold leading-tight">Every vault on the map hides a prize.</h1>
+          <h1 className="mt-2 text-4xl font-semibold leading-tight">Every mission on the map hides a prize.</h1>
           <p className="mt-4 max-w-md text-ink-2">
             You can wander the map without an account. Sign in to play and keep your prizes.
           </p>

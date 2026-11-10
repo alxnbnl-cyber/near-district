@@ -11,7 +11,7 @@ export type Filter = "all" | "live" | "treasure_hunt" | "creative_contest";
 export const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "live", label: "Live" },
-  { id: "treasure_hunt", label: "Hunts" },
+  { id: "treasure_hunt", label: "Missions" },
   { id: "creative_contest", label: "Challenges" },
 ];
 
@@ -36,7 +36,7 @@ interface Props {
   onAbout(): void;
 }
 
-/** Explore tab: every vault on the map, live prizes first. */
+/** Explore tab: every quest on the map, live prizes first. */
 export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function DiscoverPanel(
   { results, total, query, filter, selectedId, onQuery, onFilter, onPick, onAbout, showSearch = true },
   searchRef,
@@ -46,7 +46,7 @@ export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function Discov
       <div className="px-4 pt-4">
         {showSearch && (
           <div className="relative mb-3">
-            <label htmlFor="discover-search" className="sr-only">Search vaults and quests</label>
+            <label htmlFor="discover-search" className="sr-only">Search missions and projects</label>
             <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
             <input
               ref={searchRef}
@@ -54,7 +54,7 @@ export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function Discov
               type="search"
               value={query}
               onChange={(e) => onQuery(e.target.value)}
-              placeholder="Search vaults & quests"
+              placeholder="Search missions & projects"
               className="h-10 w-full rounded-[12px] border border-line-strong bg-paper pl-9 pr-3 text-[13.5px] text-ink placeholder:text-ink-3 focus:border-orange focus:outline-none focus:ring-2 focus:ring-orange/25"
             />
           </div>
@@ -76,11 +76,11 @@ export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function Discov
         </div>
       </div>
       <p className="mt-3 px-4 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-ink-3">
-        {query || filter !== "all" ? `${results.length} of ${total} vaults` : `${total} vault${total === 1 ? "" : "s"}`}
+        {query || filter !== "all" ? `${results.length} of ${total} projects` : `${total} project${total === 1 ? "" : "s"}`}
       </p>
-      <ul className="yv-stagger mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3" aria-label="Vaults">
+      <ul className="yv-stagger mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3" aria-label="Projects">
         {results.length === 0 && (
-          <li className="px-2 py-6 text-center text-[13px] text-ink-3">{total === 0 ? "No vaults have opened yet." : "Nothing matches that search."}</li>
+          <li className="px-2 py-6 text-center text-[13px] text-ink-3">{total === 0 ? "No missions are open yet." : "Nothing matches that search."}</li>
         )}
         {results.map((b) => (
           <li key={b.spaceId}>
@@ -93,7 +93,7 @@ export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function Discov
           How it works
         </button>
         <Link href="/organizer" className="font-semibold text-orange-ink hover:underline">
-          Open a vault →
+          Host a mission →
         </Link>
       </div>
     </div>
@@ -120,7 +120,7 @@ function VaultRow({ b, selected, onPick }: { b: WorldBuildingData; selected: boo
       onClick={() => onPick(b.spaceId)}
       aria-current={selected}
       className={`group flex w-full items-center gap-3 rounded-[14px] border p-3 text-left transition-all hover:-translate-y-px ${
-        selected ? "border-orange/70 bg-[linear-gradient(100deg,rgb(255_145_56/0.26),rgb(255_145_56/0.05))]" : "border-line bg-[#121722] hover:border-line-strong"
+        selected ? "border-orange/70 bg-[linear-gradient(100deg,rgb(255_145_56/0.26),rgb(255_145_56/0.05))]" : "border-line bg-[#0b0e13] hover:border-line-strong"
       }`}
     >
       <SpaceLogo b={b} />
@@ -138,7 +138,7 @@ function VaultRow({ b, selected, onPick }: { b: WorldBuildingData; selected: boo
           ) : b.upcomingCampaigns > 0 ? (
             <span className="rounded-full bg-sky-wash px-2 py-0.5 text-[11px] font-semibold text-sky-ink">Opening soon</span>
           ) : (
-            <span className="text-[11px] text-ink-3">No quest right now</span>
+            <span className="text-[11px] text-ink-3">No mission right now</span>
           )}
         </span>
       </span>

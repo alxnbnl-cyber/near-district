@@ -1,10 +1,10 @@
 import { CoinStack, LinkedVaults, TreasureChest, TreasureMap } from "@/components/art/Art";
 
 const CARDS = [
-  { art: TreasureMap, title: "1 · Build a quest", body: "Write a few questions about your project. Add hints players unlock by doing an activity." },
+  { art: TreasureMap, title: "1 · Build a mission", body: "Write a few questions about your project. Add hints players unlock by doing an activity." },
   { art: CoinStack, title: "2 · Fund the prize", body: "Put up a reward budget, or deposit funds and use the interest they earn as the prize." },
-  { art: TreasureChest, title: "3 · Players hunt", body: "Explorers find your vault on the map, solve the trail and learn your product." },
-  { art: LinkedVaults, title: "4 · Team up", body: "Link quests with partner vaults into one bigger trail." },
+  { art: TreasureChest, title: "3 · Players play", body: "Explorers find your mission on the map, solve the trail and learn your product." },
+  { art: LinkedVaults, title: "4 · Team up", body: "Link your missions with partners into one bigger trail." },
 ];
 
 /** A short illustrated guide that lives inside the dashboard. */

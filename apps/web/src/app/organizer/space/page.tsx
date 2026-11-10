@@ -6,7 +6,7 @@ import { myOrganization } from "@/server/spaces";
 import { buttonClass } from "@/components/ui";
 import { SpaceSettingsForm } from "./SpaceSettingsForm";
 
-export const metadata = { title: "My vault" };
+export const metadata = { title: "Profile" };
 
 export default async function MyVaultPage() {
   const user = await getSessionUser();
@@ -19,7 +19,7 @@ export default async function MyVaultPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">My vault</p>
+          <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">Profile</p>
           <h1 className="mt-1 text-[30px] font-bold tracking-[-0.02em]">How explorers see you</h1>
         </div>
         {s.moderation === "approved" && (

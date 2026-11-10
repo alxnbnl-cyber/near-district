@@ -34,7 +34,7 @@ export function ExperiencesTab({
         {(
           [
             ["all", "All"],
-            ["treasure_hunt", "Hunts"],
+            ["treasure_hunt", "Missions"],
             ["creative_contest", "Challenges"],
           ] as const
         ).map(([id, label]) => (
@@ -60,7 +60,7 @@ export function ExperiencesTab({
                   type="button"
                   onClick={() => onSelectRoute(r.id)}
                   aria-pressed={sel}
-                  className={`block w-full rounded-[14px] border p-3 text-left transition-all hover:-translate-y-px ${sel ? "border-sky/70 bg-[linear-gradient(100deg,rgb(50_200_239/0.18),rgb(50_200_239/0.03))]" : "border-line bg-[#121722] hover:border-line-strong"}`}
+                  className={`block w-full rounded-[14px] border p-3 text-left transition-all hover:-translate-y-px ${sel ? "border-sky/70 bg-[linear-gradient(100deg,rgb(50_200_239/0.18),rgb(50_200_239/0.03))]" : "border-line bg-[#0b0e13] hover:border-line-strong"}`}
                 >
                   <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-sky">Trail · {r.chapters.length} stops</p>
                   <p className="mt-1 font-semibold">{r.title}</p>
@@ -76,7 +76,7 @@ export function ExperiencesTab({
           })}
         {shown.length === 0 && (
           <li className="px-2 py-8 text-center text-[13px] text-ink-3">
-            No quests open yet.
+            No missions open yet.
             <br />
             <Link href="/organizer" className="font-semibold text-orange-ink hover:underline">
               Host the first one
@@ -87,11 +87,11 @@ export function ExperiencesTab({
           const hunt = e.template === "treasure_hunt";
           const Icon = hunt ? IconFlag : IconStar;
           return (
-            <li key={e.id} className={`rounded-[14px] p-3 ${e.rewards === "token" ? "card-reward" : "border border-line bg-[#121722]"}`}>
+            <li key={e.id} className={`rounded-[14px] p-3 ${e.rewards === "token" ? "card-reward" : "border border-line bg-[#0b0e13]"}`}>
               <button type="button" onClick={() => onFocusSpace(e.spaceId)} className="block w-full text-left">
                 <div className="flex items-center justify-between gap-2">
                   <p className={`flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em] ${hunt ? "text-sky" : "text-violet-ink"}`}>
-                    <Icon size={12} /> {hunt ? "Treasure Hunt" : "Challenge"}
+                    <Icon size={12} /> {hunt ? "Mission" : "Challenge"}
                   </p>
                   <span className="text-[11.5px] text-ink-3">{e.status === "LIVE" ? (e.endsAt ? `Ends ${fmt(e.endsAt)}` : "Live") : `Starts ${fmt(e.startsAt)}`}</span>
                 </div>
@@ -132,7 +132,7 @@ export function AdventuresTab({ signedIn, onFocusSpace }: { signedIn: boolean; o
     if (!signedIn) return;
     api<{ items: Adventure[] }>("/api/me/adventures")
       .then((r) => setItems(r.items))
-      .catch((e) => setError(e instanceof ApiError ? e.message : "Could not load your quests."));
+      .catch((e) => setError(e instanceof ApiError ? e.message : "Could not load your missions."));
   }, [signedIn]);
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -150,11 +150,11 @@ export function AdventuresTab({ signedIn, onFocusSpace }: { signedIn: boolean; o
         ) : !items ? (
           <p className="px-2 py-6 text-center text-[13px] text-ink-3">Loading…</p>
         ) : items.length === 0 ? (
-          <p className="px-2 py-8 text-center text-[13px] text-ink-3">No quests yet. Pick a glowing pin on the map to start.</p>
+          <p className="px-2 py-8 text-center text-[13px] text-ink-3">No missions yet. Pick a glowing pin on the map to start.</p>
         ) : (
           <ul className="yv-stagger space-y-2">
             {items.map((a) => (
-              <li key={a.id} className="rounded-[14px] border border-line bg-[#121722] p-3">
+              <li key={a.id} className="rounded-[14px] border border-line bg-[#0b0e13] p-3">
                 <p className={`text-[10.5px] font-bold uppercase tracking-[0.14em] ${a.template === "treasure_hunt" ? "text-sky" : "text-violet-ink"}`}>{a.badge}</p>
                 <p className="mt-1 font-semibold">{a.title}</p>
                 <p className="text-[12.5px] text-ink-3">

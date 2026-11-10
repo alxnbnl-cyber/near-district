@@ -53,7 +53,7 @@ const REQ_STATUS: Record<HintRequirement["status"], { label: string; cls: string
   FAILED: { label: "Not verified", cls: "text-danger" },
 };
 
-const VERIFY_LABEL = { automatic: "Checked instantly", onchain: "Checked on NEAR", manual: "Approved by the vault team" };
+const VERIFY_LABEL = { automatic: "Checked instantly", onchain: "Checked on NEAR", manual: "Approved by the project team" };
 
 function LockIcon({ open }: { open: boolean }) {
   return (

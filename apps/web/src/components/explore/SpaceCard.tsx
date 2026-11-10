@@ -10,7 +10,7 @@ import { PrizeChip } from "./PrizeChip";
 
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en", { month: "short", day: "numeric" }) : "");
 
-/** Selected vault: the prize first, then the quest and one clear action. */
+/** Selected quest: the prize first, then the quest and one clear action. */
 export function SpaceCard({ b, onClose, className = "" }: { b: WorldBuildingData; onClose(): void; className?: string }) {
   const close = useRef<HTMLButtonElement>(null);
   useEffect(() => close.current?.focus({ preventScroll: true }), [b.spaceId]);
@@ -34,7 +34,7 @@ export function SpaceCard({ b, onClose, className = "" }: { b: WorldBuildingData
         <Link href={`/s/${b.slug}/c/${f.slug}`} className="card-reward mx-4 mt-3 block rounded-[14px] p-4 transition-transform hover:-translate-y-0.5">
           <div className="flex items-center justify-between gap-2">
             <p className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] ${hunt ? "text-sky" : "text-violet-ink"}`}>
-              <Kind size={12} /> {hunt ? "Treasure Hunt" : "Creative Challenge"}
+              <Kind size={12} /> {hunt ? "Mission" : "Creative Challenge"}
             </p>
             <span className="text-[11.5px] text-ink-3">{f.status === "LIVE" ? (f.endsAt ? `Ends ${fmt(f.endsAt)}` : "Live") : `Starts ${fmt(f.startsAt)}`}</span>
           </div>
@@ -44,17 +44,17 @@ export function SpaceCard({ b, onClose, className = "" }: { b: WorldBuildingData
           </div>
         </Link>
       ) : (
-        <p className="mx-4 mt-3 rounded-[14px] border border-dashed border-line-strong p-4 text-[13px] text-ink-3">No quest open here right now. Check back soon.</p>
+        <p className="mx-4 mt-3 rounded-[14px] border border-dashed border-line-strong p-4 text-[13px] text-ink-3">No mission open here right now. Check back soon.</p>
       )}
 
       <div className="flex items-center gap-2 p-4">
         {f ? (
           <Link href={`/s/${b.slug}/c/${f.slug}`} className={buttonClass("primary", "md", "flex-1")}>
-            {f.status === "LIVE" ? (hunt ? "Start the hunt" : "Take the challenge") : "See the quest"}
+            {f.status === "LIVE" ? (hunt ? "Start the mission" : "Take the challenge") : "See the mission"}
           </Link>
         ) : null}
         <Link href={`/s/${b.slug}`} className={buttonClass("dark", "md", f ? "" : "flex-1")}>
-          Visit vault
+          View all
         </Link>
       </div>
     </aside>

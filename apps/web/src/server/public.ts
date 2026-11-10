@@ -2,6 +2,7 @@ import "server-only";
 import { and, campaigns, count, desc, eq, inArray, organizations, participantEntries, spaces, vaultPositions, worldBuildings } from "@yielvy/db";
 import { formatDisplay, type CampaignRules } from "@yielvy/core";
 import { token } from "./near";
+import { demoEnabled, demoPrize } from "./demo";
 import { db } from "./db";
 import { currentRules, effectiveStatus } from "./campaigns";
 
@@ -41,13 +42,14 @@ export async function getPublicCampaign(spaceSlug: string, campaignSlug: string)
   const rules = (await currentRules(database, row.c)) as CampaignRules;
   const [{ n } = { n: 0 }] = await database.select({ n: count() }).from(participantEntries).where(eq(participantEntries.campaignId, row.c.id));
   // Prize pool only from the latest on-chain vault snapshot; never from a form field.
-  let prize: { amount: string; symbol: string } | null = null;
+  let prize: import("@/world/types").Prize | null = null;
   if (row.c.vaultCampaignId !== null) {
     const [snap] = await database.select().from(vaultPositions).where(eq(vaultPositions.campaignId, row.c.id)).orderBy(desc(vaultPositions.observedAt)).limit(1);
     const t = token();
     const v = snap ? snap.bonusAvailable + snap.yieldAvailable + snap.reserved : 0n;
     if (v > 0n) prize = { amount: formatDisplay(v, t.decimals, 0), symbol: t.symbol };
   }
+  if (!prize && demoEnabled()) prize = demoPrize(row.c.id, token().symbol);
   return { campaign: row.c, space: row.space, rules, participants: n, status: effectiveStatus(row.c as never), prize };
 }
 

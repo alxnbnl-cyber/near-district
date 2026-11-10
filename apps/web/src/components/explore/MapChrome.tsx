@@ -26,7 +26,7 @@ export function Legend({ hasRoutes }: { hasRoutes: boolean }) {
   const [open, setOpen] = useState(false);
   const rows: [React.ReactNode, string, string][] = [
     [<IconCube key="c" size={14} />, "#FF9138", "Space (a project's home)"],
-    [<IconFlag key="f" size={14} />, KIND_COLOR.hunt, "Treasure Hunt — live"],
+    [<IconFlag key="f" size={14} />, KIND_COLOR.hunt, "Mission — live"],
     [<IconStar key="s" size={14} />, KIND_COLOR.contest, "Creative Contest — live"],
     [<IconClock key="u" size={14} />, KIND_COLOR.upcoming, "Starting soon"],
   ];

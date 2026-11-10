@@ -289,8 +289,10 @@ export class AtlasScene {
   /** Welcome pose: start wide, then a slow cinematic push-in toward the start point. */
   cinematic() {
     const [x, y] = this.start;
-    this.apply(this.cameraFor(x, y, Math.max(this.fitScale(), 0.18)));
-    this.flyTo(x, y, 0.42, 9000);
+    // Wide, sharp establishing shot that slowly pushes in, never past what the artwork can show crisply.
+    const end = Math.max(this.fitScale(), Math.min(0.42, this.zoomMax * 0.6));
+    this.apply(this.cameraFor(x, y, Math.max(this.fitScale(), end * 0.7)));
+    this.flyTo(x, y, end, 9000);
   }
 
   /** Open zoomed in at the start point (near a live Space). */
@@ -307,6 +309,16 @@ export class AtlasScene {
     const s1 = Math.min(this.zoomMax, Math.max(this.fitScale(), s0 * f));
     const wx = (sx - this.world.x) / s0, wy = (sy - this.world.y) / s0;
     this.apply({ s: s1, tx: sx - wx * s1, ty: sy - wy * s1 });
+  }
+
+  /** Allowed zoom range (for a slider). */
+  zoomRange(): { min: number; max: number } {
+    return { min: this.fitScale() * ZOOM_MIN_FACTOR, max: this.zoomMax };
+  }
+
+  /** Zoom to an absolute scale around the screen centre. */
+  zoomToScale(s: number) {
+    this.zoomBy(s / this.world.scale.x);
   }
 
   panBy(dx: number, dy: number) {

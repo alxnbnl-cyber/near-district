@@ -193,7 +193,7 @@ function buildRule(q: QuestionInput, salt: string) {
 
 function assertEditable(c: typeof campaigns.$inferSelect) {
   if (c.status !== "DRAFT" && c.status !== "PENDING_FUNDING") {
-    throw conflict("Questions are locked once a campaign is published, so every participant answers the same hunt.");
+    throw conflict("Questions are locked once a campaign is published, so every participant plays the same mission.");
   }
 }
 
@@ -204,7 +204,7 @@ export async function addQuestion(db: Db, user: SessionUser, c: typeof campaigns
   const rule = buildRule(q, salt);
   return db.transaction(async (tx) => {
     const existing = await tx.select({ position: treasureQuestions.position }).from(treasureQuestions).where(eq(treasureQuestions.campaignId, c.id));
-    if (existing.length >= 50) throw badRequest("A hunt can have at most 50 questions.");
+    if (existing.length >= 50) throw badRequest("A mission can have at most 50 clues.");
     const position = existing.length ? Math.max(...existing.map((e) => e.position)) + 1 : 0;
     const [row] = await tx
       .insert(treasureQuestions)

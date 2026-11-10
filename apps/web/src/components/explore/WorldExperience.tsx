@@ -10,11 +10,12 @@ import { Logo } from "@/components/brand/Logo";
 import { UserMenu } from "@/components/shell/UserMenu";
 import { NotificationBell } from "@/components/shell/NotificationBell";
 import { MarkerLayer } from "./MarkerLayer";
-import { ZoomControls } from "./MapChrome";
+import { StatusBar, ZoomSlider } from "./GameHud";
 import { DiscoverPanel, type Filter } from "./DiscoverPanel";
 import { AdventuresTab, ExperiencesTab } from "./PanelTabs";
 import { SpaceCard } from "./SpaceCard";
 import { ExpeditionCard } from "./ExpeditionCard";
+import { MapHud } from "./MapHud";
 import { WelcomeOverlay } from "./WelcomeOverlay";
 import { IconCompass, IconFlag, IconMap, IconSearch } from "./icons";
 
@@ -23,7 +24,7 @@ const PANEL_W = 380;
 export type Tab = "discover" | "experiences" | "adventures";
 const TABS: { id: Tab; label: string; icon: typeof IconCompass }[] = [
   { id: "discover", label: "Explore", icon: IconCompass },
-  { id: "experiences", label: "Quests", icon: IconFlag },
+  { id: "experiences", label: "Missions", icon: IconFlag },
   { id: "adventures", label: "Me", icon: IconMap },
 ];
 
@@ -50,7 +51,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [routeId, setRouteId] = useState<string | null>(null);
-  /** Where "Explore Partner Space" came from; only our own hunt pages are accepted. */
+  /** Where "Explore Partner Space" came from; only our own mission pages are accepted. */
   const [back, setBack] = useState<string | null>(null);
   const deepLinked = useRef<{ space?: string; expedition?: string }>({});
 
@@ -115,7 +116,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
     scene.setInteractive(mode === "explore");
     const w = host.current?.clientWidth ?? 1200;
     scene.focusPadding =
-      mode === "welcome" ? { left: mobile ? 0 : w * 0.42, right: 0, bottom: 0 } : { left: 0, right: !mobile ? PANEL_W + 24 : 0, bottom: mobile && selectedId ? 300 : 0 };
+      mode === "welcome" ? { left: mobile ? 0 : w * 0.42, right: 0, bottom: 0 } : { left: 0, right: 0, bottom: mobile && selectedId ? 300 : 0 };
   }, [scene, mode, mobile, selectedId]);
 
   const route = routeId ? (data.routes.find((r) => r.id === routeId) ?? null) : null;
@@ -123,13 +124,14 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
 
   // Areas: every live Space normally; only the expedition's destinations while one is selected.
   useEffect(() => {
+    if (mode !== "explore") return scene?.setAreas([], null); // keep the welcome scene clean
     scene?.setAreas(
       data.buildings
         .filter((b) => !routeSpaces || routeSpaces.has(b.spaceId))
         .map((b) => ({ id: b.spaceId, x: b.x * atlas.width, y: b.y * atlas.height, live: routeSpaces ? true : b.liveCampaigns > 0 })),
       selectedId,
     );
-  }, [scene, data, atlas, selectedId, routeSpaces]);
+  }, [scene, data, atlas, selectedId, routeSpaces, mode]);
 
   // Routes are a navigation layer: drawn only for the selected, published expedition.
   useEffect(() => {
@@ -156,7 +158,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
       const xs = bs.map((b) => b!.x * atlas.width), ys = bs.map((b) => b!.y * atlas.height);
       const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
       const el = host.current;
-      const vw = (el?.clientWidth ?? 1200) - (mobile ? 0 : PANEL_W + 24), vh = el?.clientHeight ?? 800;
+      const vw = el?.clientWidth ?? 1200, vh = el?.clientHeight ?? 800;
       const s = Math.max(0.12, Math.min(0.9, Math.min(vw / (x1 - x0 + 900), vh / (y1 - y0 + 900))));
       scene.flyTo((x0 + x1) / 2, (y0 + y1) / 2, s, 900);
     },
@@ -255,6 +257,8 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
   };
 
   const exploring = mode === "explore";
+  /** The map stops where the side panel begins (desktop); the panel never covers it. */
+  const mapRight = exploring && !mobile ? PANEL_W : 0;
   const empty = data.buildings.length === 0;
   const openTab = (t: Tab) => {
     setTab(t);
@@ -296,16 +300,27 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
         aria-roledescription="map"
         aria-label="Yielvy map. Drag or use arrow keys to pan, scroll or plus and minus to zoom."
         onKeyDown={onMapKey}
-        className={`absolute inset-0 outline-none transition-opacity duration-700 ${scene ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-y-0 left-0 outline-none transition-[opacity,right] duration-700 ${scene ? "opacity-100" : "opacity-0"}`}
+        // tactical grade: grey map so the orange pins pop
+        style={{ right: mapRight, filter: "grayscale(1) contrast(1.12) brightness(1.08)", transition: "filter 700ms" }}
       />
       {/* soft vignette: darkens the edges and corners so the map feels framed (never blocks input) */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none absolute inset-y-0 left-0"
         style={{
+          right: mapRight,
           background:
             "radial-gradient(ellipse 75% 70% at 50% 50%, transparent 55%, rgb(5 7 11 / 0.55) 85%, rgb(5 7 11 / 0.85) 100%), linear-gradient(180deg, rgb(5 7 11 / 0.55), transparent 14%, transparent 86%, rgb(5 7 11 / 0.6))",
         }}
+      />
+      <MapHud
+        scene={scene}
+        right={mapRight}
+        visible={exploring || mode === "welcome"}
+        compact={!exploring}
+        title="Explore map"
+        subtitle={`${stats.spaces} project${stats.spaces === 1 ? "" : "s"} · ${stats.live} live mission${stats.live === 1 ? "" : "s"}`}
       />
       {failed && (
         <div className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-ink-3">
@@ -313,7 +328,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
         </div>
       )}
 
-      <div className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${exploring ? "opacity-100" : "opacity-0"}`}>
+      <div className={`pointer-events-none absolute inset-y-0 left-0 transition-opacity duration-500 ${exploring ? "opacity-100" : "opacity-0"}`} style={{ right: mapRight }}>
         <MarkerLayer
           atlas={atlas}
           scene={scene}
@@ -344,12 +359,12 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
           {!mobile && (
             <aside
               aria-label="Explore panel"
-              className="yv-enter absolute inset-y-0 right-0 z-20 flex flex-col overflow-hidden border-l border-line bg-[#0b0f15f5] shadow-pop backdrop-blur"
+              className="yv-enter absolute inset-y-0 right-0 z-20 flex flex-col overflow-hidden border-l border-[#1a2029] bg-[#05070a] shadow-pop"
               style={{ width: PANEL_W }}
             >
               <div className="flex items-center gap-2 px-4 pt-4">
                 <label className="relative block flex-1">
-                  <span className="sr-only">Search vaults and quests</span>
+                  <span className="sr-only">Search missions and projects</span>
                   <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
                   <input
                     ref={searchRef}
@@ -359,14 +374,14 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
                       setQuery(e.target.value);
                       setTab("discover");
                     }}
-                    placeholder="Search vaults & quests"
-                    className="h-10 w-full rounded-[12px] border border-line-strong bg-[#121722] pl-9 pr-3 text-[13.5px] text-ink placeholder:text-ink-3 focus:border-orange focus:outline-none focus:ring-2 focus:ring-orange/25"
+                    placeholder="Search missions & projects"
+                    className="h-10 w-full rounded-[12px] border border-line-strong bg-[#0b0e13] pl-9 pr-3 text-[13.5px] text-ink placeholder:text-ink-3 focus:border-orange focus:outline-none focus:ring-2 focus:ring-orange/25"
                   />
                 </label>
                 {viewer && <NotificationBell />}
                 <UserMenu user={viewer} />
               </div>
-              <nav aria-label="Sections" className="mx-4 mt-3 grid grid-cols-3 gap-1 rounded-[12px] bg-[#121722] p-1">
+              <nav aria-label="Sections" className="mx-4 mt-3 grid grid-cols-3 gap-1 rounded-[12px] bg-[#0b0e13] p-1">
                 {TABS.map((t) => (
                   <button
                     key={t.id}
@@ -417,7 +432,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
             </>
           )}
 
-          {/* selected vault */}
+          {/* selected quest */}
           {selected &&
             (mobile ? (
               <div className="absolute inset-x-0 bottom-0 z-30 p-2">
@@ -435,7 +450,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
               href={back}
               className="yv-pop absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-orange/60 bg-[#0b0f15f2] px-4 py-2 text-[13px] font-semibold text-orange shadow-pop backdrop-blur hover:bg-[#151b25]"
             >
-              ← Back to your quest
+              ← Back to your mission
             </Link>
           )}
 
@@ -447,16 +462,23 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
           )}
 
           {!mobile && (
-            <div className="absolute bottom-4 left-4 z-20">
-              <ZoomControls scene={scene} />
+            <div className="absolute bottom-6 left-6 z-20">
+              <ZoomSlider scene={scene} />
+            </div>
+          )}
+
+          {/* game status bar: real rewards and missions for the player */}
+          {!mobile && (
+            <div className="pointer-events-none absolute top-5 z-30 flex justify-center" style={{ left: 0, right: mapRight }}>
+              <StatusBar viewer={data.viewer} live={stats.live} demo={data.demo} />
             </div>
           )}
 
           {empty && (
             <div className="yv-pop absolute left-1/2 top-1/2 z-20 w-[min(420px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 rounded-[18px] border border-line bg-[#0b0f15f2] p-6 text-center shadow-pop backdrop-blur">
-              <h2 className="text-xl font-semibold">The map is waiting for its first vault.</h2>
+              <h2 className="text-xl font-semibold">The map is waiting for its first mission.</h2>
               <Link href="/organizer" className={buttonClass("primary", "md", "mt-4")}>
-                Open a vault
+                Host a mission
               </Link>
             </div>
           )}

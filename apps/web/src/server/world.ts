@@ -1,7 +1,8 @@
 import "server-only";
-import { and, campaigns, campaignVersions, desc, eq, inArray, organizations, spaces, vaultPositions, worldBuildings } from "@yielvy/db";
+import { and, campaigns, campaignVersions, count, desc, eq, inArray, organizations, participantEntries, rewardAllocations, rewardClaims, spaces, vaultPositions, worldBuildings } from "@yielvy/db";
 import { formatDisplay } from "@yielvy/core";
 import { token } from "./near";
+import { demoEnabled, demoPrize } from "./demo";
 import { lotPosition, type DistrictId } from "@yielvy/core/world";
 import type { CampaignRules } from "@yielvy/core";
 import { db } from "./db";
@@ -47,9 +48,14 @@ export async function getWorldData(viewerId: string | null = null): Promise<Worl
   const t = token();
   const prizeRaw = new Map<string, bigint>();
   for (const s of snaps) if (!prizeRaw.has(s.campaignId)) prizeRaw.set(s.campaignId, s.bonusAvailable + s.yieldAvailable + s.reserved);
-  const prizeOf = (id: string): Prize | null => {
+  // Local demo mode only: sample prizes so the map can be judged with rewards on it.
+  // Never enabled in production; every sample carries demo: true and is tagged DEMO in the UI.
+  const demo = demoEnabled();
+  const kindOf = (rules: unknown): Prize["kind"] => ((rules as CampaignRules | null)?.fundingSource === "yield" ? "yield" : "budget");
+  const prizeOf = (id: string, rules?: unknown): Prize | null => {
     const v = prizeRaw.get(id);
-    return v && v > 0n ? { amount: formatDisplay(v, t.decimals, 0), symbol: t.symbol } : null;
+    if (v && v > 0n) return { amount: formatDisplay(v, t.decimals, 0), symbol: t.symbol, kind: kindOf(rules) };
+    return demo ? demoPrize(id, t.symbol) : null;
   };
 
   const now = Date.now();
@@ -85,7 +91,7 @@ export async function getWorldData(viewerId: string | null = null): Promise<Worl
           startsAt: pick.c.startsAt?.toISOString() ?? null,
           endsAt: pick.c.endsAt?.toISOString() ?? null,
           rewards: (pick.rules as CampaignRules | null)?.fundingSource && (pick.rules as CampaignRules).fundingSource !== "none" ? "token" : "none",
-          prize: prizeOf(pick.c.id),
+          prize: prizeOf(pick.c.id, pick.rules),
         }
       : null;
     const pos = lotPosition(r.districtId as DistrictId, r.plotIndex);
@@ -106,7 +112,7 @@ export async function getWorldData(viewerId: string | null = null): Promise<Worl
       upcomingCampaigns: upcoming.length,
       templates: [...new Set(live.map((x) => x.c.template))],
       featured,
-      topPrize: live.map((x) => ({ p: prizeOf(x.c.id), raw: prizeRaw.get(x.c.id) ?? 0n })).filter((x) => x.p).sort((a, b) => (b.raw > a.raw ? 1 : -1))[0]?.p ?? null,
+      topPrize: live.map((x) => ({ p: prizeOf(x.c.id, x.rules), raw: prizeRaw.get(x.c.id) ?? 0n })).filter((x) => x.p).sort((a, b) => (b.raw > a.raw ? 1 : -1))[0]?.p ?? null,
     };
   });
   const bySpace = new Map(rows.map((r) => [r.spaceId, r]));
@@ -123,13 +129,28 @@ export async function getWorldData(viewerId: string | null = null): Promise<Worl
       startsAt: x.c.startsAt?.toISOString() ?? null,
       endsAt: x.c.endsAt?.toISOString() ?? null,
       rewards: ((x.rules as CampaignRules | null)?.fundingSource ?? "none") === "none" ? ("none" as const) : ("token" as const),
-      prize: prizeOf(x.c.id),
+      prize: prizeOf(x.c.id, x.rules),
       spaceId: x.c.spaceId,
       spaceSlug: bySpace.get(x.c.spaceId)!.slug,
       spaceName: bySpace.get(x.c.spaceId)!.name,
     }))
     .sort((a, b) => (a.status === b.status ? (a.endsAt ?? "").localeCompare(b.endsAt ?? "") : a.status === "LIVE" ? -1 : 1));
-  const visible = new Set(buildings.map((b) => b.spaceId));
+  // Only places with something to play appear on the map (a live or upcoming quest).
+  const playable = buildings.filter((b) => b.liveCampaigns + b.upcomingCampaigns > 0);
+  const visible = new Set(playable.map((b) => b.spaceId));
   const routes = (await publicExpeditions(database, viewerId)).filter((r) => r.chapters.every((c) => visible.has(c.spaceId)));
-  return { buildings, experiences, routes, generatedAt: new Date().toISOString() };
+  // The player's real progress for the game HUD.
+  let viewer: WorldData["viewer"] = null;
+  if (viewerId) {
+    const [done] = await database.select({ n: count() }).from(participantEntries).where(and(eq(participantEntries.userId, viewerId), eq(participantEntries.status, "completed")));
+    const [started] = await database.select({ n: count() }).from(participantEntries).where(eq(participantEntries.userId, viewerId));
+    const claimed = await database
+      .select({ amount: rewardAllocations.amount })
+      .from(rewardClaims)
+      .innerJoin(rewardAllocations, eq(rewardAllocations.id, rewardClaims.allocationId))
+      .where(and(eq(rewardAllocations.userId, viewerId), eq(rewardClaims.state, "CONFIRMED")));
+    const total = claimed.reduce((s, r) => s + r.amount, 0n);
+    viewer = { missionsCompleted: done?.n ?? 0, missionsStarted: started?.n ?? 0, rewardsClaimed: formatDisplay(total, t.decimals, 2), symbol: t.symbol };
+  }
+  return { buildings: playable, experiences, routes, viewer, demo, generatedAt: new Date().toISOString() };
 }

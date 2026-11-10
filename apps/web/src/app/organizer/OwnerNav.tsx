@@ -5,18 +5,18 @@ import { usePathname } from "next/navigation";
 
 const NAV = [
   ["/organizer", "Overview"],
-  ["/organizer/campaigns", "Quests"],
+  ["/organizer/campaigns", "Missions"],
   ["/organizer/funding", "Prize funding"],
   ["/organizer/cooperation", "Cooperation"],
   ["/organizer/reviews", "Reviews"],
-  ["/organizer/space", "My vault"],
+  ["/organizer/space", "Profile"],
   ["/organizer/settings", "Settings"],
 ] as const;
 
 export function OwnerNav() {
   const path = usePathname() ?? "";
   return (
-    <nav aria-label="Vault owner">
+    <nav aria-label="Project owner">
       <ul className="flex gap-1 overflow-x-auto md:flex-col">
         {NAV.map(([href, label]) => {
           const active = href === "/organizer" ? path === href : path.startsWith(href);

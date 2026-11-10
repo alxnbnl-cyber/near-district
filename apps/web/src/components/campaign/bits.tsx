@@ -2,10 +2,10 @@ import type { CampaignRules, CampaignState } from "@yielvy/core";
 import { Badge } from "@/components/ui";
 
 export const TEMPLATE_LABEL: Record<string, string> = {
-  treasure_hunt: "Treasure Hunt",
+  treasure_hunt: "Mission",
   creative_contest: "Creative Challenge",
   product_explorer: "Product Explorer",
-  more_experiences: "More quests",
+  more_experiences: "More missions",
 };
 
 export function StatusBadge({ status }: { status: CampaignState }) {

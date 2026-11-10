@@ -48,7 +48,7 @@ export default async function MyAdventures() {
         {hunts.length === 0 && entries.length === 0 ? (
           <Card className="mt-8">
             <EmptyState title="Your story starts on the map" action={<Link href="/explore" className={buttonClass("primary")}>Go exploring</Link>}>
-              Pick a glowing vault on the map and start a hunt.
+              Pick a glowing mission pin on the map to start.
             </EmptyState>
           </Card>
         ) : (

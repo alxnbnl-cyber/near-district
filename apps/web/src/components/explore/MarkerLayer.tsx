@@ -21,10 +21,10 @@ const CLUSTER_BELOW = 0.14;
 const LABEL_FROM = 0.25;
 
 const KIND_TEXT: Record<MarkerKind, string> = {
-  hunt: "Treasure Hunt · live",
+  hunt: "Mission · live",
   contest: "Challenge · live",
   upcoming: "Opening soon",
-  space: "Vault",
+  space: "Project",
 };
 
 interface Props {
@@ -105,6 +105,10 @@ export function MarkerLayer({ atlas, scene, buildings, visibleIds, selectedId, i
   );
 }
 
+const HEX = "polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)";
+const PLATE = "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))";
+
+/** Game-style mission marker: hex badge on a stem, radar ping for live missions, angled info plate. */
 const Pin = memo(function Pin({
   b,
   style,
@@ -121,56 +125,84 @@ const Pin = memo(function Pin({
   onSelect(id: string): void;
 }) {
   const live = b.liveCampaigns > 0;
-  const fill = live || selected ? "#FF9138" : "#5d6879";
-  const size = selected ? 58 : live ? 46 : 38;
+  const prize = live ? b.topPrize : null;
+  const funded = live && (b.featured?.rewards === "token" || Boolean(prize));
+  const tone = funded ? "#FFC24B" : live ? "#FF9138" : "#7C8AA0";
+  const size = selected ? 50 : live ? 42 : 32;
   const Icon = b.kind === "hunt" ? IconFlag : b.kind === "contest" ? IconStar : b.kind === "upcoming" ? IconClock : IconCube;
+  const typeLabel = b.kind === "contest" ? "Challenge" : b.kind === "upcoming" ? "Mission · soon" : "Mission";
   return (
-    <div className="absolute left-0 top-0" style={{ ...style, zIndex: selected ? 40 : live ? 20 : 10 }}>
+    <div className="absolute left-0 top-0" style={{ ...style, zIndex: selected ? 40 : funded ? 30 : live ? 20 : 10 }}>
       <button
         type="button"
         disabled={!interactive}
         onClick={() => onSelect(b.spaceId)}
-        aria-label={`${b.name}${live ? `, ${KIND_TEXT[b.kind]}` : ""}`}
+        aria-label={`${b.name}${live ? `, ${KIND_TEXT[b.kind]}` : ""}${prize ? `, reward ${prize.amount} ${prize.symbol}` : ""}`}
         aria-pressed={selected}
         className="group pointer-events-auto relative block outline-none"
-        style={{ transform: `translate(-50%, -100%)` }}
+        style={{ transform: "translate(-50%, -100%)" }}
       >
-        {/* ground ring */}
-        <span
-          aria-hidden
-          className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1/2 rounded-[50%] border-2"
-          style={{ width: size * 0.9, height: size * 0.32, borderColor: selected ? "rgb(255 145 56 / .8)" : "rgb(255 255 255 / .35)", background: selected ? "rgb(255 145 56 / .18)" : "rgb(0 0 0 / .35)" }}
-        />
-        {/* teardrop pin */}
-        <svg width={size} height={size * 1.25} viewBox="0 0 40 50" className="relative block drop-shadow-[0_8px_14px_rgb(0_0_0/.75)] transition-transform duration-150 group-hover:-translate-y-1 group-focus-visible:-translate-y-1">
-          <path d="M20 49C20 49 3 30.5 3 18.5a17 17 0 0 1 34 0C37 30.5 20 49 20 49Z" fill={fill} stroke="#0b0f15" strokeWidth="2" />
-          <circle cx="20" cy="18.5" r="11.5" fill="#0b0f15" />
-        </svg>
-        <span className="absolute left-1/2 grid -translate-x-1/2 place-items-center overflow-hidden rounded-full" style={{ top: size * 0.155, width: size * 0.56, height: size * 0.56, color: fill }}>
-          {b.logoUrl && selected ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={b.logoUrl} alt="" className="size-full object-cover" />
-          ) : (
-            <Icon size={size * 0.34} />
+        {/* ground marker + radar ping */}
+        <span aria-hidden className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1/2">
+          <span className="block rounded-[50%] border" style={{ width: size * 0.95, height: size * 0.34, borderColor: `${tone}aa`, background: `${tone}22` }} />
+          {live && (
+            <span
+              className="absolute inset-0 rounded-[50%] border-2"
+              style={{ borderColor: tone, animation: "yv-radar 2.2s ease-out infinite" }}
+            />
           )}
         </span>
-        {/* name label */}
+        {/* stem */}
+        <span aria-hidden className="absolute left-1/2 top-full block w-[2px] -translate-x-1/2" style={{ height: size * 0.36, marginTop: -size * 0.36, background: `linear-gradient(${tone}, transparent)` }} />
+        {/* hex badge */}
         <span
-          className={`pointer-events-none absolute top-[18%] whitespace-nowrap rounded-[10px] border border-white/10 bg-[#0b0f15f0] px-3 py-1.5 text-left shadow-[0_8px_20px_-8px_rgb(0_0_0/.9)] transition-opacity duration-150 ${
-            showLabel || selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
-          }`}
-          style={{ left: size * 0.86 }}
+          className="relative block transition-transform duration-150 group-hover:-translate-y-1 group-focus-visible:-translate-y-1"
+          style={{ width: size, height: size * 1.12, marginBottom: size * 0.36, filter: `drop-shadow(0 0 ${selected ? 14 : 8}px ${tone}88) drop-shadow(0 6px 10px rgb(0 0 0 / .7))` }}
         >
-          <span className="block text-[13px] font-semibold leading-tight text-ink">{b.name}</span>
-          {live && b.featured?.rewards === "token" ? (
-            <span className="block text-[11.5px] font-bold leading-tight text-reward">🏆 {b.topPrize ? `${b.topPrize.amount} ${b.topPrize.symbol}` : "Token prize"}</span>
-          ) : (
-            <span className="block text-[11px] leading-tight" style={{ color: live ? KIND_COLOR[b.kind] : "#7C8AA0" }}>
-              {KIND_TEXT[b.kind]}
+          <span className="absolute inset-0" style={{ clipPath: HEX, background: tone }} />
+          <span className="absolute inset-[2.5px] grid place-items-center" style={{ clipPath: HEX, background: "linear-gradient(180deg,#141922,#07090c)", color: tone }}>
+            {b.logoUrl && selected ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={b.logoUrl} alt="" className="size-[62%] rounded-sm object-cover" />
+            ) : (
+              <Icon size={size * 0.42} />
+            )}
+          </span>
+          {funded && (
+            <span className="absolute -right-1.5 -top-1 grid size-4 place-items-center rounded-full bg-reward text-[9px] font-black text-[#2a1600] shadow-[0_0_8px_rgb(255_194_75/.8)]">
+              $
             </span>
           )}
         </span>
+        {/* info plate */}
+        <span
+          className={`pointer-events-none absolute top-0 whitespace-nowrap bg-[#05070af2] px-3 py-2 text-left font-mono transition-opacity duration-150 ${
+            showLabel || selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+          }`}
+          style={{ left: size + 8, clipPath: PLATE, boxShadow: `inset 0 0 0 1px ${tone}55` }}
+        >
+          <span className="flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-[0.2em]" style={{ color: tone }}>
+            {live && <span className="size-1.5 animate-pulse rounded-full" style={{ background: tone }} />}
+            {typeLabel}
+            {live ? " · live" : ""}
+          </span>
+          <span className="mt-0.5 block font-display text-[13.5px] font-bold uppercase tracking-[0.03em] text-ink">{b.featured?.title ?? b.name}</span>
+          {b.featured && <span className="block text-[9.5px] uppercase tracking-[0.16em] text-[rgb(214_219_225/.5)]">{b.name}</span>}
+          {prize ? (
+            <span className="mt-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.1em]">
+              <span className="text-[rgb(214_219_225/.55)]">{prize.kind === "yield" ? "Yield" : "Reward"}</span>
+              <span className="text-reward">
+                {prize.amount} {prize.symbol}
+              </span>
+              {prize.apy && <span className="text-mint-ink">{prize.apy} APY</span>}
+              {prize.demo && <span className="rounded-sm bg-sky/20 px-1 text-[8.5px] tracking-[0.18em] text-sky-ink">Demo</span>}
+            </span>
+          ) : funded ? (
+            <span className="mt-1 block text-[11px] font-bold uppercase tracking-[0.1em] text-reward">Token reward</span>
+          ) : null}
+        </span>
       </button>
+      <style>{`@keyframes yv-radar { 0% { transform: scale(.6); opacity: .9 } 100% { transform: scale(2.6); opacity: 0 } }`}</style>
     </div>
   );
 });

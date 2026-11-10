@@ -62,7 +62,7 @@ export default async function ExpeditionPage({ params }: { params: Promise<{ slu
                     {c.title} {c.reward && <Badge tone="gold">Prize stop</Badge>}
                   </p>
                   <p className="text-[12.5px] text-ink-3">
-                    {c.spaceName} · {c.template === "treasure_hunt" ? "Treasure Hunt" : "Creative Challenge"} · {c.completed ? "Completed" : c.unlocked ? "Open" : "Unlocks after the previous stop"}
+                    {c.spaceName} · {c.template === "treasure_hunt" ? "Mission" : "Creative Challenge"} · {c.completed ? "Completed" : c.unlocked ? "Open" : "Unlocks after the previous stop"}
                   </p>
                 </div>
                 <Link href={`/s/${c.spaceSlug}/c/${c.campaignSlug}`} className={buttonClass(c.unlocked && !c.completed ? "primary" : "dark", "sm")}>
@@ -76,7 +76,7 @@ export default async function ExpeditionPage({ params }: { params: Promise<{ slu
         <section className="mt-6 text-[13.5px] leading-relaxed text-ink-2">
           <h2 className="text-base font-semibold text-ink">How it works</h2>
           <p className="mt-1">
-            Each stop is a quest run by the vault that hosts it. Finish a stop and the next one opens.
+            Each stop is a mission run by the project that hosts it. Finish a stop and the next one opens.
           </p>
           {reward ? (
             <p className="mt-2">

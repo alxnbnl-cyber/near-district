@@ -44,8 +44,8 @@ export default async function MyRewards() {
         )}
         {rows.length === 0 ? (
           <Card className="mt-8">
-            <EmptyState title="No rewards yet" action={<Link href="/explore?tab=experiences" className={buttonClass("secondary")}>Find a quest</Link>}>
-              Finish a hunt or enter a contest that offers token rewards.
+            <EmptyState title="No rewards yet" action={<Link href="/explore?tab=experiences" className={buttonClass("secondary")}>Find a mission</Link>}>
+              Finish a mission or enter a contest that offers token rewards.
             </EmptyState>
           </Card>
         ) : (

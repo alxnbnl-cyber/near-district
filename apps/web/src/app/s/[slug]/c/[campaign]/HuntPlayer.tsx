@@ -80,7 +80,7 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
     if (signedIn) void load();
   }, [signedIn, load]);
 
-  // Coming back from another vault: refresh hints without losing the current clue.
+  // Coming back from another quest: refresh hints without losing the current clue.
   useEffect(() => {
     if (!signedIn) return;
     const onVisible = () => document.visibilityState === "visible" && void load();
@@ -105,7 +105,7 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
       <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
         <TreasureMap size={150} className="shrink-0" />
         <div>
-          <h2 className="text-2xl font-bold">Ready to hunt?</h2>
+          <h2 className="text-2xl font-bold">Ready for the mission?</h2>
           <p className="mt-1 text-ink-2">Sign in to start. Your progress is saved — come back any time.</p>
           <Link href={`/signin?next=${encodeURIComponent(returnTo)}`} className={buttonClass("primary", "lg", "mt-4 yv-glow")}>
             Sign in & start
@@ -125,7 +125,7 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
           <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-sky">{state.total} clues · 1 treasure</p>
           <h2 className="mt-1 text-[28px] font-bold leading-tight">Follow the trail to the prize.</h2>
           {status !== "LIVE" ? (
-            <p className="mt-4 font-semibold text-ink-3">{status === "SCHEDULED" ? "This hunt hasn't started yet." : "This hunt is closed."}</p>
+            <p className="mt-4 font-semibold text-ink-3">{status === "SCHEDULED" ? "This mission hasn't started yet." : "This mission is closed."}</p>
           ) : (
             <Button
               size="lg"
@@ -138,13 +138,13 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
                   await api(`/api/campaigns/${campaignId}/join`, { method: "POST" });
                   await load();
                 } catch (e) {
-                  setFeedback({ tone: "danger", text: e instanceof ApiError ? e.message : "Couldn't start the hunt." });
+                  setFeedback({ tone: "danger", text: e instanceof ApiError ? e.message : "Couldn't start the mission." });
                 } finally {
                   setBusy(false);
                 }
               }}
             >
-              {busy ? "Starting…" : "Start the hunt →"}
+              {busy ? "Starting…" : "Start the mission →"}
             </Button>
           )}
           {feedback && <p className="mt-3 text-[14px] text-danger">{feedback.text}</p>}
@@ -159,13 +159,13 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
         <Trail total={state.total} progress={state.total} done />
         <TreasureChest size={180} className="yv-pop mx-auto mt-6" />
         <h2 className="mt-2 text-[30px] font-bold">You cracked it!</h2>
-        <p className="mx-auto mt-1 max-w-md text-ink-2">Every clue solved. Winners are picked by the quest&apos;s rules once it ends — we&apos;ll notify you.</p>
+        <p className="mx-auto mt-1 max-w-md text-ink-2">Every clue solved. Winners are picked by the mission&apos;s rules once it ends — we&apos;ll notify you.</p>
         <div className="mt-5 flex justify-center gap-2">
           <Link href="/me/rewards" className={buttonClass("primary", "md")}>
             My rewards
           </Link>
           <Link href="/explore" className={buttonClass("dark", "md")}>
-            Find another vault
+            Find another mission
           </Link>
         </div>
       </div>,
@@ -173,7 +173,7 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
   }
 
   const q = state.question;
-  if (!q) return shell(<p className="text-ink-3">This hunt is not available right now.</p>);
+  if (!q) return shell(<p className="text-ink-3">This mission is not available right now.</p>);
   const limited = q.maxAttempts < 100;
   const out = q.attemptsUsed >= q.maxAttempts;
 

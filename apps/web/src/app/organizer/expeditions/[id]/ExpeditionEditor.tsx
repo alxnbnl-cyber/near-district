@@ -83,7 +83,7 @@ export function ExpeditionEditor({ id, canManage }: { id: string; canManage: boo
       {myInvite && myInvite.p.status === "PENDING" && draft && (
         <Card className="p-5">
           <h2 className="text-lg font-semibold">You&apos;re invited to add a stop</h2>
-          <p className="mt-1 text-[13.5px] text-ink-2">Pick one of your live quests. It stays yours and keeps working on its own.</p>
+          <p className="mt-1 text-[13.5px] text-ink-2">Pick one of your live missions. It stays yours and keeps working on its own.</p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <select className={inputClass} value={pick} onChange={(ev) => setPick(ev.target.value)} disabled={!canManage}>
               <option value="">Choose a campaign…</option>
@@ -91,7 +91,7 @@ export function ExpeditionEditor({ id, canManage }: { id: string; canManage: boo
                 <option key={c.id} value={c.id}>{c.title}</option>
               ))}
             </select>
-            <Button disabled={!canManage || busy || !pick} onClick={() => post({ action: "respond", decision: "accept", campaignId: pick }, "You joined the trail.")}>Accept & add my quest</Button>
+            <Button disabled={!canManage || busy || !pick} onClick={() => post({ action: "respond", decision: "accept", campaignId: pick }, "You joined the trail.")}>Accept & add my mission</Button>
             <Button variant="secondary" disabled={!canManage || busy} onClick={() => post({ action: "respond", decision: "reject" }, "Invitation declined.")}>Decline</Button>
           </div>
         </Card>
@@ -107,7 +107,7 @@ export function ExpeditionEditor({ id, canManage }: { id: string; canManage: boo
                 <p className="font-medium">
                   {c.title} {e.rewardCampaignId === c.ch.campaignId && <Badge tone="gold">Prize stop</Badge>}
                 </p>
-                <p className="text-[12.5px] text-ink-3">{c.spaceName} · {c.template === "treasure_hunt" ? "Treasure Hunt" : "Creative Contest"}</p>
+                <p className="text-[12.5px] text-ink-3">{c.spaceName} · {c.template === "treasure_hunt" ? "Mission" : "Creative Contest"}</p>
               </div>
               {draft && canManage && (
                 <div className="flex gap-1">
@@ -129,7 +129,7 @@ export function ExpeditionEditor({ id, canManage }: { id: string; canManage: boo
         {primary && draft && canManage && (
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <select className={inputClass} value={pick} onChange={(ev) => setPick(ev.target.value)}>
-              <option value="">Add one of your live quests…</option>
+              <option value="">Add one of your live missions…</option>
               {mine.filter((c) => !used.has(c.id)).map((c) => (
                 <option key={c.id} value={c.id}>{c.title}</option>
               ))}
@@ -148,11 +148,11 @@ export function ExpeditionEditor({ id, canManage }: { id: string; canManage: boo
                 {p.name} <Badge tone={p.p.status === "ACCEPTED" ? "mint" : p.p.status === "PENDING" ? "gold" : "neutral"}>{p.p.status}</Badge>
               </li>
             ))}
-            {d.partners.length === 0 && <li className="text-[13.5px] text-ink-3">Invite a partner to add their quest as a stop.</li>}
+            {d.partners.length === 0 && <li className="text-[13.5px] text-ink-3">Invite a partner to add their mission as a stop.</li>}
           </ul>
           {draft && canManage && (
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-              <Field label="Partner vault link" htmlFor="ex-partner">
+              <Field label="Partner project link" htmlFor="ex-partner">
                 <input id="ex-partner" className={inputClass} value={partnerSlug} onChange={(ev) => setPartnerSlug(ev.target.value.trim().toLowerCase())} placeholder="their-space" />
               </Field>
               <Button variant="secondary" disabled={busy || partnerSlug.length < 3} onClick={() => post({ action: "invite", organizationSlug: partnerSlug }, "Invitation sent.").then(() => setPartnerSlug(""))}>Invite</Button>
@@ -165,7 +165,7 @@ export function ExpeditionEditor({ id, canManage }: { id: string; canManage: boo
         <Card className="p-5">
           <h2 className="text-lg font-semibold">Prize stop (optional)</h2>
           <p className="mt-1 text-[13.5px] text-ink-2">
-            Make your own last quest the prize stop: only players who finished every earlier stop can enter it. Its prize comes from that quest&apos;s own funding.
+            Make your own last mission the prize stop: only players who finished every earlier stop can enter it. Its prize comes from that mission&apos;s own funding.
           </p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <select

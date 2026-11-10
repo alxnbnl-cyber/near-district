@@ -8,7 +8,6 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "sw
 export const metadata: Metadata = {
   title: { default: "Yielvy — There's a world worth exploring", template: "%s · Yielvy" },
   description: "Discover projects, take on challenges, and uncover real rewards — all in one interactive world.",
-  icons: { icon: "/assets/brand/favicon.svg" },
 };
 
 export const viewport: Viewport = {

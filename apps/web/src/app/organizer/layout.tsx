@@ -25,13 +25,13 @@ export default async function OrganizerLayout({ children }: { children: React.Re
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate font-display font-semibold">{mine.space.name}</span>
-                    <span className="block text-[11.5px] text-ink-3">{mine.space.moderation === "approved" ? "Vault on the map" : "Waiting for approval"}</span>
+                    <span className="block text-[11.5px] text-ink-3">{mine.space.moderation === "approved" ? "Live on the map" : "Waiting for approval"}</span>
                   </span>
                 </div>
                 <OwnerNav />
               </>
             ) : (
-              <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-3">Open a vault</p>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-3">Host a mission</p>
             )}
           </aside>
           <main className="min-w-0">{children}</main>

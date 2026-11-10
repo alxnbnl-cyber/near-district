@@ -53,7 +53,7 @@ export function SpaceSettingsForm({ initial }: { initial: Initial }) {
                 bannerUploadId: f.bannerUploadId,
               },
             });
-            setMsg({ tone: "ok", text: f.name !== initial.name ? "Saved. Renaming sends your vault back for a quick review." : "Saved." });
+            setMsg({ tone: "ok", text: f.name !== initial.name ? "Saved. Renaming sends your project back for a quick review." : "Saved." });
             router.refresh();
           } catch (err) {
             setMsg({ tone: "danger", text: err instanceof ApiError ? err.message : "Could not save." });

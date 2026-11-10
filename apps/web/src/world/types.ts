@@ -19,6 +19,20 @@ export interface FeaturedCampaign {
 export interface Prize {
   amount: string;
   symbol: string;
+  /** "yield" = paid from lending interest; "budget" = a fixed deposited prize. */
+  kind?: "yield" | "budget";
+  /** Sample value for local demos only (DEMO_REWARDS=1). Always shown with a DEMO tag. */
+  demo?: boolean;
+  /** Demo-only illustrative APY for yield prizes, e.g. "8.9%". */
+  apy?: string;
+}
+
+/** The signed-in player's real progress (null when signed out). */
+export interface ViewerStats {
+  missionsCompleted: number;
+  missionsStarted: number;
+  rewardsClaimed: string;
+  symbol: string;
 }
 
 export interface WorldBuildingData {
@@ -87,5 +101,8 @@ export interface WorldData {
   buildings: WorldBuildingData[];
   experiences: WorldExperience[];
   routes: WorldRoute[];
+  viewer: ViewerStats | null;
+  /** True when sample prizes are shown (local demo mode). */
+  demo: boolean;
   generatedAt: string;
 }

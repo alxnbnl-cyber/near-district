@@ -34,7 +34,7 @@ export default async function FundingPage() {
         <div>
           <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">Prize funding</p>
           <h1 className="mt-1 text-[30px] font-bold tracking-[-0.02em]">Put up the prize</h1>
-          <p className="mt-1 text-ink-2">Deposit {t.symbol} for each quest. Players see the prize once it&apos;s confirmed on-chain.</p>
+          <p className="mt-1 text-ink-2">Deposit {t.symbol} for each mission. Players see the prize once it&apos;s confirmed on-chain.</p>
         </div>
       </section>
 
@@ -49,9 +49,9 @@ export default async function FundingPage() {
 
       {funded.length === 0 ? (
         <div className="rounded-[18px] border border-dashed border-line-strong p-8 text-center">
-          <p className="font-semibold">No quests with a prize yet</p>
+          <p className="font-semibold">No missions with a prize yet</p>
           <Link href="/organizer/campaigns/new" className={buttonClass("primary", "md", "mt-3")}>
-            Create a quest
+            Create a mission
           </Link>
         </div>
       ) : (

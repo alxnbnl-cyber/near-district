@@ -11,7 +11,7 @@ export default async function Page() {
   const data = await getWorldData(user?.userId ?? null);
   return (
     <main className="h-dvh w-full">
-      <h1 className="sr-only">Yielvy — explore a map of projects, treasure hunts and creative challenges</h1>
+      <h1 className="sr-only">Yielvy — explore a map of projects, missions and creative challenges</h1>
       <WorldExperience data={data} initialMode="explore" viewer={user ? { displayName: user.displayName, isAdmin: user.adminRoles.length > 0 } : null} />
     </main>
   );

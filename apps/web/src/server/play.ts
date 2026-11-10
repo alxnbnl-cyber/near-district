@@ -154,8 +154,8 @@ export async function submitAnswer(db: Db, user: SessionUser, campaignId: string
       .where(and(eq(participantEntries.campaignId, c.id), eq(participantEntries.userId, user.userId)))
       .for("update")
       .limit(1);
-    if (!entry) throw badRequest("Start the hunt first.");
-    if (entry.status !== "in_progress") throw conflict("You've already finished this hunt.");
+    if (!entry) throw badRequest("Start the mission first.");
+    if (entry.status !== "in_progress") throw conflict("You've already finished this mission.");
     const questions = await tx.select().from(treasureQuestions).where(eq(treasureQuestions.campaignId, c.id)).orderBy(treasureQuestions.position);
     const q = questions[entry.progress];
     if (!q) throw conflict("No question is waiting for you.");

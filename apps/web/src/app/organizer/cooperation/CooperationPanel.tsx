@@ -63,8 +63,8 @@ export function CooperationPanel({ canManage }: { canManage: boolean }) {
         <LinkedVaults size={120} className="hidden shrink-0 sm:block" />
         <div>
           <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">Cooperation</p>
-          <h1 className="mt-1 text-[30px] font-bold tracking-[-0.02em]">Team up with other vaults</h1>
-          <p className="mt-1 text-ink-2">Add partners, then build a joint trail: players hop between your quests to reach the prize.</p>
+          <h1 className="mt-1 text-[30px] font-bold tracking-[-0.02em]">Team up with other projects</h1>
+          <p className="mt-1 text-ink-2">Add partners, then build a joint trail: players hop between your missions to reach the prize.</p>
         </div>
       </section>
 
@@ -91,7 +91,7 @@ export function CooperationPanel({ canManage }: { canManage: boolean }) {
             <span className="grid size-7 place-items-center rounded-full bg-orange-wash text-[13px] text-orange">1</span> Partners
           </h2>
           <div className="mt-3 flex gap-2">
-            <input className={inputClass} value={slug} onChange={(e) => setSlug(e.target.value.trim().toLowerCase())} placeholder="Partner's vault link, e.g. harbor-guild" disabled={!canManage} />
+            <input className={inputClass} value={slug} onChange={(e) => setSlug(e.target.value.trim().toLowerCase())} placeholder="Partner's project link, e.g. harbor-guild" disabled={!canManage} />
             <Button disabled={!canManage || busy || slug.length < 3} onClick={() => run(() => api("/api/organizer/partners", { method: "POST", body: { organizationSlug: slug, message: "" } }), "Invite sent.").then(() => setSlug(""))}>
               Invite
             </Button>

@@ -10,7 +10,7 @@ import { CoinStack, Hourglass, RocketFlag, TreasureMap, VaultDoor } from "@/comp
 import { Onboarding } from "./Onboarding";
 import { HowItWorks } from "./HowItWorks";
 
-export const metadata = { title: "My vault" };
+export const metadata = { title: "Dashboard" };
 
 export default async function OwnerHome() {
   const user = await getSessionUser();
@@ -32,9 +32,9 @@ export default async function OwnerHome() {
 
   const approved = s.moderation === "approved";
   const steps = [
-    { title: "Open your vault", body: "Your place on the map.", done: true, art: VaultDoor },
+    { title: "Create your project", body: "Your place on the map.", done: true, art: VaultDoor },
     { title: "Get approved", body: approved ? "You're on the map." : s.moderation === "pending" ? "Our team is reviewing it." : "Contact support.", done: approved, art: Hourglass },
-    { title: "Create a quest", body: "A treasure hunt or challenge.", done: camps.length > 0, art: TreasureMap, href: "/organizer/campaigns/new", cta: "Create quest" },
+    { title: "Create a mission", body: "A mission or challenge.", done: camps.length > 0, art: TreasureMap, href: "/organizer/campaigns/new", cta: "Create mission" },
     { title: "Fund the prize", body: vaultDeployed ? "Deposit the reward." : "Opens when funding launches.", done: camps.some((c) => c.vaultId !== null), art: CoinStack, href: "/organizer/funding", cta: "Fund prize" },
     { title: "Go live", body: "Explorers start playing.", done: live > 0, art: RocketFlag, href: "/organizer/campaigns", cta: "Publish" },
   ];
@@ -44,7 +44,7 @@ export default async function OwnerHome() {
     <div className="flex flex-col gap-8">
       <section>
         <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">Your road to launch</p>
-        <h1 className="mt-1 text-[30px] font-bold tracking-[-0.02em]">{current === -1 ? "Your vault is live 🎉" : `Next: ${steps[current]!.title.toLowerCase()}`}</h1>
+        <h1 className="mt-1 text-[30px] font-bold tracking-[-0.02em]">{current === -1 ? "You're live 🎉" : `Next: ${steps[current]!.title.toLowerCase()}`}</h1>
         <ol className="yv-stagger mt-5 grid gap-3 sm:grid-cols-5">
           {steps.map((st, i) => {
             const now = i === current;
@@ -73,7 +73,7 @@ export default async function OwnerHome() {
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
-          ["Live quests", live, "text-orange"],
+          ["Live missions", live, "text-orange"],
           ["Players", players, "text-sky"],
           ["Finished", finishers, "text-reward"],
           ["Visitors", visitors, "text-ink"],

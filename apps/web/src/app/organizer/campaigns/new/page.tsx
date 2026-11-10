@@ -7,7 +7,7 @@ import { Lightbulb, TreasureMap } from "@/components/art/Art";
 import { api, ApiError } from "@/lib/api";
 
 const TYPES = [
-  { id: "treasure_hunt" as const, art: TreasureMap, title: "Treasure Hunt", body: "A trail of clues about your project. Solve them all to win.", ph: "The Hidden Signal" },
+  { id: "treasure_hunt" as const, art: TreasureMap, title: "Mission", body: "A trail of clues about your project. Solve them all to win.", ph: "The Hidden Signal" },
   { id: "creative_contest" as const, art: Lightbulb, title: "Creative Challenge", body: "Ask for ideas or work. Your team picks the winners.", ph: "Design our next feature" },
 ];
 
@@ -22,10 +22,10 @@ export default function NewQuestPage() {
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <div className="yv-enter">
-        <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">New quest</p>
-        <h1 className="mt-1 text-[32px] font-bold tracking-[-0.02em]">What kind of quest?</h1>
+        <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">New mission</p>
+        <h1 className="mt-1 text-[32px] font-bold tracking-[-0.02em]">What kind of mission?</h1>
       </div>
-      <div className="yv-stagger grid gap-4 sm:grid-cols-2" role="radiogroup" aria-label="Quest type">
+      <div className="yv-stagger grid gap-4 sm:grid-cols-2" role="radiogroup" aria-label="Mission type">
         {TYPES.map((t) => (
           <button
             key={t.id}
@@ -41,7 +41,7 @@ export default function NewQuestPage() {
           </button>
         ))}
       </div>
-      <p className="text-[12.5px] text-ink-3">More quest types are coming soon.</p>
+      <p className="text-[12.5px] text-ink-3">More mission types are coming soon.</p>
 
       {chosen && (
         <form
@@ -54,7 +54,7 @@ export default function NewQuestPage() {
               const r = await api<{ id: string }>("/api/organizer/campaigns", { method: "POST", body: { template, title } });
               router.push(`/organizer/campaigns/${r.id}`);
             } catch (err) {
-              setError(err instanceof ApiError ? err.message : "Could not create the quest.");
+              setError(err instanceof ApiError ? err.message : "Could not create the mission.");
               setBusy(false);
             }
           }}

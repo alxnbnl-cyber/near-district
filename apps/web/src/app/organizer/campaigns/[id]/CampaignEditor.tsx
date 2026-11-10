@@ -103,7 +103,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
         <div className="card-reward flex flex-wrap items-center gap-5 rounded-[22px] p-6">
           <RocketFlag size={90} className="yv-float" />
           <div className="min-w-0 flex-1">
-            <p className="text-[22px] font-bold">{c.effective === "LIVE" ? "Your quest is live" : c.effective === "SCHEDULED" ? "Your quest starts soon" : "Quest status"}</p>
+            <p className="text-[22px] font-bold">{c.effective === "LIVE" ? "Your mission is live" : c.effective === "SCHEDULED" ? "Your mission starts soon" : "Mission status"}</p>
             <p className="text-ink-2">Ends {new Date(rules.endsAt).toLocaleString()}</p>
           </div>
           {canEdit && (
@@ -123,7 +123,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
                   variant="danger"
                   size="sm"
                   disabled={busy}
-                  onClick={() => confirm("End this quest now? Players won't be able to continue.") && act(() => api(`/api/organizer/campaigns/${c.id}/state`, { method: "POST", body: { to: "ENDED" } }), "Ended.")}
+                  onClick={() => confirm("End this mission now? Players won't be able to continue.") && act(() => api(`/api/organizer/campaigns/${c.id}/state`, { method: "POST", body: { to: "ENDED" } }), "Ended.")}
                 >
                   End now
                 </Button>
@@ -191,7 +191,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
           {step === 0 && (
             <div className="flex flex-col gap-4">
               <StepTitle art={hunt ? <TreasureMap size={70} /> : <Lightbulb size={64} />} title="Tell the story" body="Short and exciting. This is what explorers see first." />
-              <Field label="Quest name" htmlFor="title">
+              <Field label="Mission name" htmlFor="title">
                 <input id="title" className={`${inputClass} h-12 text-[16px]`} disabled={!canEdit} value={details.title} onChange={(e) => setDetails({ ...details, title: e.target.value })} />
               </Field>
               <Field label="One-line hook" htmlFor="summary">
@@ -313,9 +313,9 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
                   size="lg"
                   className={initial.check?.ok ? "yv-glow" : ""}
                   disabled={busy || !initial.check?.ok || !["owner", "admin"].includes(initial.role)}
-                  onClick={() => act(() => api(`/api/organizer/campaigns/${c.id}/publish`, { method: "POST" }), "Published! Your quest is on the map.")}
+                  onClick={() => act(() => api(`/api/organizer/campaigns/${c.id}/publish`, { method: "POST" }), "Published! Your mission is on the map.")}
                 >
-                  Publish quest 🚀
+                  Publish mission 🚀
                 </Button>
               </div>
             </div>
@@ -327,8 +327,8 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-3">Live preview</p>
           <div className={`relative overflow-hidden rounded-[20px] p-5 ${funded ? "card-reward" : "border border-line bg-card"}`}>
             <div className="pointer-events-none absolute -right-4 -top-2">{hunt ? <TreasureChest size={100} className="yv-float" /> : <Lightbulb size={90} className="yv-float" />}</div>
-            <p className={`text-[10.5px] font-bold uppercase tracking-[0.14em] ${hunt ? "text-sky" : "text-violet-ink"}`}>{hunt ? "Treasure Hunt" : "Challenge"}</p>
-            <p className="mt-1 max-w-[70%] font-display text-[19px] font-bold leading-tight">{details.title || "Your quest"}</p>
+            <p className={`text-[10.5px] font-bold uppercase tracking-[0.14em] ${hunt ? "text-sky" : "text-violet-ink"}`}>{hunt ? "Mission" : "Challenge"}</p>
+            <p className="mt-1 max-w-[70%] font-display text-[19px] font-bold leading-tight">{details.title || "Your mission"}</p>
             {details.summary && <p className="mt-1 max-w-[80%] text-[12.5px] text-ink-2">{details.summary}</p>}
             <div className="mt-4">
               {funded ? (
@@ -357,7 +357,7 @@ function Header({ c, spaceSlug }: { c: Initial["campaign"]; spaceSlug: string })
         <div className="flex items-center gap-2">
           <StatusBadge status={c.effective as never} />
           <Link href="/organizer/campaigns" className="text-[13px] text-ink-3 hover:text-ink">
-            ← All quests
+            ← All missions
           </Link>
         </div>
         <h1 className="mt-2 text-[28px] font-bold tracking-[-0.02em]">{c.title}</h1>

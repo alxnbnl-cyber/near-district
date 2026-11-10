@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const s = await getPublicSpace((await params).slug);
-  return { title: s?.space.name ?? "Vault" };
+  return { title: s?.space.name ?? "Project" };
 }
 
 export default async function SpacePage({ params }: { params: Promise<{ slug: string }> }) {
@@ -60,8 +60,8 @@ export default async function SpacePage({ params }: { params: Promise<{ slug: st
               {space.description && <p className="mt-4 whitespace-pre-line text-[15px] leading-relaxed text-ink">{space.description}</p>}
 
               <div id="experiences" className="scroll-mt-24" />
-              <CampaignList title="Live quests" items={active} slug={slug} empty="Nothing is running right now." />
-              <CampaignList title="Coming up" items={upcoming} slug={slug} empty="No upcoming quests yet." />
+              <CampaignList title="Live missions" items={active} slug={slug} empty="Nothing is running right now." />
+              <CampaignList title="Coming up" items={upcoming} slug={slug} empty="No upcoming missions yet." />
               {past.length > 0 && <CampaignList title="Previously" items={past} slug={slug} empty="" />}
             </div>
             <aside className="space-y-3">
