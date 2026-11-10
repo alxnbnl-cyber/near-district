@@ -9,6 +9,13 @@
  * Bump ATLAS_VERSION only together with a migration that pins existing Spaces' positions.
  */
 import { DISTRICTS, type DistrictId } from "./layout";
+import artwork from "./artwork-lots.json";
+
+/**
+ * Pin spots on the painted world map (apps/web/public/assets/world), found by scripts/map-lots.cjs:
+ * dry land beside a road, never water. When present they replace the procedural lots.
+ */
+export const ARTWORK_LOTS: readonly (readonly [number, number])[] = (artwork as unknown as { lots: [number, number][] }).lots;
 
 export const ATLAS_VERSION = 3;
 export const ATLAS_W = 9000;
@@ -319,6 +326,16 @@ export function generateAtlas(): Atlas {
  * interleaved across the whole city, so Spaces appear scattered, never clustered by category.
  */
 export function lotPosition(districtId: DistrictId, plotIndex: number): { x: number; y: number } {
+  if (ARTWORK_LOTS.length) {
+    // Interleave groups so every (group, plot) pair gets its own spot until the map is full.
+    const k = Math.max(0, DISTRICTS.findIndex((d) => d.id === districtId));
+    const g = plotIndex * DISTRICTS.length + k;
+    const [x, y] = ARTWORK_LOTS[g % ARTWORK_LOTS.length]!;
+    const lap = Math.floor(g / ARTWORK_LOTS.length);
+    if (lap === 0) return { x, y };
+    const t = lap * 2.399;
+    return { x: x + Math.cos(t) * 0.012 * Math.sqrt(lap), y: y + Math.sin(t) * 0.018 * Math.sqrt(lap) };
+  }
   const a = generateAtlas();
   const lots = a.lots[districtId];
   if (!lots || lots.length === 0) throw new Error(`no lots for ${districtId}`);

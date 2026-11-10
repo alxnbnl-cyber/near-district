@@ -18,7 +18,6 @@ import { ExpeditionCard } from "./ExpeditionCard";
 import { WelcomeOverlay } from "./WelcomeOverlay";
 import { IconCompass, IconFlag, IconMap, IconSearch } from "./icons";
 
-const WELCOME_KEY = "yielvy.welcome.v1";
 const PANEL_W = 380;
 
 export type Tab = "discover" | "experiences" | "adventures";
@@ -28,20 +27,6 @@ const TABS: { id: Tab; label: string; icon: typeof IconCompass }[] = [
   { id: "adventures", label: "Me", icon: IconMap },
 ];
 
-function readSeen(): boolean {
-  try {
-    return localStorage.getItem(WELCOME_KEY) === "seen";
-  } catch {
-    return false;
-  }
-}
-function markSeen() {
-  try {
-    localStorage.setItem(WELCOME_KEY, "seen");
-  } catch {
-    /* private mode: the welcome simply shows again next time */
-  }
-}
 
 type Mode = "pending" | "welcome" | "explore";
 export interface Viewer {
@@ -91,10 +76,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
     if (b && /^\/s\/[a-z0-9-]+\/c\/[a-z0-9-]+$/.test(b)) setBack(b);
     deepLinked.current = { space: params.get("space") ?? undefined, expedition: params.get("expedition") ?? undefined };
     if (initialMode === "welcome") {
-      if (readSeen() && !params.has("welcome")) {
-        setMode("explore");
-        window.history.replaceState(null, "", "/explore");
-      } else setMode("welcome");
+      setMode("welcome"); // the welcome scene opens every visit to the home page
     }
     return () => mq.removeEventListener("change", onMq);
   }, [initialMode]);
@@ -216,7 +198,6 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
   );
 
   const enter = useCallback(() => {
-    markSeen();
     setLeaving(true);
     window.history.pushState(null, "", "/explore");
     setTimeout(() => {
@@ -317,13 +298,22 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
         onKeyDown={onMapKey}
         className={`absolute inset-0 outline-none transition-opacity duration-700 ${scene ? "opacity-100" : "opacity-0"}`}
       />
+      {/* soft vignette: darkens the edges and corners so the map feels framed (never blocks input) */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 75% 70% at 50% 50%, transparent 55%, rgb(5 7 11 / 0.55) 85%, rgb(5 7 11 / 0.85) 100%), linear-gradient(180deg, rgb(5 7 11 / 0.55), transparent 14%, transparent 86%, rgb(5 7 11 / 0.6))",
+        }}
+      />
       {failed && (
         <div className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-ink-3">
           <p>The map couldn&apos;t start ({failed}).</p>
         </div>
       )}
 
-      <div className={`absolute inset-0 transition-opacity duration-500 ${exploring ? "opacity-100" : "opacity-0"}`}>
+      <div className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${exploring ? "opacity-100" : "opacity-0"}`}>
         <MarkerLayer
           atlas={atlas}
           scene={scene}
@@ -354,7 +344,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
           {!mobile && (
             <aside
               aria-label="Explore panel"
-              className="yv-enter absolute bottom-4 right-4 top-4 z-20 flex flex-col overflow-hidden rounded-[18px] border border-line bg-[#0b0f15f2] shadow-pop backdrop-blur"
+              className="yv-enter absolute inset-y-0 right-0 z-20 flex flex-col overflow-hidden border-l border-line bg-[#0b0f15f5] shadow-pop backdrop-blur"
               style={{ width: PANEL_W }}
             >
               <div className="flex items-center gap-2 px-4 pt-4">
@@ -434,7 +424,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
                 <SpaceCard b={selected} onClose={() => setSelectedId(null)} />
               </div>
             ) : (
-              <div className="absolute bottom-4 z-30 w-[400px]" style={{ right: PANEL_W + 32 }}>
+              <div className="absolute bottom-4 z-30 w-[400px]" style={{ right: PANEL_W + 16 }}>
                 <SpaceCard b={selected} onClose={() => setSelectedId(null)} />
               </div>
             ))}

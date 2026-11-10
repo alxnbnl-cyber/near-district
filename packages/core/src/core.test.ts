@@ -333,15 +333,38 @@ describe("city atlas", async () => {
     for (const d of DISTRICTS) expect(a.lots[d.id].length).toBeGreaterThanOrEqual(20);
     expect(lotPosition("mystery", 3)).toEqual(lotPosition("mystery", 3));
   });
-  it("never places a Space in water and keeps Spaces apart across all groups", () => {
+  it("procedural lots are never in water and keep Spaces apart across all groups", () => {
+    const a = generateAtlas();
     const seen: { x: number; y: number }[] = [];
     for (const d of DISTRICTS) {
       for (let i = 0; i < 20; i++) {
-        const p = lotPosition(d.id, i);
+        const lot = a.lots[d.id][i]!;
+        const p = { x: lot[0] / a.width, y: lot[1] / a.height };
         expect(isOnLand(p.x, p.y)).toBe(true);
         for (const q of seen) expect(Math.hypot((p.x - q.x) * ATLAS_W, (p.y - q.y) * ATLAS_H)).toBeGreaterThanOrEqual(469);
         seen.push(p);
       }
     }
+  });
+});
+
+describe("painted map pin spots", () => {
+  it("gives every vault its own spot on land, spaced apart", async () => {
+    const { ARTWORK_LOTS, lotPosition } = await import("./world/atlas");
+    const { DISTRICTS } = await import("./world/layout");
+    expect(ARTWORK_LOTS.length).toBeGreaterThanOrEqual(80);
+    const seen = new Set<string>();
+    for (let p = 0; p < 20; p++)
+      for (const d of DISTRICTS) {
+        const pos = lotPosition(d.id, p);
+        expect(pos.x).toBeGreaterThan(0);
+        expect(pos.x).toBeLessThan(1);
+        seen.add(`${pos.x},${pos.y}`);
+      }
+    expect(seen.size).toBe(80);
+    // painted-map spots are spaced at least ~420 world units apart (script uses 430)
+    for (let i = 0; i < ARTWORK_LOTS.length; i++)
+      for (let j = i + 1; j < ARTWORK_LOTS.length; j++)
+        expect(Math.hypot((ARTWORK_LOTS[i]![0] - ARTWORK_LOTS[j]![0]) * 9000, (ARTWORK_LOTS[i]![1] - ARTWORK_LOTS[j]![1]) * 6000)).toBeGreaterThan(400);
   });
 });

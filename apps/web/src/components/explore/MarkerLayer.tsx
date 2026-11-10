@@ -18,7 +18,7 @@ export const KIND_COLOR: Record<MarkerKind, string> = {
 };
 
 const CLUSTER_BELOW = 0.14;
-const LABEL_FROM = 0.3;
+const LABEL_FROM = 0.25;
 
 const KIND_TEXT: Record<MarkerKind, string> = {
   hunt: "Treasure Hunt · live",

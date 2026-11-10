@@ -30,6 +30,8 @@ export interface RouteDraw {
 
 const ZOOM_MIN_FACTOR = 1; // relative to "fit" zoom
 const ZOOM_MAX = 2.4;
+/** Artwork may be magnified at most this much before it looks soft (raise it with a higher-resolution image). */
+const ART_MAX_UPSCALE = 2.0;
 
 export class AtlasScene {
   private app!: Application;
@@ -46,6 +48,8 @@ export class AtlasScene {
   private destroyed = false;
   private routes: RouteDraw[] = [];
   private dash = 0;
+  /** Max zoom; lowered for artwork so the image never gets blurry. */
+  private zoomMax = ZOOM_MAX;
   private onWheel = (e: WheelEvent) => this.wheel(e);
   opts: SceneOptions;
   /** Extra screen padding (px) reserved by floating panels when centring on a point. */
@@ -87,10 +91,15 @@ export class AtlasScene {
 
     if (MAP_THEME.artwork) {
       const tex = await Assets.load(MAP_THEME.artwork);
+      tex.source.scaleMode = "linear";
+      // Mipmaps keep the zoomed-out map clean instead of shimmering.
+      tex.source.autoGenerateMipmaps = true;
+      tex.source.updateMipmaps();
       const sp = new Sprite(tex);
       sp.width = this.atlas.width;
       sp.height = this.atlas.height;
       this.world.addChild(sp);
+      this.zoomMax = Math.min(this.zoomMax, ((MAP_THEME.artworkSourceWidth || tex.width) * ART_MAX_UPSCALE) / this.atlas.width);
     } else {
       this.world.addChild(this.drawCity());
     }
@@ -256,7 +265,7 @@ export class AtlasScene {
   private clamp() {
     const { width, height } = this.app.screen;
     const minS = this.fitScale() * ZOOM_MIN_FACTOR;
-    const s = Math.min(ZOOM_MAX, Math.max(minS, this.world.scale.x));
+    const s = Math.min(this.zoomMax, Math.max(minS, this.world.scale.x));
     this.world.scale.set(s);
     const w = this.atlas.width * s, h = this.atlas.height * s;
     this.world.x = Math.min(0, Math.max(width - w, this.world.x));
@@ -272,7 +281,7 @@ export class AtlasScene {
   }
 
   flyTo(x: number, y: number, s?: number, dur = 650) {
-    const target = this.cameraFor(x, y, Math.min(ZOOM_MAX, Math.max(this.fitScale(), s ?? Math.max(this.world.scale.x, 0.55))));
+    const target = this.cameraFor(x, y, Math.min(this.zoomMax, Math.max(this.fitScale(), s ?? Math.max(this.world.scale.x, 0.55))));
     if (this.opts.reducedMotion) return this.apply(target);
     this.tween = { from: this.camera(), to: target, t: 0, dur };
   }
@@ -287,7 +296,7 @@ export class AtlasScene {
   /** Open zoomed in at the start point (near a live Space). */
   home(animate = true) {
     const [x, y] = this.start;
-    const target = this.cameraFor(x, y, this.app.screen.width < 768 ? 0.5 : 0.62);
+    const target = this.cameraFor(x, y, Math.min(this.zoomMax * 0.82, this.app.screen.width < 768 ? 0.5 : 0.62));
     if (!animate || this.opts.reducedMotion) this.apply(target);
     else this.tween = { from: this.camera(), to: target, t: 0, dur: 650 };
   }
@@ -295,7 +304,7 @@ export class AtlasScene {
   zoomBy(f: number, sx = this.app.screen.width / 2, sy = this.app.screen.height / 2) {
     this.tween = null;
     const s0 = this.world.scale.x;
-    const s1 = Math.min(ZOOM_MAX, Math.max(this.fitScale(), s0 * f));
+    const s1 = Math.min(this.zoomMax, Math.max(this.fitScale(), s0 * f));
     const wx = (sx - this.world.x) / s0, wy = (sy - this.world.y) / s0;
     this.apply({ s: s1, tx: sx - wx * s1, ty: sy - wy * s1 });
   }

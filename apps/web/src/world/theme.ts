@@ -4,7 +4,9 @@
  * Space, cyan for routes. Replace the generated city with artwork via `artwork` (ATLAS_W × ATLAS_H).
  */
 export const MAP_THEME = {
-  artwork: null as string | null,
+  artwork: "/assets/world/map-v1@2x.webp" as string | null,
+  /** Pixel width of the ORIGINAL artwork (before any non-AI pre-scaling); limits zoom so it stays sharp. */
+  artworkSourceWidth: 1536,
   background: 0x0a0f16,
   land: 0x10161f,
   block: 0x1b222d,
