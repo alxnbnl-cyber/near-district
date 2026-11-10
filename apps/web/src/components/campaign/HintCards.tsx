@@ -53,7 +53,7 @@ const REQ_STATUS: Record<HintRequirement["status"], { label: string; cls: string
   FAILED: { label: "Not verified", cls: "text-danger" },
 };
 
-const VERIFY_LABEL = { automatic: "Checked automatically", onchain: "Verified on NEAR", manual: "Reviewed by the organizer" };
+const VERIFY_LABEL = { automatic: "Checked instantly", onchain: "Checked on NEAR", manual: "Approved by the vault team" };
 
 function LockIcon({ open }: { open: boolean }) {
   return (
@@ -71,7 +71,7 @@ export function HintCards({ campaignId, hints, returnTo, onChange }: { campaignI
     <section aria-labelledby="hints-title" className="mt-6">
       <div className="flex items-baseline justify-between gap-3">
         <h3 id="hints-title" className="text-[15px] font-semibold">Need a hint?</h3>
-        <p className="text-[12px] text-ink-3">Optional. You can answer without them.</p>
+        <p className="text-[12px] text-ink-3">Optional — do an activity to reveal a clue.</p>
       </div>
       <ul className="mt-3 flex flex-col gap-3">
         {hints.map((h) => (
@@ -235,7 +235,7 @@ function Requirement({ r, busy, returnTo, onVerify }: { r: HintRequirement; busy
             )}
             {exploreHref && (
               <Link href={exploreHref} className={buttonClass("dark", "sm")}>
-                Explore {r.provider.spaceName ?? "Partner"} Space
+                Visit {r.provider.spaceName ?? "partner"}
               </Link>
             )}
             {r.verification === "automatic" && (

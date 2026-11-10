@@ -53,3 +53,9 @@ export const IconInfo = ({ size = 18, className }: P) => (
 export const IconList = ({ size = 18, className }: P) => (
   <svg {...base(size)} className={className}><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" /></svg>
 );
+export const IconTrophy = ({ size = 18, className }: P) => (
+  <svg {...base(size)} className={className}><path d="M8 4h8v5a4 4 0 0 1-8 0V4Z" fill="currentColor" fillOpacity=".25" /><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7M10 17h4v3h-4z" /></svg>
+);
+export const IconKey = ({ size = 18, className }: P) => (
+  <svg {...base(size)} className={className}><circle cx="8" cy="9" r="4" /><path d="m11 12 8 8M16 17l2-2M18 19l2-2" /></svg>
+);

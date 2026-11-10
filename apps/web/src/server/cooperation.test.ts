@@ -80,7 +80,7 @@ async function mkHunt(owner: SessionUser, key: string, title: string, qs: [strin
   await updateCampaign(h.db, owner, await campaign(c.id), {
     summary: `${title} summary`,
     description: "A real hunt used in the cooperation acceptance tests, with enough words to publish.",
-    rules: { startsAt: new Date(Date.now() - 60_000).toISOString(), endsAt: new Date(Date.now() + 7 * 86_400_000).toISOString() },
+    rules: { fundingSource: "none", startsAt: new Date(Date.now() - 60_000).toISOString(), endsAt: new Date(Date.now() + 7 * 86_400_000).toISOString() },
   });
   return c.id;
 }

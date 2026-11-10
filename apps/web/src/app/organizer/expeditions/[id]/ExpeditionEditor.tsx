@@ -82,8 +82,8 @@ export function ExpeditionEditor({ id, canManage }: { id: string; canManage: boo
 
       {myInvite && myInvite.p.status === "PENDING" && draft && (
         <Card className="p-5">
-          <h2 className="text-lg font-semibold">You&apos;re invited to contribute a chapter</h2>
-          <p className="mt-1 text-[13.5px] text-ink-2">Pick one of your published campaigns. It stays yours and keeps working on its own.</p>
+          <h2 className="text-lg font-semibold">You&apos;re invited to add a stop</h2>
+          <p className="mt-1 text-[13.5px] text-ink-2">Pick one of your live quests. It stays yours and keeps working on its own.</p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <select className={inputClass} value={pick} onChange={(ev) => setPick(ev.target.value)} disabled={!canManage}>
               <option value="">Choose a campaign…</option>
@@ -91,7 +91,7 @@ export function ExpeditionEditor({ id, canManage }: { id: string; canManage: boo
                 <option key={c.id} value={c.id}>{c.title}</option>
               ))}
             </select>
-            <Button disabled={!canManage || busy || !pick} onClick={() => post({ action: "respond", decision: "accept", campaignId: pick }, "You joined the expedition.")}>Accept & contribute</Button>
+            <Button disabled={!canManage || busy || !pick} onClick={() => post({ action: "respond", decision: "accept", campaignId: pick }, "You joined the trail.")}>Accept & add my quest</Button>
             <Button variant="secondary" disabled={!canManage || busy} onClick={() => post({ action: "respond", decision: "reject" }, "Invitation declined.")}>Decline</Button>
           </div>
         </Card>
@@ -105,7 +105,7 @@ export function ExpeditionEditor({ id, canManage }: { id: string; canManage: boo
               <span className="grid size-8 place-items-center rounded-full bg-orange-wash font-display text-sm font-bold text-orange-ink">{i + 1}</span>
               <div className="min-w-0 flex-1">
                 <p className="font-medium">
-                  {c.title} {e.rewardCampaignId === c.ch.campaignId && <Badge tone="gold">Reward chapter</Badge>}
+                  {c.title} {e.rewardCampaignId === c.ch.campaignId && <Badge tone="gold">Prize stop</Badge>}
                 </p>
                 <p className="text-[12.5px] text-ink-3">{c.spaceName} · {c.template === "treasure_hunt" ? "Treasure Hunt" : "Creative Contest"}</p>
               </div>
@@ -118,23 +118,23 @@ export function ExpeditionEditor({ id, canManage }: { id: string; canManage: boo
                     </>
                   )}
                   {(primary || c.ch.organizationId === d.myOrgId) && (
-                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => post({ action: "remove_chapter", campaignId: c.ch.campaignId }, "Chapter removed.")}>Remove</Button>
+                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => post({ action: "remove_chapter", campaignId: c.ch.campaignId }, "Stop removed.")}>Remove</Button>
                   )}
                 </div>
               )}
             </li>
           ))}
         </ol>
-        {d.chapters.length === 0 && <p className="text-[13.5px] text-ink-3">No chapters yet.</p>}
+        {d.chapters.length === 0 && <p className="text-[13.5px] text-ink-3">No stops yet.</p>}
         {primary && draft && canManage && (
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <select className={inputClass} value={pick} onChange={(ev) => setPick(ev.target.value)}>
-              <option value="">Add one of your published campaigns…</option>
+              <option value="">Add one of your live quests…</option>
               {mine.filter((c) => !used.has(c.id)).map((c) => (
                 <option key={c.id} value={c.id}>{c.title}</option>
               ))}
             </select>
-            <Button variant="secondary" disabled={busy || !pick} onClick={() => post({ action: "add_chapter", campaignId: pick }, "Chapter added.")}>Add chapter</Button>
+            <Button variant="secondary" disabled={busy || !pick} onClick={() => post({ action: "add_chapter", campaignId: pick }, "Stop added.")}>Add stop</Button>
           </div>
         )}
       </Card>
@@ -148,11 +148,11 @@ export function ExpeditionEditor({ id, canManage }: { id: string; canManage: boo
                 {p.name} <Badge tone={p.p.status === "ACCEPTED" ? "mint" : p.p.status === "PENDING" ? "gold" : "neutral"}>{p.p.status}</Badge>
               </li>
             ))}
-            {d.partners.length === 0 && <li className="text-[13.5px] text-ink-3">Invite another organization to contribute a chapter.</li>}
+            {d.partners.length === 0 && <li className="text-[13.5px] text-ink-3">Invite a partner to add their quest as a stop.</li>}
           </ul>
           {draft && canManage && (
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-              <Field label="Partner Space address" htmlFor="ex-partner">
+              <Field label="Partner vault link" htmlFor="ex-partner">
                 <input id="ex-partner" className={inputClass} value={partnerSlug} onChange={(ev) => setPartnerSlug(ev.target.value.trim().toLowerCase())} placeholder="their-space" />
               </Field>
               <Button variant="secondary" disabled={busy || partnerSlug.length < 3} onClick={() => post({ action: "invite", organizationSlug: partnerSlug }, "Invitation sent.").then(() => setPartnerSlug(""))}>Invite</Button>
@@ -163,19 +163,18 @@ export function ExpeditionEditor({ id, canManage }: { id: string; canManage: boo
 
       {primary && draft && (
         <Card className="p-5">
-          <h2 className="text-lg font-semibold">Reward chapter (optional)</h2>
+          <h2 className="text-lg font-semibold">Prize stop (optional)</h2>
           <p className="mt-1 text-[13.5px] text-ink-2">
-            Make your own final chapter the prize chapter: only players who completed every earlier chapter can join it. Its rewards are funded and paid by
-            your campaign&apos;s existing vault funding and published reward rules — finishing other chapters never pays anything by itself.
+            Make your own last quest the prize stop: only players who finished every earlier stop can enter it. Its prize comes from that quest&apos;s own funding.
           </p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <select
               className={inputClass}
               value={e.rewardCampaignId ?? ""}
               disabled={!canManage || busy}
-              onChange={(ev) => post({ action: "set_reward", campaignId: ev.target.value || null }, "Reward chapter updated.")}
+              onChange={(ev) => post({ action: "set_reward", campaignId: ev.target.value || null }, "Prize stop updated.")}
             >
-              <option value="">No reward chapter</option>
+              <option value="">No prize stop</option>
               {d.chapters.filter((c) => c.ch.organizationId === d.myOrgId).map((c) => (
                 <option key={c.ch.campaignId} value={c.ch.campaignId}>{c.title}</option>
               ))}
@@ -192,10 +191,10 @@ export function ExpeditionEditor({ id, canManage }: { id: string; canManage: boo
               <ul className="mt-1 list-disc pl-5">{d.problems.map((p) => <li key={p}>{p}</li>)}</ul>
             </Notice>
           ) : (
-            <Notice tone="ok" title="Ready to publish">Every partner approved their chapter. Publishing freezes the route.</Notice>
+            <Notice tone="ok" title="Ready to publish">Every partner approved. Publishing freezes the route.</Notice>
           )}
-          <Button className="mt-3" disabled={!canManage || busy || d.problems.length > 0} onClick={() => post({ action: "publish" }, "Expedition published — it now appears on the map.")}>
-            Publish expedition
+          <Button className="mt-3" disabled={!canManage || busy || d.problems.length > 0} onClick={() => post({ action: "publish" }, "Trail published — it now appears on the map.")}>
+            Publish trail
           </Button>
         </Card>
       )}

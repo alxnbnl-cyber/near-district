@@ -10,8 +10,15 @@ export interface FeaturedCampaign {
   status: "LIVE" | "SCHEDULED";
   startsAt: string | null;
   endsAt: string | null;
-  /** "none" = no token rewards; otherwise funded through the vault (amount only shown once finalized). */
+  /** "none" = no token rewards; otherwise funded through the vault. */
   rewards: "none" | "token";
+  /** Prize pool from the latest on-chain vault snapshot (available + reserved). Null when unknown. */
+  prize: Prize | null;
+}
+
+export interface Prize {
+  amount: string;
+  symbol: string;
 }
 
 export interface WorldBuildingData {
@@ -32,6 +39,8 @@ export interface WorldBuildingData {
   upcomingCampaigns: number;
   templates: string[];
   featured: FeaturedCampaign | null;
+  /** Largest verified prize pool among this vault's live quests. */
+  topPrize: Prize | null;
 }
 
 /** A published shared expedition: chapter order approved by every participating organization. */
@@ -68,6 +77,7 @@ export interface WorldExperience {
   startsAt: string | null;
   endsAt: string | null;
   rewards: "none" | "token";
+  prize: Prize | null;
   spaceId: string;
   spaceSlug: string;
   spaceName: string;

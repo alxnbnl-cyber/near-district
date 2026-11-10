@@ -1,16 +1,18 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { campaigns, desc, eq, fundingOrders, inArray } from "@yielvy/db";
-import { formatDisplay } from "@yielvy/core";
+import { formatDisplay, type CampaignRules } from "@yielvy/core";
 import { getSessionUser } from "@/server/session";
 import { db } from "@/server/db";
 import { myOrganization } from "@/server/spaces";
 import { env } from "@/server/env";
 import { network, token } from "@/server/near";
-import { Badge, Card, EmptyState, Notice, SectionHeader } from "@/components/ui";
+import { buttonClass } from "@/components/ui";
+import { CoinStack } from "@/components/art/Art";
 import { OrganizerFinanceSummary } from "../OrganizerFinanceSummary";
 import { FundingActions } from "./FundingActions";
 
-export const metadata = { title: "Funding" };
+export const metadata = { title: "Prize funding" };
 
 export default async function FundingPage() {
   const user = await getSessionUser();
@@ -23,94 +25,92 @@ export default async function FundingPage() {
   const t = token();
   const net = network();
   const vaultDeployed = Boolean(env().VAULT_CONTRACT_ID);
-  return (
-    <div className="flex flex-col gap-8">
-      <OrganizerFinanceSummary spaceId={mine.space.id} />
+  const funded = camps.filter((c) => ((c.draftRules as CampaignRules | null)?.fundingSource ?? "none") !== "none" || c.vaultCampaignId !== null);
 
-      <section>
-        <SectionHeader title="How funding works" />
-        <Card className="grid gap-4 p-5 text-sm text-ink-2 md:grid-cols-3">
-          <div>
-            <p className="font-semibold text-ink">1 · Register</p>
-            <p className="mt-1">Your wallet creates the campaign's record in the Yielvy vault contract. Only that wallet can fund it or withdraw from it.</p>
-          </div>
-          <div>
-            <p className="font-semibold text-ink">2 · Deposit {t.symbol}</p>
-            <p className="mt-1">Send a reward budget, principal, or both. Coming from another chain? Bridge to your own NEAR account with NEAR Intents first, then deposit.</p>
-          </div>
-          <div>
-            <p className="font-semibold text-ink">3 · Earn & reward</p>
-            <p className="mt-1">Principal is supplied to RHEA lending. Interest is collected periodically; only collected interest can be promised to winners.</p>
-          </div>
-        </Card>
-        <p className="mt-2 text-[12.5px] text-ink-3">
-          Withdrawals: idle principal any time; promised rewards stay locked. Supplied principal returns when RHEA has unborrowed liquidity, which can take time when the market is busy.
-        </p>
+  return (
+    <div className="flex flex-col gap-6">
+      <section className="flex items-center gap-5">
+        <CoinStack size={110} className="yv-float hidden shrink-0 sm:block" />
+        <div>
+          <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">Prize funding</p>
+          <h1 className="mt-1 text-[30px] font-bold tracking-[-0.02em]">Put up the prize</h1>
+          <p className="mt-1 text-ink-2">Deposit {t.symbol} for each quest. Players see the prize once it&apos;s confirmed on-chain.</p>
+        </div>
       </section>
 
       {!vaultDeployed && (
-        <Notice tone="info" title="Real funding is switched off on this deployment">
-          The vault contract isn't deployed yet (it awaits independent audit and your approval). You can preview real cross-chain quotes below; no funds can move.
-        </Notice>
+        <div className="flex items-center gap-3 rounded-[16px] border border-sky/40 bg-sky-wash px-4 py-3 text-[14px]">
+          <span className="text-lg">⏳</span>
+          <span className="text-sky-ink">Deposits open soon — the prize vault is being audited. You can already preview cross-chain quotes.</span>
+        </div>
       )}
 
-      <section>
-        <SectionHeader title="Campaign funding" />
-        {camps.length === 0 ? (
-          <Card>
-            <EmptyState title="Create a campaign first" />
-          </Card>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {camps.map((c) => (
-              <Card key={c.id} className="p-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-semibold">{c.title}</p>
-                  {c.vaultCampaignId !== null ? <Badge tone="mint">Vault #{c.vaultCampaignId.toString()}</Badge> : <Badge>Not registered</Badge>}
-                </div>
-                <FundingActions
-                  campaignId={c.id}
-                  registered={c.vaultCampaignId !== null}
-                  vaultDeployed={vaultDeployed}
-                  token={{ symbol: t.symbol, decimals: t.decimals }}
-                />
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
+      {vaultDeployed && <OrganizerFinanceSummary spaceId={mine.space.id} />}
 
-      <section>
-        <SectionHeader title="Funding history" />
-        <Card className="overflow-x-auto">
-          {orders.length === 0 ? (
-            <EmptyState title="No funding activity yet" />
-          ) : (
-            <table className="w-full text-left text-[13px]">
-              <thead className="text-ink-3">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Date</th>
-                  <th className="px-4 py-2 font-medium">Type</th>
-                  <th className="px-4 py-2 font-medium">Amount</th>
-                  <th className="px-4 py-2 font-medium">State</th>
-                  <th className="px-4 py-2 font-medium">Transaction</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {orders.map((o) => (
-                  <tr key={o.id}>
-                    <td className="px-4 py-2">{o.createdAt.toLocaleString()}</td>
-                    <td className="px-4 py-2">{o.kind} · {o.route}</td>
-                    <td className="px-4 py-2 tabular">{formatDisplay(o.receivedAmount ?? o.amount, t.decimals)} {t.symbol}</td>
-                    <td className="px-4 py-2"><Badge tone={o.state === "RECEIVED" || o.state === "SUPPLIED" ? "mint" : o.state === "FAILED" || o.state === "EXPIRED" ? "danger" : "gold"}>{o.state}</Badge></td>
-                    <td className="px-4 py-2">{o.nearTxHash ? <a className="text-orange-ink hover:underline" href={net.explorerTxUrl(o.nearTxHash)} target="_blank" rel="noopener noreferrer">{o.nearTxHash.slice(0, 10)}… ↗</a> : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </Card>
-      </section>
+      {funded.length === 0 ? (
+        <div className="rounded-[18px] border border-dashed border-line-strong p-8 text-center">
+          <p className="font-semibold">No quests with a prize yet</p>
+          <Link href="/organizer/campaigns/new" className={buttonClass("primary", "md", "mt-3")}>
+            Create a quest
+          </Link>
+        </div>
+      ) : (
+        <ul className="yv-stagger flex flex-col gap-4">
+          {funded.map((c) => {
+            const rules = c.draftRules as CampaignRules | null;
+            const kind = rules?.fundingSource === "yield" ? "principal" : "bonus";
+            const steps = [
+              ["Set up", c.vaultCampaignId !== null],
+              ["Deposit", orders.some((o) => o.campaignId === c.id && ["RECEIVED", "SUPPLIED", "SUPPLY_PENDING"].includes(o.state))],
+              ["Confirmed", orders.some((o) => o.campaignId === c.id && ["RECEIVED", "SUPPLIED"].includes(o.state))],
+            ] as const;
+            return (
+              <li key={c.id} className="rounded-[20px] border border-line bg-card p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-display text-[18px] font-semibold">{c.title}</p>
+                    <p className="text-[13px] text-gold-ink">
+                      {kind === "bonus" ? `Prize budget${rules?.plannedDirectBudget ? ` · ${formatDisplay(BigInt(rules.plannedDirectBudget), t.decimals)} ${t.symbol}` : ""}` : "Interest prize"}
+                    </p>
+                  </div>
+                  <ol className="flex items-center gap-1.5">
+                    {steps.map(([label, done], i) => (
+                      <li key={label} className="flex items-center gap-1.5">
+                        <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${done ? "bg-orange text-[#140c05]" : "bg-paper-2 text-ink-3"}`}>
+                          {done ? "✓ " : `${i + 1}. `}
+                          {label}
+                        </span>
+                        {i < steps.length - 1 && <span className="h-px w-3 bg-line-strong" />}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <FundingActions campaignId={c.id} registered={c.vaultCampaignId !== null} vaultDeployed={vaultDeployed} defaultKind={kind} token={{ symbol: t.symbol, decimals: t.decimals }} />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {orders.length > 0 && (
+        <details className="rounded-[18px] border border-line bg-card px-5 py-4">
+          <summary className="cursor-pointer font-semibold">Deposit history ({orders.length})</summary>
+          <ul className="mt-3 divide-y divide-line text-[13px]">
+            {orders.map((o) => (
+              <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span>{o.createdAt.toLocaleDateString()} · {o.kind === "bonus" ? "Prize budget" : "Interest deposit"}</span>
+                <span className="tabular">{formatDisplay(o.receivedAmount ?? o.amount, t.decimals)} {t.symbol}</span>
+                <span className="text-ink-3">{o.state.toLowerCase().replace(/_/g, " ")}</span>
+                {o.nearTxHash && (
+                  <a className="text-orange-ink hover:underline" href={net.explorerTxUrl(o.nearTxHash)} target="_blank" rel="noopener noreferrer">
+                    View ↗
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

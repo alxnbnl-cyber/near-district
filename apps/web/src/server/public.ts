@@ -1,6 +1,7 @@
 import "server-only";
-import { and, campaigns, count, desc, eq, inArray, organizations, participantEntries, spaces, worldBuildings } from "@yielvy/db";
-import type { CampaignRules } from "@yielvy/core";
+import { and, campaigns, count, desc, eq, inArray, organizations, participantEntries, spaces, vaultPositions, worldBuildings } from "@yielvy/db";
+import { formatDisplay, type CampaignRules } from "@yielvy/core";
+import { token } from "./near";
 import { db } from "./db";
 import { currentRules, effectiveStatus } from "./campaigns";
 
@@ -39,7 +40,15 @@ export async function getPublicCampaign(spaceSlug: string, campaignSlug: string)
   if (!row || row.space.moderation !== "approved" || row.c.moderation !== "approved" || !row.c.currentVersion) return null;
   const rules = (await currentRules(database, row.c)) as CampaignRules;
   const [{ n } = { n: 0 }] = await database.select({ n: count() }).from(participantEntries).where(eq(participantEntries.campaignId, row.c.id));
-  return { campaign: row.c, space: row.space, rules, participants: n, status: effectiveStatus(row.c as never) };
+  // Prize pool only from the latest on-chain vault snapshot; never from a form field.
+  let prize: { amount: string; symbol: string } | null = null;
+  if (row.c.vaultCampaignId !== null) {
+    const [snap] = await database.select().from(vaultPositions).where(eq(vaultPositions.campaignId, row.c.id)).orderBy(desc(vaultPositions.observedAt)).limit(1);
+    const t = token();
+    const v = snap ? snap.bonusAvailable + snap.yieldAvailable + snap.reserved : 0n;
+    if (v > 0n) prize = { amount: formatDisplay(v, t.decimals, 0), symbol: t.symbol };
+  }
+  return { campaign: row.c, space: row.space, rules, participants: n, status: effectiveStatus(row.c as never), prize };
 }
 
 export async function listLiveExperiences() {

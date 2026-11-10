@@ -34,7 +34,7 @@ export default async function MyRewards() {
       <SiteHeader />
       <main className="mx-auto max-w-4xl px-4 py-10">
         <h1 className="text-3xl font-semibold">My Rewards</h1>
-        <p className="mt-1 text-ink-2">Rewards appear here once a campaign's results are finalized and the funds are locked on-chain.</p>
+        <p className="mt-1 text-ink-2">Prizes you win show up here, ready to claim.</p>
         {!user.payoutAccountId && (
           <div className="mt-6">
             <Notice tone="warn" title="No payout wallet yet">
@@ -44,7 +44,7 @@ export default async function MyRewards() {
         )}
         {rows.length === 0 ? (
           <Card className="mt-8">
-            <EmptyState title="No rewards yet" action={<Link href="/experiences" className={buttonClass("secondary")}>Find something to do</Link>}>
+            <EmptyState title="No rewards yet" action={<Link href="/explore?tab=experiences" className={buttonClass("secondary")}>Find a quest</Link>}>
               Finish a hunt or enter a contest that offers token rewards.
             </EmptyState>
           </Card>

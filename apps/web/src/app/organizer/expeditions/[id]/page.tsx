@@ -6,7 +6,7 @@ import { myOrganization } from "@/server/spaces";
 import { ExpeditionEditor } from "./ExpeditionEditor";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Expedition" };
+export const metadata = { title: "Joint trail" };
 
 export default async function ExpeditionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -16,7 +16,7 @@ export default async function ExpeditionPage({ params }: { params: Promise<{ id:
   if (!mine?.space) redirect("/organizer");
   return (
     <div>
-      <SectionHeader eyebrow="Shared expedition" title="Expedition" />
+      <SectionHeader eyebrow="Cooperation" title="Joint trail" />
       <ExpeditionEditor id={id} canManage={mine.role === "owner" || mine.role === "admin"} />
     </div>
   );

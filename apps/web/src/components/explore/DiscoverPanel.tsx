@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { forwardRef } from "react";
 import type { WorldBuildingData } from "@/world/types";
-import { IconChevron, IconCube, IconFlag, IconSearch, IconStar } from "./icons";
+import { IconChevron, IconSearch } from "./icons";
 import { KIND_COLOR } from "./MarkerLayer";
+import { PrizeChip } from "./PrizeChip";
 
 export type Filter = "all" | "live" | "treasure_hunt" | "creative_contest";
 export const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "live", label: "Live" },
   { id: "treasure_hunt", label: "Hunts" },
-  { id: "creative_contest", label: "Contests" },
+  { id: "creative_contest", label: "Challenges" },
 ];
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -30,54 +31,42 @@ interface Props {
   onFilter(f: Filter): void;
   onPick(id: string): void;
   onCollapse?(): void;
-  /** Hide the in-panel search when a search box lives in the top bar. */
+  /** Hide the in-panel search when a search box lives elsewhere. */
   showSearch?: boolean;
   onAbout(): void;
 }
 
+/** Explore tab: every vault on the map, live prizes first. */
 export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function DiscoverPanel(
-  { results, total, query, filter, selectedId, onQuery, onFilter, onPick, onCollapse, onAbout, showSearch = true },
+  { results, total, query, filter, selectedId, onQuery, onFilter, onPick, onAbout, showSearch = true },
   searchRef,
 ) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-start justify-between gap-3 px-5 pt-5">
-        <div>
-          <h2 className="text-[19px] font-semibold">Discover Spaces</h2>
-          <p className="text-[13px] text-ink-3">Find your next adventure.</p>
-        </div>
-        {onCollapse && (
-          <button type="button" onClick={onCollapse} aria-label="Collapse panel" title="Collapse panel" className="grid size-8 place-items-center rounded-md text-ink-3 hover:bg-paper-2 hover:text-ink">
-            <IconChevron dir="left" size={16} />
-          </button>
+      <div className="px-4 pt-4">
+        {showSearch && (
+          <div className="relative mb-3">
+            <label htmlFor="discover-search" className="sr-only">Search vaults and quests</label>
+            <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
+            <input
+              ref={searchRef}
+              id="discover-search"
+              type="search"
+              value={query}
+              onChange={(e) => onQuery(e.target.value)}
+              placeholder="Search vaults & quests"
+              className="h-10 w-full rounded-[12px] border border-line-strong bg-paper pl-9 pr-3 text-[13.5px] text-ink placeholder:text-ink-3 focus:border-orange focus:outline-none focus:ring-2 focus:ring-orange/25"
+            />
+          </div>
         )}
-      </div>
-      <div className="px-5 pt-4">
-        {showSearch && (<>
-        <label htmlFor="discover-search" className="sr-only">
-          Search projects, challenges, or communities
-        </label>
-        <div className="relative">
-          <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
-          <input
-            ref={searchRef}
-            id="discover-search"
-            type="search"
-            value={query}
-            onChange={(e) => onQuery(e.target.value)}
-            placeholder="Search projects, challenges, or communities…"
-            className="h-10 w-full rounded-[10px] border border-line-strong bg-paper pl-9 pr-3 text-[13.5px] text-ink placeholder:text-ink-3 focus:border-orange focus:outline-none focus:ring-2 focus:ring-orange/25"
-          />
-        </div>
-        </>)}
-        <div className={`${showSearch ? "mt-3" : ""} flex gap-1.5`} role="group" aria-label="Filter">
+        <div className="flex gap-1.5" role="group" aria-label="Filter">
           {FILTERS.map((f) => (
             <button
               key={f.id}
               type="button"
               aria-pressed={filter === f.id}
               onClick={() => onFilter(f.id)}
-              className={`h-7 rounded-full border px-3 text-[12.5px] font-medium transition-colors ${
+              className={`h-7 rounded-full border px-3 text-[12.5px] font-semibold transition-colors ${
                 filter === f.id ? "border-orange bg-orange-wash text-orange-ink" : "border-line-strong text-ink-2 hover:border-ink-3 hover:text-ink"
               }`}
             >
@@ -86,25 +75,25 @@ export const DiscoverPanel = forwardRef<HTMLInputElement, Props>(function Discov
           ))}
         </div>
       </div>
-      <div className="mt-4 flex items-center justify-between px-5 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-ink-3">
-        <span>{query || filter !== "all" ? `${results.length} of ${total}` : `${total} Space${total === 1 ? "" : "s"}`}</span>
-      </div>
-      <ul className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3" aria-label="Spaces">
+      <p className="mt-3 px-4 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-ink-3">
+        {query || filter !== "all" ? `${results.length} of ${total} vaults` : `${total} vault${total === 1 ? "" : "s"}`}
+      </p>
+      <ul className="yv-stagger mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-3" aria-label="Vaults">
         {results.length === 0 && (
-          <li className="px-2 py-6 text-center text-[13px] text-ink-3">{total === 0 ? "No Spaces have opened yet." : "Nothing matches that search."}</li>
+          <li className="px-2 py-6 text-center text-[13px] text-ink-3">{total === 0 ? "No vaults have opened yet." : "Nothing matches that search."}</li>
         )}
         {results.map((b) => (
           <li key={b.spaceId}>
-            <SpaceRow b={b} selected={b.spaceId === selectedId} onPick={onPick} />
+            <VaultRow b={b} selected={b.spaceId === selectedId} onPick={onPick} />
           </li>
         ))}
       </ul>
-      <div className="flex items-center justify-between border-t border-line px-5 py-3 text-[12.5px]">
+      <div className="flex items-center justify-between border-t border-line px-4 py-3 text-[12.5px]">
         <button type="button" onClick={onAbout} className="font-medium text-ink-3 hover:text-ink">
-          What is Yielvy?
+          How it works
         </button>
-        <Link href="/host" className="font-semibold text-orange-ink hover:underline">
-          Host a Space
+        <Link href="/organizer" className="font-semibold text-orange-ink hover:underline">
+          Open a vault →
         </Link>
       </div>
     </div>
@@ -115,42 +104,42 @@ export function SpaceLogo({ b, size = 44 }: { b: WorldBuildingData; size?: numbe
   const color = b.liveCampaigns ? KIND_COLOR[b.kind] : "#7C8AA0";
   return b.logoUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={b.logoUrl} alt="" className="shrink-0 rounded-[10px] border border-line object-cover" style={{ width: size, height: size }} />
+    <img src={b.logoUrl} alt="" className="shrink-0 rounded-[12px] border border-line object-cover" style={{ width: size, height: size }} />
   ) : (
-    <span aria-hidden className="grid shrink-0 place-items-center rounded-[10px] border border-line-strong bg-paper font-display font-bold" style={{ width: size, height: size, color, fontSize: size * 0.42 }}>
+    <span aria-hidden className="grid shrink-0 place-items-center rounded-[12px] border border-line-strong bg-paper font-display font-bold" style={{ width: size, height: size, color, fontSize: size * 0.42 }}>
       {(b.name.match(/[A-Za-z0-9]/)?.[0] ?? "Y").toUpperCase()}
     </span>
   );
 }
 
-function SpaceRow({ b, selected, onPick }: { b: WorldBuildingData; selected: boolean; onPick(id: string): void }) {
-  const Kind = b.kind === "hunt" ? IconFlag : b.kind === "contest" ? IconStar : IconCube;
+function VaultRow({ b, selected, onPick }: { b: WorldBuildingData; selected: boolean; onPick(id: string): void }) {
+  const live = b.liveCampaigns > 0;
   return (
     <button
       type="button"
       onClick={() => onPick(b.spaceId)}
       aria-current={selected}
-      className={`group flex w-full items-center gap-3 rounded-[12px] border p-3 text-left transition-colors ${
-        selected ? "border-orange/70 bg-[linear-gradient(100deg,rgb(255_145_56/0.28),rgb(255_145_56/0.06))]" : "border-line bg-[#121722] hover:border-line-strong"
+      className={`group flex w-full items-center gap-3 rounded-[14px] border p-3 text-left transition-all hover:-translate-y-px ${
+        selected ? "border-orange/70 bg-[linear-gradient(100deg,rgb(255_145_56/0.26),rgb(255_145_56/0.05))]" : "border-line bg-[#121722] hover:border-line-strong"
       }`}
     >
       <SpaceLogo b={b} />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold">{b.name}</span>
-        <span className="block truncate text-[12.5px] text-ink-3">
-          {CATEGORY_LABEL[b.category] ?? b.category}{b.tagline ? ` · ${b.tagline}` : ""}
-        </span>
+        <span className="block truncate text-[12.5px] text-ink-3">{b.featured?.title ?? b.tagline ?? CATEGORY_LABEL[b.category]}</span>
         <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          {b.liveCampaigns > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: `${KIND_COLOR[b.kind]}1f`, color: KIND_COLOR[b.kind] }}>
-              <Kind size={11} /> {b.liveCampaigns} live
-            </span>
+          {live && b.featured ? (
+            <>
+              <PrizeChip prize={b.topPrize} rewards={b.featured.rewards} />
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-ink">
+                <span className="size-1.5 animate-pulse rounded-full bg-orange" /> Live
+              </span>
+            </>
           ) : b.upcomingCampaigns > 0 ? (
-            <span className="rounded-full bg-paper-2 px-2 py-0.5 text-[11px] font-semibold text-ink-2">{b.upcomingCampaigns} upcoming</span>
+            <span className="rounded-full bg-sky-wash px-2 py-0.5 text-[11px] font-semibold text-sky-ink">Opening soon</span>
           ) : (
-            <span className="text-[11px] text-ink-3">No live experiences</span>
+            <span className="text-[11px] text-ink-3">No quest right now</span>
           )}
-          {b.flags.includes("new") && <span className="rounded-full border border-line-strong px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-ink-3">New</span>}
         </span>
       </span>
       <IconChevron size={16} className="text-ink-3 transition-transform group-hover:translate-x-0.5" />

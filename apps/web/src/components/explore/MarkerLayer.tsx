@@ -22,9 +22,9 @@ const LABEL_FROM = 0.3;
 
 const KIND_TEXT: Record<MarkerKind, string> = {
   hunt: "Treasure Hunt · live",
-  contest: "Creative Contest · live",
-  upcoming: "Starting soon",
-  space: "Space",
+  contest: "Challenge · live",
+  upcoming: "Opening soon",
+  space: "Vault",
 };
 
 interface Props {
@@ -162,9 +162,13 @@ const Pin = memo(function Pin({
           style={{ left: size * 0.86 }}
         >
           <span className="block text-[13px] font-semibold leading-tight text-ink">{b.name}</span>
-          <span className="block text-[11px] leading-tight" style={{ color: live ? KIND_COLOR[b.kind] : "#7C8AA0" }}>
-            {KIND_TEXT[b.kind]}
-          </span>
+          {live && b.featured?.rewards === "token" ? (
+            <span className="block text-[11.5px] font-bold leading-tight text-reward">🏆 {b.topPrize ? `${b.topPrize.amount} ${b.topPrize.symbol}` : "Token prize"}</span>
+          ) : (
+            <span className="block text-[11px] leading-tight" style={{ color: live ? KIND_COLOR[b.kind] : "#7C8AA0" }}>
+              {KIND_TEXT[b.kind]}
+            </span>
+          )}
         </span>
       </button>
     </div>

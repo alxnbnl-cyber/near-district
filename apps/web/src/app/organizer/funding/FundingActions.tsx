@@ -11,12 +11,12 @@ import { WalletChooser } from "@/components/auth/WalletChooser";
 type Plan = { signerId: string; transactions: FnCall[]; orderId?: string };
 interface Origin { assetId: string; blockchain: string; symbol: string; decimals: number }
 
-export function FundingActions({ campaignId, registered, vaultDeployed, token }: { campaignId: string; registered: boolean; vaultDeployed: boolean; token: { symbol: string; decimals: number } }) {
+export function FundingActions({ campaignId, registered, vaultDeployed, token, defaultKind = "bonus" }: { campaignId: string; registered: boolean; vaultDeployed: boolean; token: { symbol: string; decimals: number }; defaultKind?: "bonus" | "principal" }) {
   const router = useRouter();
   const [wallets, setWallets] = useState<WalletOption[]>([]);
   const [walletId, setWalletId] = useState<string>("");
   const [amount, setAmount] = useState("");
-  const [kind, setKind] = useState<"principal" | "bonus">("bonus");
+  const [kind, setKind] = useState<"principal" | "bonus">(defaultKind);
   const [msg, setMsg] = useState<{ tone: "ok" | "danger" | "warn" | "info"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [stepUp, setStepUp] = useState(false);
@@ -69,14 +69,14 @@ export function FundingActions({ campaignId, registered, vaultDeployed, token }:
                 run({ action: "plan_register", campaignId, maxOperatorReservePerPeriod: "0", requireSponsorFinalize: true }, (txHash) => ({ action: "confirm_register", campaignId, txHash }))
               }
             >
-              Register campaign in the vault
+              Set up the prize vault
             </Button>
           ) : (
             <div className="grid gap-3 sm:grid-cols-[160px_1fr_auto] sm:items-end">
               <Field label="Deposit as" htmlFor={`k-${campaignId}`}>
                 <select id={`k-${campaignId}`} className={inputClass} value={kind} onChange={(e) => setKind(e.target.value as "bonus")}>
-                  <option value="bonus">Reward budget</option>
-                  <option value="principal">Principal (earns yield)</option>
+                  <option value="bonus">Prize budget</option>
+                  <option value="principal">Interest deposit (you keep it)</option>
                 </select>
               </Field>
               <Field label={`Amount (${token.symbol})`} htmlFor={`a-${campaignId}`}>
@@ -111,7 +111,7 @@ function CrossChainQuote({ campaignId, token, vaultDeployed }: { campaignId: str
       .catch((e) => setError(e.message));
   }, [open, origins]);
 
-  if (!open) return <div><Button variant="secondary" size="sm" onClick={() => setOpen(true)}>Fund from another chain…</Button></div>;
+  if (!open) return <div><Button variant="secondary" size="sm" onClick={() => setOpen(true)}>Paying from another chain?</Button></div>;
   const o = origins?.find((x) => x.assetId === origin);
   return (
     <div className="rounded-md border border-line bg-paper p-4">

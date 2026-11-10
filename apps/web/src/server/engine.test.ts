@@ -198,7 +198,7 @@ describe("creative contest", () => {
     await updateCampaign(h.db, organizer, c, {
       summary: "Pitch us an idea.",
       description: "Tell us what you would build next with our toolkit. The best ideas will be featured.",
-      rules: { startsAt: new Date(Date.now() - 60_000).toISOString(), endsAt: new Date(Date.now() + 86_400_000).toISOString() },
+      rules: { fundingSource: "none", startsAt: new Date(Date.now() - 60_000).toISOString(), endsAt: new Date(Date.now() + 86_400_000).toISOString() },
     });
     const [draft] = await h.db.select().from(campaigns).where(eq(campaigns.id, campaignId));
     await publishCampaign(h.db, organizer, draft!);

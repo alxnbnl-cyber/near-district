@@ -3,9 +3,9 @@ import { Badge } from "@/components/ui";
 
 export const TEMPLATE_LABEL: Record<string, string> = {
   treasure_hunt: "Treasure Hunt",
-  creative_contest: "Creative Contest",
+  creative_contest: "Creative Challenge",
   product_explorer: "Product Explorer",
-  more_experiences: "More experiences",
+  more_experiences: "More quests",
 };
 
 export function StatusBadge({ status }: { status: CampaignState }) {
@@ -40,7 +40,7 @@ export function RewardExplainer({ rules, decimals, symbol }: { rules: CampaignRu
     return (
       <div className="rounded-lg border border-line bg-paper px-4 py-3 text-sm">
         <p className="font-semibold">No token rewards</p>
-        <p className="mt-0.5 text-ink-2">This campaign is just for the fun of exploring (and bragging rights). Nothing will be paid out.</p>
+        <p className="mt-0.5 text-ink-2">Just for fun — no token prize.</p>
       </div>
     );
   }

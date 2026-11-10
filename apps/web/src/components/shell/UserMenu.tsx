@@ -47,10 +47,9 @@ export function UserMenu({ user }: { user: { displayName: string; isAdmin: boole
       {open && (
         <div role="menu" className="yv-enter absolute right-0 top-11 w-56 rounded-lg border border-line bg-card p-1.5 shadow-pop">
           {[
-            ["/explore?tab=adventures", "My Adventures"],
-            ["/me/rewards", "My Rewards"],
-            ["/me/profile", "Profile & wallet"],
-            ["/organizer", "Organizer portal"],
+            ["/me/rewards", "My rewards"],
+            ["/me/profile", "Wallet & profile"],
+            ["/organizer", "My vault"],
             ...(user.isAdmin ? [["/admin", "Admin"]] : []),
           ].map(([href, label]) => (
             <Link key={href} role="menuitem" href={href!} onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-[14px] hover:bg-paper-2">

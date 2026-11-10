@@ -88,7 +88,7 @@ export default async function AdminPage() {
         </section>
 
         <section>
-          <SectionHeader title={`Spaces awaiting review (${pendingSpaces.length})`} />
+          <SectionHeader title={`Vaults awaiting review (${pendingSpaces.length})`} />
           <Card className="divide-y divide-line">
             {pendingSpaces.length === 0 && <EmptyState title="Nothing to review" />}
             {pendingSpaces.map(({ s, org }) => (

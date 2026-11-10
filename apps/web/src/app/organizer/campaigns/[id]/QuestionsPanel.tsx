@@ -2,9 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Badge, Button, Field, Notice, inputClass, textareaClass } from "@/components/ui";
+import { describeActivity, type ActivityDef, type RuleNode } from "@yielvy/core";
+import { Button, Notice, inputClass, textareaClass } from "@/components/ui";
+import { KeyArt } from "@/components/art/Art";
 import { api, ApiError } from "@/lib/api";
-import { QuestionHints, useHintData } from "./HintsEditor";
+import { ActivityConfig, useHintData, type HintRow } from "./HintsEditor";
 
 export interface QuestionRow {
   id: string;
@@ -19,229 +21,247 @@ export interface QuestionRow {
   cooldownSeconds: number;
 }
 
-const TYPE_LABEL = { short_text: "Short answer", multiple_choice: "Multiple choice", numeric: "Number" };
+/** The activities offered for now. Everything else stays in the engine, hidden from the builder. */
+const HINT_ACTIVITIES = [
+  { type: "near_rhea_swap", title: "Swap on RHEA", body: "Player makes a swap on RHEA." },
+  { type: "near_rhea_lending_supply", title: "Supply to RHEA Lending", body: "Player supplies a token to RHEA Lending." },
+  { type: "manual_review", title: "Share feedback or work", body: "Player submits something, your team approves it." },
+] as const;
+
+const leafOf = (h?: HintRow) => (h?.unlock ? (h.unlock.kind === "group" ? (h.unlock.children[0] as Extract<RuleNode, { kind: "activity" }>) : (h.unlock as Extract<RuleNode, { kind: "activity" }>)) : undefined);
 
 export function QuestionsPanel({ campaignId, questions, editable }: { campaignId: string; questions: QuestionRow[]; editable: boolean }) {
   const router = useRouter();
-  const [editing, setEditing] = useState<string | "new" | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const hintData = useHintData(campaignId);
+  const [editing, setEditing] = useState<string | "new" | null>(questions.length === 0 && editable ? "new" : null);
+  const [error, setError] = useState<string | null>(null);
 
-  const move = async (idx: number, dir: -1 | 1) => {
-    const order = questions.map((q) => q.id);
-    const j = idx + dir;
-    if (j < 0 || j >= order.length) return;
-    [order[idx], order[j]] = [order[j]!, order[idx]!];
-    try {
-      await api(`/api/organizer/campaigns/${campaignId}/questions/order`, { method: "PUT", body: { order } });
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Could not reorder.");
-    }
+  const done = async () => {
+    setEditing(null);
+    await hintData.reload();
+    router.refresh();
   };
 
   return (
     <div className="flex flex-col gap-3">
-      {!editable && <Notice tone="info">Questions are locked after publishing so every participant answers the same hunt.</Notice>}
-      {questions.length === 0 && editing !== "new" && <p className="text-sm text-ink-3">No questions yet.</p>}
-      <ol className="flex flex-col gap-2">
-        {questions.map((q, i) => (
-          <li key={q.id} className="rounded-md border border-line bg-paper px-4 py-3">
-            {editing === q.id ? (
-              <QuestionForm campaignId={campaignId} existing={q} onDone={() => { setEditing(null); router.refresh(); }} onCancel={() => setEditing(null)} />
-            ) : (
-              <div className="flex flex-wrap items-start gap-3">
-                <span className="mt-0.5 font-display text-sm font-bold text-ink-3">{i + 1}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{q.prompt}</p>
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    <Badge>{TYPE_LABEL[q.type]}</Badge>
-                    <Badge>Difficulty {q.difficulty}</Badge>
-                    <Badge>{q.maxAttempts} attempts</Badge>
-                    {q.cooldownSeconds > 0 && <Badge>{q.cooldownSeconds}s cooldown</Badge>}
+      <ol className="yv-stagger flex flex-col gap-3">
+        {questions.map((q, i) => {
+          const hint = hintData.hints.find((h) => h.questionId === q.id);
+          const leaf = leafOf(hint);
+          return (
+            <li key={q.id}>
+              {editing === q.id ? (
+                <ClueForm campaignId={campaignId} index={i} existing={q} hint={hint} options={hintData.options} onDone={done} onCancel={() => setEditing(null)} />
+              ) : (
+                <div className="flex items-start gap-3 rounded-[16px] border border-line bg-paper p-4">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-orange-wash font-display text-[14px] font-bold text-orange">{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">{q.prompt}</p>
+                    <p className="mt-0.5 text-[12.5px] text-ink-3">Answer saved privately</p>
+                    {leaf && (
+                      <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-gold-wash px-2.5 py-1 text-[12px] font-semibold text-gold-ink">
+                        🔑 Hint: {describeActivity(leaf.activity)}
+                      </p>
+                    )}
                   </div>
-                  {preview === q.id && (
-                    <div className="mt-3 rounded-md border border-line bg-card p-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-orange-ink">Player preview</p>
-                      <p className="mt-1 font-semibold">{q.prompt}</p>
-                      {q.clue && <p className="mt-1 text-[13px] text-ink-3">Hint: {q.clue}</p>}
-                      {q.options ? (
-                        <div className="mt-2 grid gap-1.5 sm:grid-cols-2">{q.options.map((o) => <span key={o.id} className="rounded border border-line px-3 py-2 text-sm">{o.label}</span>)}</div>
-                      ) : (
-                        <div className="mt-2 h-10 rounded border border-line-strong bg-paper" />
-                      )}
-                    </div>
-                  )}
-                  <QuestionHints campaignId={campaignId} questionId={q.id} editable={editable} data={hintData} />
-                </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" onClick={() => setPreview(preview === q.id ? null : q.id)}>Preview</Button>
                   {editable && (
-                    <>
-                      <Button variant="ghost" size="sm" aria-label="Move up" onClick={() => move(i, -1)} disabled={i === 0}>↑</Button>
-                      <Button variant="ghost" size="sm" aria-label="Move down" onClick={() => move(i, 1)} disabled={i === questions.length - 1}>↓</Button>
+                    <div className="flex gap-1">
                       <Button variant="ghost" size="sm" onClick={() => setEditing(q.id)}>Edit</Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={async () => {
-                          if (!confirm("Delete this question?")) return;
-                          await api(`/api/organizer/campaigns/${campaignId}/questions/${q.id}`, { method: "DELETE" }).catch((e) => setError(e.message));
-                          router.refresh();
+                          if (!confirm("Delete this clue?")) return;
+                          try {
+                            await api(`/api/organizer/campaigns/${campaignId}/questions/${q.id}`, { method: "DELETE" });
+                            await done();
+                          } catch (e) {
+                            setError(e instanceof ApiError ? e.message : "Could not delete.");
+                          }
                         }}
                       >
                         Delete
                       </Button>
-                    </>
+                    </div>
                   )}
                 </div>
-              </div>
-            )}
-          </li>
-        ))}
+              )}
+            </li>
+          );
+        })}
       </ol>
       {error && <Notice tone="danger">{error}</Notice>}
       {editable &&
         (editing === "new" ? (
-          <div className="rounded-md border border-orange/50 bg-orange-wash/40 p-4">
-            <QuestionForm campaignId={campaignId} onDone={() => { setEditing(null); router.refresh(); }} onCancel={() => setEditing(null)} />
-          </div>
+          <ClueForm campaignId={campaignId} index={questions.length} options={hintData.options} onDone={done} onCancel={questions.length ? () => setEditing(null) : undefined} />
         ) : (
-          <div>
-            <Button variant="secondary" onClick={() => setEditing("new")}>Add question</Button>
-          </div>
+          <button type="button" onClick={() => setEditing("new")} className="rounded-[16px] border-2 border-dashed border-line-strong py-4 text-[14px] font-semibold text-ink-2 transition-colors hover:border-orange hover:text-orange">
+            + Add a clue
+          </button>
         ))}
     </div>
   );
 }
 
-function QuestionForm({ campaignId, existing, onDone, onCancel }: { campaignId: string; existing?: QuestionRow; onDone: () => void; onCancel: () => void }) {
-  const [type, setType] = useState<QuestionRow["type"]>(existing?.type ?? "short_text");
+function ClueForm({
+  campaignId,
+  index,
+  existing,
+  hint,
+  options,
+  onDone,
+  onCancel,
+}: {
+  campaignId: string;
+  index: number;
+  existing?: QuestionRow;
+  hint?: HintRow;
+  options: ReturnType<typeof useHintData>["options"];
+  onDone(): void;
+  onCancel?: () => void;
+}) {
+  const existingLeaf = leafOf(hint);
   const [prompt, setPrompt] = useState(existing?.prompt ?? "");
-  const [clue, setClue] = useState(existing?.clue ?? "");
-  const [ref, setRef] = useState(existing?.referenceUrl ?? "");
   const [answers, setAnswers] = useState("");
-  const [options, setOptions] = useState<{ id: string; label: string }[]>(existing?.options ?? [{ id: "a", label: "" }, { id: "b", label: "" }]);
-  const [correct, setCorrect] = useState("");
-  const [numeric, setNumeric] = useState("");
-  const [tol, setTol] = useState("0");
-  const [difficulty, setDifficulty] = useState(existing?.difficulty ?? 1);
-  const [maxAttempts, setMaxAttempts] = useState(existing?.maxAttempts ?? 10);
-  const [cooldown, setCooldown] = useState(existing?.cooldownSeconds ?? 0);
-  const [stripP, setStripP] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [withHint, setWithHint] = useState(Boolean(hint));
+  const [clue, setClue] = useState(hint?.content ?? "");
+  const [activity, setActivity] = useState<ActivityDef | null>(existingLeaf?.offeringId ? null : (existingLeaf?.activity ?? null));
+  const [pickType, setPickType] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const available = (t: string) => options?.catalogue.find((c) => c.type === t)?.available ?? false;
+  const reason = (t: string) => options?.catalogue.find((c) => c.type === t)?.unavailableReason;
+
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const list = answers.split(",").map((a) => a.trim()).filter(Boolean);
+      if (!prompt.trim()) throw new ApiError("Write the question first.", 400);
+      if (!list.length) throw new ApiError(existing ? "Type the answer again to save (answers are never shown back, for safety)." : "Add the answer.", 400);
+      if (withHint && (!clue.trim() || !activity)) throw new ApiError("Write the hidden clue and pick the activity that unlocks it.", 400);
+      const body = { type: "short_text", prompt, answers: list, caseSensitive: false, stripPunctuation: true, difficulty: 1, maxAttempts: 100, cooldownSeconds: 60 };
+      let qid = existing?.id;
+      if (existing) await api(`/api/organizer/campaigns/${campaignId}/questions/${existing.id}`, { method: "PATCH", body });
+      else qid = (await api<{ id: string }>(`/api/organizer/campaigns/${campaignId}/questions`, { method: "POST", body })).id;
+      if (withHint && activity) {
+        const hintBody = {
+          questionId: qid,
+          title: "Hint",
+          teaser: "",
+          content: clue,
+          unlock: { kind: "group", op: "ANY", children: [{ kind: "activity", id: "unlock", ownerOrgId: "00000000-0000-4000-8000-000000000000", activity }] },
+          withdrawalPolicy: "disable",
+        };
+        if (hint) await api(`/api/organizer/campaigns/${campaignId}/hints/${hint.id}`, { method: "PATCH", body: hintBody });
+        else await api(`/api/organizer/campaigns/${campaignId}/hints`, { method: "POST", body: hintBody });
+      } else if (hint) {
+        await api(`/api/organizer/campaigns/${campaignId}/hints/${hint.id}`, { method: "DELETE" });
+      }
+      onDone();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Could not save the clue.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
-    <form
-      className="flex flex-col gap-4"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        setError(null);
-        const body = {
-          type,
-          prompt,
-          clue: clue || undefined,
-          referenceUrl: ref || "",
-          difficulty,
-          maxAttempts,
-          cooldownSeconds: cooldown,
-          stripPunctuation: stripP,
-          answers: type === "short_text" ? answers.split("\n").map((a) => a.trim()).filter(Boolean) : undefined,
-          options: type === "multiple_choice" ? options.filter((o) => o.label.trim()) : undefined,
-          correctOptionId: type === "multiple_choice" ? correct : undefined,
-          numericValue: type === "numeric" ? numeric : undefined,
-          numericTolerance: tol || "0",
-        };
-        try {
-          if (existing) await api(`/api/organizer/campaigns/${campaignId}/questions/${existing.id}`, { method: "PUT", body });
-          else await api(`/api/organizer/campaigns/${campaignId}/questions`, { method: "POST", body });
-          onDone();
-        } catch (err) {
-          setError(err instanceof ApiError ? err.message : "Could not save the question.");
-          setBusy(false);
-        }
-      }}
-    >
-      <div className="grid gap-4 sm:grid-cols-[200px_1fr]">
-        <Field label="Type" htmlFor="qtype">
-          <select id="qtype" className={inputClass} value={type} onChange={(e) => setType(e.target.value as QuestionRow["type"])}>
-            <option value="short_text">Short answer</option>
-            <option value="multiple_choice">Multiple choice</option>
-            <option value="numeric">Number</option>
-          </select>
-        </Field>
-        <Field label="Question" htmlFor="qprompt">
-          <textarea id="qprompt" required className={textareaClass} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
-        </Field>
+    <div className="yv-pop flex flex-col gap-4 rounded-[18px] border border-orange/50 bg-[linear-gradient(180deg,rgb(255_145_56/.07),transparent)] p-5">
+      <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">Clue {index + 1}</p>
+      <label>
+        <span className="text-[13px] font-semibold">Question</span>
+        <textarea className={`${textareaClass} mt-1.5 min-h-20 text-[15px]`} maxLength={1000} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Which lending protocol powers our vault?" />
+      </label>
+      <label>
+        <span className="text-[13px] font-semibold">Answer</span>
+        <input className={`${inputClass} mt-1.5 h-11`} value={answers} onChange={(e) => setAnswers(e.target.value)} placeholder={existing ? "Type the answer again" : "RHEA"} />
+        <span className="mt-1 block text-[12px] text-ink-3">Capitals and punctuation are ignored. Separate other accepted spellings with commas.</span>
+      </label>
+
+      {/* hint, unlocked by one activity */}
+      <div className={`rounded-[14px] border p-4 transition-colors ${withHint ? "border-gold/50 bg-gold-wash/40" : "border-line bg-paper"}`}>
+        <label className="flex cursor-pointer items-center gap-3">
+          <input type="checkbox" checked={withHint} onChange={(e) => setWithHint(e.target.checked)} className="size-4 accent-[var(--color-gold)]" />
+          <KeyArt size={28} />
+          <span>
+            <span className="block text-[14px] font-semibold">Unlock hint with an activity</span>
+            <span className="block text-[12px] text-ink-3">Stuck players do one activity to reveal your clue.</span>
+          </span>
+        </label>
+        {withHint && (
+          <div className="mt-4 grid gap-4">
+            <div className="flex flex-col gap-3">
+              <label>
+                <span className="text-[13px] font-semibold">Hidden clue</span>
+                <textarea className={`${textareaClass} mt-1.5 min-h-16`} maxLength={2000} value={clue} onChange={(e) => setClue(e.target.value)} placeholder="It merged Ref and Burrow." />
+              </label>
+              <div>
+                <p className="text-[13px] font-semibold">Activity that unlocks it</p>
+                {activity && !pickType ? (
+                  <div className="mt-1.5 flex items-center justify-between gap-2 rounded-[12px] border border-line bg-card px-3 py-2.5 text-[13.5px]">
+                    <span>✓ {describeActivity(activity)}</span>
+                    <Button variant="ghost" size="sm" onClick={() => setPickType(activity.type)}>Change</Button>
+                  </div>
+                ) : (
+                  <div className="mt-1.5 grid gap-2">
+                    {HINT_ACTIVITIES.map((a) => (
+                      <button
+                        key={a.type}
+                        type="button"
+                        disabled={!available(a.type)}
+                        onClick={() => setPickType(a.type)}
+                        className={`rounded-[12px] border px-3 py-2.5 text-left transition-colors disabled:opacity-50 ${pickType === a.type ? "border-gold bg-card" : "border-line bg-card enabled:hover:border-line-strong"}`}
+                      >
+                        <span className="block text-[13.5px] font-semibold">{a.title}</span>
+                        <span className="block text-[12px] text-ink-3">{available(a.type) ? a.body : reason(a.type)}</span>
+                      </button>
+                    ))}
+                    <p className="px-1 text-[12px] text-ink-3">More activities coming soon.</p>
+                  </div>
+                )}
+                {pickType && options && (
+                  <div className="mt-2 rounded-[12px] border border-line bg-card p-3">
+                    <ActivityConfig
+                      key={pickType}
+                      type={pickType}
+                      options={options}
+                      onPick={(a) => {
+                        setActivity(a);
+                        setPickType(null);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* live preview */}
+            <div className="rounded-[14px] border border-line bg-[#0e131b] p-3">
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-3">Player sees</p>
+              <div className="mt-2 rounded-[12px] border border-line bg-paper p-3">
+                <p className="flex items-center gap-2 text-[13.5px] font-semibold">
+                  🔒 Hint <span className="rounded-full bg-paper-2 px-2 py-0.5 text-[10px] uppercase text-ink-3">Locked</span>
+                </p>
+                <p className="mt-1.5 text-[12.5px] text-ink-2">{activity ? describeActivity(activity) : "Pick an activity"}</p>
+                <span className="mt-2 inline-block rounded-md bg-orange px-2.5 py-1 text-[11.5px] font-semibold text-[#140c05]">Verify activity</span>
+              </div>
+              <p className="mt-2 text-[11.5px] text-ink-3">After it&apos;s verified: “{clue || "your clue"}”</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {type === "short_text" && (
-        <>
-          <Field label="Accepted answers" htmlFor="qans" hint={existing ? "Answers are stored hashed and can't be shown again. Re-enter them to save changes." : "One per line. Matching ignores case and extra spaces."}>
-            <textarea id="qans" required className={textareaClass} value={answers} onChange={(e) => setAnswers(e.target.value)} placeholder={"lighthouse\na lighthouse"} />
-          </Field>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={stripP} onChange={(e) => setStripP(e.target.checked)} /> Ignore punctuation when matching
-          </label>
-        </>
-      )}
-      {type === "multiple_choice" && (
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-[13px] font-semibold">Options (select the correct one)</legend>
-          {options.map((o, i) => (
-            <div key={o.id} className="flex items-center gap-2">
-              <input type="radio" name="correct" aria-label={`Option ${i + 1} is correct`} checked={correct === o.id} onChange={() => setCorrect(o.id)} />
-              <input className={inputClass} value={o.label} placeholder={`Option ${i + 1}`} onChange={(e) => setOptions(options.map((x) => (x.id === o.id ? { ...x, label: e.target.value } : x)))} />
-            </div>
-          ))}
-          {options.length < 8 && (
-            <div>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setOptions([...options, { id: String.fromCharCode(97 + options.length), label: "" }])}>
-                Add option
-              </Button>
-            </div>
-          )}
-          {existing && <p className="text-[12.5px] text-ink-3">Re-select the correct option to save changes.</p>}
-        </fieldset>
-      )}
-      {type === "numeric" && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Correct number" htmlFor="qnum">
-            <input id="qnum" required inputMode="decimal" className={inputClass} value={numeric} onChange={(e) => setNumeric(e.target.value)} />
-          </Field>
-          <Field label="Allowed difference" htmlFor="qtol" hint="0 = exact match.">
-            <input id="qtol" inputMode="decimal" className={inputClass} value={tol} onChange={(e) => setTol(e.target.value)} />
-          </Field>
-        </div>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Hint (optional)" htmlFor="qclue">
-          <input id="qclue" className={inputClass} value={clue} onChange={(e) => setClue(e.target.value)} />
-        </Field>
-        <Field label="Reference link (optional)" htmlFor="qref">
-          <input id="qref" type="url" className={inputClass} value={ref} onChange={(e) => setRef(e.target.value)} placeholder="https://" />
-        </Field>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Difficulty (1–5)" htmlFor="qdiff">
-          <input id="qdiff" type="number" min={1} max={5} className={inputClass} value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))} />
-        </Field>
-        <Field label="Max attempts" htmlFor="qatt">
-          <input id="qatt" type="number" min={1} max={100} className={inputClass} value={maxAttempts} onChange={(e) => setMaxAttempts(Number(e.target.value))} />
-        </Field>
-        <Field label="Cooldown after a miss (s)" htmlFor="qcool">
-          <input id="qcool" type="number" min={0} max={86400} className={inputClass} value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))} />
-        </Field>
-      </div>
       {error && <Notice tone="danger">{error}</Notice>}
       <div className="flex gap-2">
-        <Button type="submit" disabled={busy}>{busy ? "Saving…" : existing ? "Save question" : "Add question"}</Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
+        <Button onClick={save} disabled={busy}>
+          {busy ? "Saving…" : existing ? "Save clue" : "Add clue"}
+        </Button>
+        {onCancel && (
+          <Button variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
       </div>
-    </form>
+    </div>
   );
 }

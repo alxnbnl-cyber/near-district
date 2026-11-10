@@ -409,7 +409,7 @@ export function ActivityConfig({ type, options, onPick }: { type: string; option
   return (
     <div className="mt-4 flex flex-col gap-3">
       {type.startsWith("internal_") && (
-        <Field label="Campaign" htmlFor="act-camp" hint="Your own campaigns. Partner campaigns are attached through their offerings.">
+        <Field label="Quest" htmlFor="act-camp" hint="One of your own quests.">
           <select id="act-camp" className={inputClass} value={campaignId} onChange={(e) => setCampaignId(e.target.value)}>
             <option value="">Choose…</option>
             {pickFrom.map((c) => (

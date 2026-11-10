@@ -43,7 +43,8 @@ export function defaultRules(template: "treasure_hunt" | "creative_contest"): Ru
     startsAt: start.toISOString(),
     endsAt: end.toISOString(),
     eligibility: { requireVerifiedPayout: true, blockedJurisdictions: [] },
-    fundingSource: "none",
+    // Quests are about rewards: new drafts start with a prize budget (organizer picks budget or interest).
+    fundingSource: "direct",
     reward:
       template === "creative_contest"
         ? { mode: "organizer_selected", winnersCount: 3, minPayout: "0", tieBreak: "earliest_completion" }
@@ -150,7 +151,7 @@ export async function updateCampaign(
   try {
     await db.update(campaigns).set(values).where(eq(campaigns.id, c.id));
   } catch (e) {
-    if (String((e as { cause?: { code?: string } }).cause?.code) === "23505") throw conflict("That web address is already used in your Space.");
+    if (String((e as { cause?: { code?: string } }).cause?.code) === "23505") throw conflict("That web address is already used in your vault.");
     throw e;
   }
   await audit(db, { actorUserId: user.userId, action: "campaign.updated", targetType: "campaign", targetId: c.id, metadata: { fields: Object.keys(values) } });
@@ -296,8 +297,8 @@ export async function checkPublishable(db: Db, c: typeof campaigns.$inferSelect)
   let rules: RulesInput | null = null;
   if (!parsed.success) problems.push(...parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`));
   else rules = parsed.data;
-  if (!c.summary.trim()) problems.push("Add a short summary.");
-  if (c.description.trim().length < 40) problems.push("Describe the campaign in at least a few sentences.");
+  if (!c.summary.trim()) problems.push("Add a one-line hook in the Story step.");
+  if (c.template === "creative_contest" && c.description.trim().length < 20) problems.push("Say what you are looking for in the Story step.");
   if (rules) {
     const start = Date.parse(rules.startsAt), end = Date.parse(rules.endsAt);
     if (end <= start) problems.push("The end date must be after the start date.");

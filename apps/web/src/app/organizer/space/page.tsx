@@ -1,33 +1,33 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { and, count, eq, analyticsEvents } from "@yielvy/db";
 import { getSessionUser } from "@/server/session";
 import { db } from "@/server/db";
 import { myOrganization } from "@/server/spaces";
-import { Card, Figure, SectionHeader, buttonClass } from "@/components/ui";
+import { buttonClass } from "@/components/ui";
 import { SpaceSettingsForm } from "./SpaceSettingsForm";
 
-export const metadata = { title: "My Space" };
+export const metadata = { title: "My vault" };
 
-export default async function MySpacePage() {
+export default async function MyVaultPage() {
   const user = await getSessionUser();
   if (!user) redirect("/signin?next=/organizer/space");
   const database = await db();
   const mine = await myOrganization(database, user.userId);
   if (!mine?.space) redirect("/organizer");
   const s = mine.space;
-  const [{ n: views } = { n: 0 }] = await database.select({ n: count() }).from(analyticsEvents).where(and(eq(analyticsEvents.spaceId, s.id), eq(analyticsEvents.kind, "space_view")));
   return (
-    <div className="flex flex-col gap-8">
-      <SectionHeader
-        eyebrow="My Space"
-        title={s.name}
-        action={s.moderation === "approved" ? <Link href={`/s/${s.slug}`} className={buttonClass("secondary", "sm")}>View public page</Link> : null}
-      />
-      <Card className="grid grid-cols-2 gap-6 p-5">
-        <Figure kind="record" label="Visitors (unique per day)" value={views} help="Counted without storing IPs; the visitor hash rotates daily." />
-        <Figure kind="record" label="Review status" value={s.moderation} />
-      </Card>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">My vault</p>
+          <h1 className="mt-1 text-[30px] font-bold tracking-[-0.02em]">How explorers see you</h1>
+        </div>
+        {s.moderation === "approved" && (
+          <Link href={`/s/${s.slug}`} className={buttonClass("secondary", "sm")}>
+            View on the map
+          </Link>
+        )}
+      </div>
       <SpaceSettingsForm
         initial={{
           name: s.name,

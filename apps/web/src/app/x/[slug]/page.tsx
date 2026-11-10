@@ -16,7 +16,7 @@ async function load(slug: string) {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { route } = await load((await params).slug);
-  return { title: route?.title ?? "Expedition" };
+  return { title: route?.title ?? "Trail" };
 }
 
 export default async function ExpeditionPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -31,9 +31,9 @@ export default async function ExpeditionPage({ params }: { params: Promise<{ slu
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 py-8">
         <nav aria-label="Breadcrumb" className="text-[13px] text-ink-3">
-          <Link href="/explore" className="hover:text-ink">Map</Link> <span aria-hidden>/</span> Expedition
+          <Link href="/explore" className="hover:text-ink">Map</Link> <span aria-hidden>/</span> Trail
         </nav>
-        <p className="mt-4 text-[12px] font-semibold uppercase tracking-[0.16em] text-sky">Shared expedition · {spaces.join(" × ")}</p>
+        <p className="mt-4 text-[12px] font-semibold uppercase tracking-[0.16em] text-sky">Trail · {spaces.join(" × ")}</p>
         <h1 className="mt-2 text-3xl font-semibold md:text-4xl">{route.title}</h1>
         {route.summary && <p className="mt-3 text-lg text-ink-2">{route.summary}</p>}
         <div className="mt-5 flex flex-wrap gap-2">
@@ -44,9 +44,9 @@ export default async function ExpeditionPage({ params }: { params: Promise<{ slu
 
         <Card className="mt-8 p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Chapters</h2>
+            <h2 className="text-lg font-semibold">Stops</h2>
             {signedIn ? (
-              <span className="text-[13px] text-ink-3">{route.completedAt ? "You completed this expedition" : `${done} of ${route.chapters.length} complete`}</span>
+              <span className="text-[13px] text-ink-3">{route.completedAt ? "You finished this trail" : `${done} of ${route.chapters.length} complete`}</span>
             ) : (
               <Link href={`/signin?next=/x/${route.slug}`} className="text-[13px] font-semibold text-orange-ink hover:underline">Sign in to track progress</Link>
             )}
@@ -59,10 +59,10 @@ export default async function ExpeditionPage({ params }: { params: Promise<{ slu
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">
-                    {c.title} {c.reward && <Badge tone="gold">Reward chapter</Badge>}
+                    {c.title} {c.reward && <Badge tone="gold">Prize stop</Badge>}
                   </p>
                   <p className="text-[12.5px] text-ink-3">
-                    {c.spaceName} · {c.template === "treasure_hunt" ? "Treasure Hunt" : "Creative Contest"} · {c.completed ? "Completed" : c.unlocked ? "Open" : "Unlocks after the previous chapter"}
+                    {c.spaceName} · {c.template === "treasure_hunt" ? "Treasure Hunt" : "Creative Challenge"} · {c.completed ? "Completed" : c.unlocked ? "Open" : "Unlocks after the previous stop"}
                   </p>
                 </div>
                 <Link href={`/s/${c.spaceSlug}/c/${c.campaignSlug}`} className={buttonClass(c.unlocked && !c.completed ? "primary" : "dark", "sm")}>
@@ -76,16 +76,14 @@ export default async function ExpeditionPage({ params }: { params: Promise<{ slu
         <section className="mt-6 text-[13.5px] leading-relaxed text-ink-2">
           <h2 className="text-base font-semibold text-ink">How it works</h2>
           <p className="mt-1">
-            Each chapter is a campaign run by the Space that hosts it. A chapter counts once you genuinely finish it — solving the hunt or submitting your
-            contest entry — and the next chapter opens in the order every organizer approved.
+            Each stop is a quest run by the vault that hosts it. Finish a stop and the next one opens.
           </p>
           {reward ? (
             <p className="mt-2">
-              The final chapter, “{reward.title}”, is open only to explorers who completed every earlier chapter. Whether you win anything there is decided by
-              that campaign&apos;s published reward rules — finishing chapters never pays out by itself.
+              The last stop, “{reward.title}”, holds the prize — it opens once you finish every earlier stop.
             </p>
           ) : (
-            <p className="mt-2">This expedition has no separate prize. Each chapter follows its own campaign&apos;s published rules.</p>
+            <p className="mt-2">Each stop has its own prize rules.</p>
           )}
         </section>
       </main>

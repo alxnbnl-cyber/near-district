@@ -1,11 +1,13 @@
 import "server-only";
-import { and, campaigns, campaignVersions, eq, inArray, organizations, spaces, worldBuildings } from "@yielvy/db";
+import { and, campaigns, campaignVersions, desc, eq, inArray, organizations, spaces, vaultPositions, worldBuildings } from "@yielvy/db";
+import { formatDisplay } from "@yielvy/core";
+import { token } from "./near";
 import { lotPosition, type DistrictId } from "@yielvy/core/world";
 import type { CampaignRules } from "@yielvy/core";
 import { db } from "./db";
 import { effectiveStatus } from "./campaigns";
 import { publicExpeditions } from "./expeditions";
-import type { ActivityFlag, FeaturedCampaign, MarkerKind, WorldBuildingData, WorldData, WorldExperience } from "@/world/types";
+import type { ActivityFlag, FeaturedCampaign, MarkerKind, Prize, WorldBuildingData, WorldData, WorldExperience } from "@/world/types";
 
 const NEW_WINDOW_MS = 14 * 86_400_000;
 const ENDING_WINDOW_MS = 72 * 3_600_000;
@@ -38,6 +40,17 @@ export async function getWorldData(viewerId: string | null = null): Promise<Worl
         .leftJoin(campaignVersions, and(eq(campaignVersions.campaignId, campaigns.id), eq(campaignVersions.version, campaigns.currentVersion)))
         .where(and(inArray(campaigns.spaceId, ids), inArray(campaigns.status, ["LIVE", "SCHEDULED"]), eq(campaigns.moderation, "approved")))
     : [];
+
+  // Prize pools come only from on-chain vault snapshots (never from form fields).
+  const funded = camps.filter((x) => x.c.vaultCampaignId !== null).map((x) => x.c.id);
+  const snaps = funded.length ? await database.select().from(vaultPositions).where(inArray(vaultPositions.campaignId, funded)).orderBy(desc(vaultPositions.observedAt)) : [];
+  const t = token();
+  const prizeRaw = new Map<string, bigint>();
+  for (const s of snaps) if (!prizeRaw.has(s.campaignId)) prizeRaw.set(s.campaignId, s.bonusAvailable + s.yieldAvailable + s.reserved);
+  const prizeOf = (id: string): Prize | null => {
+    const v = prizeRaw.get(id);
+    return v && v > 0n ? { amount: formatDisplay(v, t.decimals, 0), symbol: t.symbol } : null;
+  };
 
   const now = Date.now();
   const buildings: WorldBuildingData[] = rows.map((r) => {
@@ -72,6 +85,7 @@ export async function getWorldData(viewerId: string | null = null): Promise<Worl
           startsAt: pick.c.startsAt?.toISOString() ?? null,
           endsAt: pick.c.endsAt?.toISOString() ?? null,
           rewards: (pick.rules as CampaignRules | null)?.fundingSource && (pick.rules as CampaignRules).fundingSource !== "none" ? "token" : "none",
+          prize: prizeOf(pick.c.id),
         }
       : null;
     const pos = lotPosition(r.districtId as DistrictId, r.plotIndex);
@@ -92,6 +106,7 @@ export async function getWorldData(viewerId: string | null = null): Promise<Worl
       upcomingCampaigns: upcoming.length,
       templates: [...new Set(live.map((x) => x.c.template))],
       featured,
+      topPrize: live.map((x) => ({ p: prizeOf(x.c.id), raw: prizeRaw.get(x.c.id) ?? 0n })).filter((x) => x.p).sort((a, b) => (b.raw > a.raw ? 1 : -1))[0]?.p ?? null,
     };
   });
   const bySpace = new Map(rows.map((r) => [r.spaceId, r]));
@@ -108,6 +123,7 @@ export async function getWorldData(viewerId: string | null = null): Promise<Worl
       startsAt: x.c.startsAt?.toISOString() ?? null,
       endsAt: x.c.endsAt?.toISOString() ?? null,
       rewards: ((x.rules as CampaignRules | null)?.fundingSource ?? "none") === "none" ? ("none" as const) : ("token" as const),
+      prize: prizeOf(x.c.id),
       spaceId: x.c.spaceId,
       spaceSlug: bySpace.get(x.c.spaceId)!.slug,
       spaceName: bySpace.get(x.c.spaceId)!.name,

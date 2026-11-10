@@ -10,15 +10,15 @@ import { IconChevron, IconCompass, IconFlag, IconSparkle, IconStar } from "./ico
 
 /**
  * Cinematic first-visit scene. The real map does the storytelling: HUD callouts are pinned
- * to real Spaces (a live hunt, a live contest, one more) and say what happens there.
+ * to real vaults (a live hunt, a live contest, one more) and say what happens there.
  * All numbers shown are real counts from the database (or nothing).
  */
-const WORDS = ["projects", "treasure hunts", "creative challenges", "real rewards"];
+const WORDS = ["treasure hunts", "hidden vaults", "real prizes"];
 
 const STEPS = [
-  { n: "01", icon: IconCompass, title: "Explore the map", body: "Every marker is a real project's Space.", color: "#FF9138" },
-  { n: "02", icon: IconFlag, title: "Take on a challenge", body: "Solve treasure hunts or submit ideas.", color: "#32C8EF" },
-  { n: "03", icon: IconSparkle, title: "Qualify for rewards", body: "Projects fund prizes for those who finish.", color: "#9B87F5" },
+  { n: "01", icon: IconCompass, title: "Explore", body: "Find a glowing vault on the map.", color: "#32C8EF" },
+  { n: "02", icon: IconFlag, title: "Play", body: "Solve its treasure hunt.", color: "#FF9138" },
+  { n: "03", icon: IconSparkle, title: "Earn", body: "Win the prize inside.", color: "#FFC24B" },
 ];
 
 export function WelcomeOverlay({
@@ -72,14 +72,14 @@ export function WelcomeOverlay({
   }, [scene]);
 
   const at = (x: number, y: number) => ({ transform: `translate(calc(${x} * var(--s) * 1px + var(--tx) * 1px), calc(${y} * var(--s) * 1px + var(--ty) * 1px))` });
-  // Callouts sit on real Spaces only: a live hunt, a live contest, and one more Space.
+  // Callouts sit on real vaults only: a live hunt, a live contest, and one more vault.
   const hunt = buildings.find((b) => b.liveCampaigns > 0 && b.kind === "hunt");
   const contest = buildings.find((b) => b.liveCampaigns > 0 && b.kind === "contest");
   const other = buildings.find((b) => b !== hunt && b !== contest);
   const callouts = [
-    other && { b: other, title: other.name, text: "Every marker on the map is a real project’s Space", color: "#FF9138", icon: IconCompass },
-    hunt && { b: hunt, title: hunt.name, text: "Treasure hunt live: follow clues, solve questions", color: "#32C8EF", icon: IconFlag },
-    contest && { b: contest, title: contest.name, text: "Creative contest live: submit your best idea", color: "#9B87F5", icon: IconStar },
+    other && { b: other, title: other.name, text: "Every pin is a real project’s vault", color: "#FF9138", icon: IconCompass },
+    hunt && { b: hunt, title: hunt.name, text: "Treasure hunt live — solve it to win", color: "#32C8EF", icon: IconFlag },
+    contest && { b: contest, title: contest.name, text: "Challenge live — your idea could win", color: "#9B87F5", icon: IconStar },
   ]
     .filter((c): c is NonNullable<typeof c> => Boolean(c))
     .map((c) => ({ ...c, p: [c.b.x * atlas.width, c.b.y * atlas.height] as const }));
@@ -96,7 +96,7 @@ export function WelcomeOverlay({
       <div aria-hidden className="absolute inset-0 bg-[radial-gradient(ellipse_at_68%_45%,transparent_35%,rgb(5_7_10/0.75)_100%)]" />
       <div aria-hidden className="yv-scan absolute inset-x-0 h-[30%] bg-[linear-gradient(180deg,transparent,rgb(50_200_239/0.07),transparent)]" />
 
-      {/* callouts pinned to real Spaces on the map */}
+      {/* callouts pinned to real vaults on the map */}
       <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
         {callouts.map((c, i) => (
           <div key={c.b.spaceId} className="absolute left-0 top-0" style={at(c.p[0], c.p[1])}>
@@ -140,16 +140,16 @@ export function WelcomeOverlay({
             &gt; Welcome to Yielvy<span className="yv-caret">_</span>
           </p>
           <h1 id="welcome-title" className="yv-rise mt-4 text-[40px] font-bold leading-[0.98] tracking-[-0.035em] sm:text-[58px] xl:text-[72px]" style={{ animationDelay: "240ms" }}>
-            There&apos;s a world
+            Explore. Play.
             <br />
-            <span className="bg-[linear-gradient(90deg,#FFB37A,#FF9138_45%,#32C8EF)] bg-clip-text text-transparent">worth exploring.</span>
+            <span className="text-reward">Earn.</span>
           </h1>
           <p className="yv-rise mt-5 max-w-[520px] text-[15px] leading-relaxed text-ink-2 sm:text-[17px]" style={{ animationDelay: "340ms" }}>
             A living map of{" "}
             <span key={word} className="yv-word inline-block font-semibold text-ink">
               {WORDS[word]}
             </span>
-            . Enter a project&apos;s Space, take on its challenges, and qualify for the rewards it puts up.
+            , hidden across a living map. Crack them and claim the prize.
           </p>
 
           <div className="yv-rise mt-7 flex flex-wrap items-center gap-3" style={{ animationDelay: "440ms" }}>
@@ -158,7 +158,7 @@ export function WelcomeOverlay({
               <IconChevron size={18} className="transition-transform group-hover:translate-x-1" />
             </button>
             <Link href="/host" className={buttonClass("dark", "lg", "h-14 px-6")}>
-              Host a Space
+              Open a vault
             </Link>
             <span className="hidden font-mono text-[11px] tracking-wider text-ink-3 sm:inline">
               or press <kbd className="rounded border border-line-strong px-1.5 py-0.5 text-ink-2">Enter ↵</kbd>
@@ -167,7 +167,7 @@ export function WelcomeOverlay({
 
           {stats.spaces > 0 && (
             <p className="yv-rise mt-5 font-mono text-[12px] tracking-wider text-ink-3" style={{ animationDelay: "520ms" }}>
-              <span className="text-ink">{stats.spaces}</span> SPACES OPEN · <span className="text-sky">{stats.hunts}</span> TREASURE HUNTS ·{" "}
+              <span className="text-ink">{stats.spaces}</span> VAULTS OPEN · <span className="text-sky">{stats.hunts}</span> HUNTS LIVE ·{" "}
               <span className="text-violet">{stats.contests}</span> CONTESTS LIVE
             </p>
           )}

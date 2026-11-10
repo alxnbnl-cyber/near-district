@@ -42,13 +42,13 @@ export default async function ParticipantsPage() {
     <div>
       <SectionHeader eyebrow="Participants" title="Who showed up" />
       {rows.length === 0 ? (
-        <Card><EmptyState title="No published campaigns yet" /></Card>
+        <Card><EmptyState title="No live quests yet" /></Card>
       ) : (
         <Card className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-[12.5px] text-ink-3">
               <tr>
-                {["Campaign", "Views", "Started", "Completed", "Completion", "Qualified", "Entries", "Winners", "Claimed"].map((h) => <th key={h} className="px-4 py-2 font-medium">{h}</th>)}
+                {["Quest", "Views", "Started", "Completed", "Completion", "Qualified", "Entries", "Winners", "Claimed"].map((h) => <th key={h} className="px-4 py-2 font-medium">{h}</th>)}
               </tr>
             </thead>
             <tbody className="divide-y divide-line tabular">

@@ -23,9 +23,9 @@ export async function myOrganization(db: Db, userId: string) {
  */
 export async function createSpace(db: Db, user: SessionUser, input: SpaceInput) {
   if (!user.payoutAccountId) {
-    throw new HttpError(403, "Link and verify a NEAR wallet before opening a Space.", "wallet_required");
+    throw new HttpError(403, "Link and verify a NEAR wallet before opening a vault.", "wallet_required");
   }
-  if (await myOrganization(db, user.userId)) throw conflict("You already manage a Space.", "space_exists");
+  if (await myOrganization(db, user.userId)) throw conflict("You already manage a vault.", "space_exists");
   const [taken] = await db.select({ id: spaces.id }).from(spaces).where(eq(spaces.slug, input.slug)).limit(1);
   if (taken) throw conflict("That web address is taken. Try another.", "slug_taken");
 

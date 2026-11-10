@@ -54,7 +54,7 @@ export async function invitePartner(db: Db, user: SessionUser, orgId: string, in
     await notifyOrgAdmins(db, them.id, {
       kind: "partnership_invite",
       title: `${me.name} invited you to cooperate`,
-      body: input.message || "Review the invitation to share activities between your Spaces.",
+      body: input.message || "Review the invitation to team up on quests and trails.",
       link: "/organizer/partners",
       dedupeKey: `partnership:${row!.id}`,
     });
