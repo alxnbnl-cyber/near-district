@@ -19,6 +19,7 @@ import { AmbientLayer } from "./AmbientLayer";
 import { Minimap } from "./Minimap";
 import { Tutorial, tutorialSeen } from "./Tutorial";
 import { MissionModal } from "./MissionModal";
+import { SignInModal } from "./SignInModal";
 import { IconSearch } from "./icons";
 
 const DRAWER_W = 400;
@@ -42,6 +43,23 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
   const [leaving, setLeaving] = useState(false);
   const [panel, setPanel] = useState<Panel | null>(null);
   const [mission, setMission] = useState<{ slug: string; campaign: string } | null>(null);
+  const [signIn, setSignIn] = useState<string | null>(null);
+  // On the map, every sign-in link opens a modal over the live map instead of leaving the page.
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      if (!window.location.pathname.startsWith("/explore")) return; // homepage keeps the full sign-in page
+      const a = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!a) return;
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname !== "/signin") return;
+      e.preventDefault();
+      const next = url.searchParams.get("next");
+      setSignIn(next && next.startsWith("/") && !next.startsWith("//") ? next : window.location.pathname + window.location.search);
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
   const [tutorial, setTutorial] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [query, setQuery] = useState("");
@@ -403,6 +421,22 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
             </div>
           )}
 
+          {/* right edge: small expand handle that opens the explore panel */}
+          {!drawerOpen && (
+            <button
+              type="button"
+              onClick={() => openPanel("explore")}
+              aria-label="Open explore panel"
+              title="Explore"
+              className="absolute right-0 top-1/2 z-20 grid h-14 w-6 -translate-y-1/2 place-items-center bg-[rgb(5_7_10/.7)] text-[rgb(214_219_225/.55)] backdrop-blur transition-colors hover:w-7 hover:text-white"
+              style={{ clipPath: "polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 calc(100% - 8px), 0 8px)", boxShadow: "inset 0 0 0 1px rgb(214 219 225 / .2)" }}
+            >
+              <svg aria-hidden width="10" height="10" viewBox="0 0 10 10">
+                <path d="M6.5 1.5 3 5l3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
+
           {/* right drawer: search + results (or progress) */}
           <aside
             aria-label={panel === "progress" ? "Progress" : "Search"}
@@ -516,6 +550,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
       )}
 
       <Tutorial open={tutorial} onClose={() => setTutorial(false)} />
+      {signIn && <SignInModal next={signIn} onClose={() => setSignIn(null)} />}
       {mission && <MissionModal key={`${mission.slug}/${mission.campaign}`} slug={mission.slug} campaign={mission.campaign} onClose={closeMission} onOpen={openMission} />}
     </div>
   );

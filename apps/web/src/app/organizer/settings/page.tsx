@@ -4,6 +4,8 @@ import { getSessionUser } from "@/server/session";
 import { db } from "@/server/db";
 import { myOrganization } from "@/server/spaces";
 import { Badge, Card, SectionHeader } from "@/components/ui";
+import { env } from "@/server/env";
+import { AppKeysPanel } from "./AppKeysPanel";
 
 export const metadata = { title: "Settings" };
 
@@ -26,6 +28,10 @@ export default async function OrganizerSettings() {
           <p><span className="text-ink-3">Payout & funding wallet:</span> <span className="font-mono">{user.payoutAccountId ?? "not linked"}</span></p>
           <p className="mt-2 text-ink-3">Funding actions require a fresh wallet signature in this session (every 12 hours), so a stolen session cookie alone can't move money.</p>
         </Card>
+      </section>
+      <section>
+        <SectionHeader title="App events" />
+        <AppKeysPanel appUrl={env().APP_URL} />
       </section>
       <section>
         <SectionHeader title="Team" />

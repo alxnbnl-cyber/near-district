@@ -15,7 +15,7 @@
  *     EVENT_JSON:{"standard":"burrow","event":"deposit","data":[{"account_id","amount","token_id"}]}
  *   with `amount` in Burrow internal units (token decimals + extra_decimals).
  */
-import { activityToken, RHEA_CONTRACTS, RHEA_MAINNET, type ActivityDef, type ActivityNetwork } from "@yielvy/core";
+import { activityToken, RHEA_CONTRACTS, RHEA_MAINNET, STAKING_POOL_SUFFIXES, type ActivityDef, type ActivityNetwork } from "@yielvy/core";
 import { RpcError, type NearRpc, type ReceiptOutcome, type TxOutcome } from "./rpc";
 
 export type OnchainVerdict =
@@ -24,8 +24,8 @@ export type OnchainVerdict =
   | { status: "failed"; reason: string };
 
 export type OnchainEvidence = {
-  provider: "near-rpc";
-  network: ActivityNetwork;
+  provider: "near-rpc" | "evm-rpc" | "solana-rpc";
+  network: string;
   txHash: string;
   receiptId: string;
   signer: string;
@@ -195,6 +195,51 @@ export class NearActivityVerifier {
         amount: hit.amountIn.toString(),
         tokenId: hit.tokenIn,
         detail: { tokenOut: hit.tokenOut, amountOut: hit.amountOut.toString(), logIndex: String(hit.logIndex) },
+      },
+    };
+  }
+
+  /**
+   * Staking with a validator: a successful receipt executed by a staking-pool account (factory suffix for this
+   * network) logging "@<signer> staking <amount>." (near/core-contracts staking-pool).
+   */
+  async verifyStake(def: Extract<ActivityDef, { type: "near_stake" }>, input: VerifyInput): Promise<OnchainVerdict> {
+    const r = await this.finalTx(input);
+    if (!("o" in r)) return r;
+    const signer = r.o.transaction.signer_id;
+    const suffixes = STAKING_POOL_SUFFIXES[this.network];
+    let total = 0n;
+    let hit: { receiptId: string; blockHash: string; pool: string } | null = null;
+    for (const rc of r.o.receipts_outcome) {
+      const pool = rc.outcome.executor_id;
+      if (!suffixes.some((sfx) => pool.endsWith(sfx)) || !receiptSucceeded(rc)) continue;
+      for (const log of rc.outcome.logs) {
+        const m = /^@(\S+) staking (\d+)\./.exec(log);
+        if (m && m[1] === signer) {
+          total += BigInt(m[2]!);
+          hit ??= { receiptId: rc.id, blockHash: rc.block_hash, pool };
+        }
+      }
+    }
+    if (!hit) return { status: "failed", reason: "no_successful_stake" };
+    if (total < BigInt(def.minAmount)) return { status: "failed", reason: "amount_below_minimum" };
+    const block = await this.blockInfo(hit.blockHash);
+    if (!this.inWindow(block.time, input)) return { status: "failed", reason: "outside_time_window" };
+    return {
+      status: "verified",
+      evidence: {
+        provider: "near-rpc",
+        network: this.network,
+        txHash: input.txHash,
+        receiptId: hit.receiptId,
+        signer,
+        blockHash: hit.blockHash,
+        blockHeight: block.height,
+        executedAt: block.time.toISOString(),
+        protocolContract: hit.pool,
+        amount: total.toString(),
+        tokenId: "near",
+        detail: { pool: hit.pool },
       },
     };
   }

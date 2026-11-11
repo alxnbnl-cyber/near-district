@@ -202,8 +202,20 @@ impl Vault {
     /// storage (excess refunded).
     #[payable]
     pub fn claim(&mut self, campaign_id: U64, period_id: u32, amount: U128, proof: Vec<String>) -> Promise {
-        self.assert_not_fully_paused();
         let account = env::predecessor_account_id();
+        self.internal_claim(campaign_id, period_id, account.clone(), amount, proof, account)
+    }
+
+    /// Pays an allocation to the account named in the Merkle leaf, on its behalf (auto-payout by a relayer).
+    /// Funds can only ever go to that account; the caller only covers the claim record's storage.
+    #[payable]
+    pub fn claim_for(&mut self, campaign_id: U64, period_id: u32, account_id: AccountId, amount: U128, proof: Vec<String>) -> Promise {
+        let payer = env::predecessor_account_id();
+        self.internal_claim(campaign_id, period_id, account_id, amount, proof, payer)
+    }
+
+    fn internal_claim(&mut self, campaign_id: U64, period_id: u32, account: AccountId, amount: U128, proof: Vec<String>, payer: AccountId) -> Promise {
+        self.assert_not_fully_paused();
         let key = (campaign_id.0, period_id);
         let p = self.periods.get(&key).cloned().unwrap_or_else(|| env::panic_str("ERR_NO_PERIOD"));
         require!(p.status == PeriodStatus::Finalized, "ERR_NOT_CLAIMABLE");
@@ -221,7 +233,7 @@ impl Vault {
 
         let before = env::storage_usage();
         self.claimed.insert(claim_key);
-        crate::funding::charge_storage(before, &account);
+        crate::funding::charge_storage(before, &payer);
 
         let pm = self.periods.get_mut(&key).unwrap();
         pm.claimed_amount = U128(pm.claimed_amount.0 + amount.0);

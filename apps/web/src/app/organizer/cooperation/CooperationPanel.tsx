@@ -22,7 +22,7 @@ interface Trail {
 }
 
 /** Cooperation = partners + joint trails, on one page. */
-export function CooperationPanel({ canManage }: { canManage: boolean }) {
+export function CooperationPanel({ canManage, embedded = false }: { canManage: boolean; embedded?: boolean }) {
   const router = useRouter();
   const [partners, setPartners] = useState<Partner[]>([]);
   const [trails, setTrails] = useState<{ own: Trail[]; invited: Trail[] }>({ own: [], invited: [] });
@@ -59,7 +59,7 @@ export function CooperationPanel({ canManage }: { canManage: boolean }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="flex items-center gap-5">
+      <section className={embedded ? "hidden" : "flex items-center gap-5"}>
         <GameIcon name="play" size={120} className="hidden shrink-0 sm:block" />
         <div>
           <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">Cooperation</p>

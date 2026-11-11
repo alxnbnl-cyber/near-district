@@ -38,7 +38,8 @@ export function WalletCard() {
     api<WalletInfo>("/api/me/wallet").then(setW).catch(() => setW(null));
   }, []);
   useEffect(load, [load]);
-  if (!w || w.mode === "off") return null;
+  // no NEAR account (e.g. signed in with an EVM / Solana wallet): prizes route through NEAR Intents instead
+  if (!w || w.mode === "off" || !w.account) return null;
 
   return (
     <>

@@ -52,7 +52,7 @@ export function SpaceCard({ b, onClose, onPlay, className = "" }: { b: WorldBuil
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-reward">Treasure · up to</p>
                 <LiveReward prize={prize} className="font-display text-[24px] font-bold leading-tight text-reward" tailClassName="text-[14px] opacity-50" />
               </div>
-              <span className="pb-1 text-[10.5px] font-bold text-mint-ink">{rate !== null ? formatRate(rate, prize.symbol) : "Fixed"}</span>
+              <span className="pb-1 text-[10.5px] font-bold text-mint-ink">{rate !== null ? formatRate(rate, prize.symbol) : ""}</span>
             </div>
           )}
           <div className="flex items-center gap-2 p-3">

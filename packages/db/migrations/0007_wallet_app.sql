@@ -1,0 +1,1 @@
+ALTER TABLE "wallet_connections" ADD COLUMN "wallet_app" text;

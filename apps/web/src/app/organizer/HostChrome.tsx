@@ -53,7 +53,6 @@ export function OwnerNav({ hasSpace, approved }: { hasSpace: boolean; approved: 
     { href: hasSpace ? "/organizer/space" : "/organizer", label: "Company profile", icon: "profile" },
     { href: "/organizer/funding", label: "Funding", icon: "earn", locked: lockedWork },
     { href: "/organizer/campaigns", label: "Missions", icon: "host", locked: lockedWork },
-    { href: "/organizer/cooperation", label: "Cooperation", icon: "play", locked: lockedWork },
     { href: "/organizer/how-it-works", label: "How it works", icon: "guide" },
   ];
   const extra: NavItem[] = hasSpace
@@ -66,20 +65,13 @@ export function OwnerNav({ hasSpace, approved }: { hasSpace: boolean; approved: 
     label === "Company profile" && !hasSpace ? false : href === "/organizer" ? path === "/organizer" : path.startsWith(href);
 
   return (
-    <nav aria-label="Host console" className="font-mono">
+    <nav aria-label="Host console">
       <ul className="flex gap-1.5 overflow-x-auto pb-1 md:flex-col md:overflow-visible">
         {main.map((it) => {
           const active = isActive(it.href, it.label);
           const body = (
             <>
-              <span className="grid size-9 shrink-0 place-items-center">
-                {it.icon === "guide" ? (
-                  <span className="grid size-7 place-items-center border border-[rgb(214_219_225/.4)] text-[12px] font-bold text-[rgb(214_219_225/.8)]">?</span>
-                ) : (
-                  <GameIcon name={it.icon} size={34} className={it.locked ? "grayscale" : ""} />
-                )}
-              </span>
-              <span className="flex-1 whitespace-nowrap text-[11.5px] font-bold uppercase tracking-[0.14em]">{it.label}</span>
+              <span className="flex-1 whitespace-nowrap text-[14.5px] font-medium">{it.label}</span>
               {it.locked && (
                 <svg aria-hidden width="12" height="12" viewBox="0 0 24 24" className="shrink-0 opacity-70">
                   <rect x="5" y="11" width="14" height="10" rx="1.5" fill="none" stroke="currentColor" strokeWidth="2" />
@@ -88,7 +80,7 @@ export function OwnerNav({ hasSpace, approved }: { hasSpace: boolean; approved: 
               )}
             </>
           );
-          const cls = "flex items-center gap-2.5 py-1.5 pl-1.5 pr-3 transition-colors";
+          const cls = "flex items-center gap-2.5 px-3.5 py-2.5 transition-colors";
           return (
             <li key={it.label}>
               {it.locked ? (
@@ -114,11 +106,11 @@ export function OwnerNav({ hasSpace, approved }: { hasSpace: boolean; approved: 
           {extra.map((it) => (
             <li key={it.label}>
               {it.locked ? (
-                <span className="block px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] text-[rgb(214_219_225/.25)]">{it.label}</span>
+                <span className="block px-3.5 py-1.5 text-[13px] text-[rgb(214_219_225/.3)]">{it.label}</span>
               ) : (
                 <Link
                   href={it.href}
-                  className={`block px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] transition-colors ${path.startsWith(it.href) ? "text-orange" : "text-[rgb(214_219_225/.5)] hover:text-white"}`}
+                  className={`block px-3.5 py-1.5 text-[13px] transition-colors ${path.startsWith(it.href) ? "text-orange" : "text-[rgb(214_219_225/.5)] hover:text-white"}`}
                 >
                   {it.label}
                 </Link>

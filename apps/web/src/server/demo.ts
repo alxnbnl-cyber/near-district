@@ -1,5 +1,6 @@
 import "server-only";
 import type { Prize } from "@/world/types";
+import { FIXED_REWARDS_ENABLED } from "@/lib/features";
 
 /** Local demo mode only (DEMO_REWARDS=1, never in production). Every sample is flagged demo. */
 export function demoEnabled(): boolean {
@@ -10,7 +11,7 @@ export function demoEnabled(): boolean {
 export function demoPrize(campaignId: string, symbol: string): Prize {
   let h = 0;
   for (const ch of campaignId) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const yieldPrize = h % 2 === 0;
+  const yieldPrize = FIXED_REWARDS_ENABLED ? h % 2 === 0 : true; // fixed rewards are hidden for now
   return {
     amount: (20 + (h % 19) * 10).toLocaleString("en"), // $20 – $200
     symbol,

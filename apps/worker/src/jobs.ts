@@ -17,12 +17,13 @@ import {
   vaultPositions,
   adminRoles,
   type Db,
+  finalizeSealedHunt,
 } from "@yielvy/db";
 import { campaignMachine, fundingMachine, type CampaignRules, type CampaignState, type FundingState } from "@yielvy/core";
 import { ledgerMovesForEvent, mapIntentsStatus, sharesToTokens, type NearRpc, type OneClickClient, type RheaClient, type VaultClient, type VaultEvent } from "@yielvy/near";
 import type { AllowedToken } from "@yielvy/core";
 import { duePendingVerifications, processVerification, type EngineDeps } from "@yielvy/db";
-import { NearActivityVerifier } from "@yielvy/near";
+import { NearActivityVerifier, dispatchOnchain } from "@yielvy/near";
 import { enqueue, RetryLater } from "./queue";
 import { processPeriod } from "./rewards";
 import type { OperatorSigner } from "./operator";
@@ -62,6 +63,9 @@ export async function campaignTick(ctx: JobCtx): Promise<string> {
     await ctx.db.update(campaigns).set({ status: to, updatedAt: now }).where(and(eq(campaigns.id, c.id), eq(campaigns.status, c.status)));
     moved++;
   }
+  // sealed treasure hunts are scored once their deadline passes (idempotent)
+  const ended = await ctx.db.select({ id: campaigns.id }).from(campaigns).where(and(eq(campaigns.template, "treasure_hunt"), inArray(campaigns.status, ["ENDED", "AWAITING_RESULTS"])));
+  for (const c of ended) await finalizeSealedHunt(ctx.db, c.id, now);
   // every funded period that may need work gets a driver job
   const periods = await ctx.db
     .select({ id: rewardPeriods.id })
@@ -234,8 +238,32 @@ export async function claimsReconcile(ctx: JobCtx): Promise<string> {
     .where(and(inArray(rewardClaims.state, ["AVAILABLE", "SUBMITTED", "FAILED"]), inArray(rewardPeriods.state, ["CLAIMABLE", "COMPLETED"])))
     .limit(200);
   let confirmed = 0;
+  let paid = 0;
+  const now = new Date();
   for (const r of pending) {
     if (r.vid === null) continue;
+    // Auto-payout: once the dispute window has passed, the operator relays the claim so the reward lands in the
+    // winner's wallet with no action from them. claim_for can only pay the account in the Merkle leaf.
+    const due = r.p.state === "CLAIMABLE" && r.p.claimableAfter && r.p.claimableAfter <= now && (!r.p.claimDeadline || r.p.claimDeadline > now);
+    if (due && ctx.signer && r.claim.state !== "SUBMITTED" && !(await ctx.vault.isClaimed(r.vid, r.p.periodNumber, r.a.accountId))) {
+      try {
+        const reg = await ctx.rpc.view<unknown>(ctx.token.contractId, "storage_balance_of", { account_id: r.a.accountId });
+        if (!reg) await ctx.signer.call(ctx.token.contractId, { methodName: "storage_deposit", args: { account_id: r.a.accountId, registration_only: true }, gasTgas: 30, depositYocto: ctx.token.storageDepositYocto });
+        const res = await ctx.signer.call(ctx.vault.contractId, {
+          methodName: "claim_for",
+          args: { campaign_id: r.vid.toString(), period_id: r.p.periodNumber, account_id: r.a.accountId, amount: r.a.amount.toString(), proof: r.a.proof },
+          gasTgas: 150,
+          depositYocto: 10_000_000_000_000_000_000_000n, // 0.01 NEAR for the claim record; the excess is refunded
+        });
+        await ctx.db
+          .update(rewardClaims)
+          .set({ state: res.success ? "SUBMITTED" : "FAILED", txHash: res.txHash, submittedAt: now, failureReason: res.success ? null : "auto-payout transaction failed", updatedAt: now })
+          .where(eq(rewardClaims.id, r.claim.id));
+        if (res.success) paid++;
+      } catch (e) {
+        await ctx.db.update(rewardClaims).set({ state: "FAILED", failureReason: `auto-payout: ${String(e).slice(0, 200)}`, updatedAt: now }).where(eq(rewardClaims.id, r.claim.id));
+      }
+    }
     if (await ctx.vault.isClaimed(r.vid, r.p.periodNumber, r.a.accountId)) {
       await ctx.db.update(rewardClaims).set({ state: "CONFIRMED", confirmedAt: new Date(), updatedAt: new Date() }).where(eq(rewardClaims.id, r.claim.id));
       confirmed++;
@@ -243,7 +271,7 @@ export async function claimsReconcile(ctx: JobCtx): Promise<string> {
       await ctx.db.update(rewardClaims).set({ state: "EXPIRED", updatedAt: new Date() }).where(eq(rewardClaims.id, r.claim.id));
     }
   }
-  return `${confirmed} confirmed`;
+  return `${paid} auto-paid, ${confirmed} confirmed`;
 }
 
 export async function pruneRateLimits(ctx: JobCtx): Promise<string> {
@@ -266,8 +294,7 @@ export function hintEngineDeps(ctx: JobCtx): EngineDeps {
     walletNetwork: network,
     onchain: v
       ? {
-          verify: (def, input) =>
-            def.type === "near_rhea_swap" ? v.verifySwap(def, input) : def.type === "near_rhea_lending_supply" ? v.verifyLendingSupply(def, input) : Promise.resolve({ status: "failed" as const, reason: "unsupported_activity" }),
+          verify: dispatchOnchain(v),
         }
       : null,
   };

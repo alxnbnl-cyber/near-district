@@ -39,7 +39,7 @@ import {
   type CampaignRules,
   type RuleNode,
 } from "@yielvy/core";
-import { NearActivityVerifier } from "@yielvy/near";
+import { NearActivityVerifier, dispatchOnchain } from "@yielvy/near";
 import type { HintInput } from "@/lib/hint-schemas";
 import { audit } from "./audit";
 import { conflict, badRequest, HttpError, notFound, forbidden } from "./http";
@@ -61,14 +61,7 @@ export function engineDeps(): EngineDeps {
   let onchain: OnchainPort | null = null;
   if (onchainEnabled()) {
     const v = NearActivityVerifier.forNetwork(nearRpc(), env().NEAR_NETWORK);
-    onchain = {
-      verify: (def, input) =>
-        def.type === "near_rhea_swap"
-          ? v.verifySwap(def, input)
-          : def.type === "near_rhea_lending_supply"
-            ? v.verifyLendingSupply(def, input)
-            : Promise.resolve({ status: "failed", reason: "unsupported_activity" }),
-    };
+    onchain = { verify: dispatchOnchain(v) };
   }
   return { walletNetwork: env().NEAR_NETWORK, onchain };
 }
@@ -255,7 +248,11 @@ export interface HintRequirementView {
   label: string;
   type: string;
   category: string;
-  verification: "automatic" | "onchain" | "manual";
+  verification: "automatic" | "onchain" | "manual" | "app";
+  /** For app events: the company whose app sends the event (player requests a link code for it). */
+  appOrgId?: string | null;
+  /** For on-chain checks: what kind of hash to paste. */
+  chainFamily?: "near" | "evm" | "solana" | null;
   provider: { orgName: string; spaceSlug: string | null; spaceName: string | null };
   target: { spaceSlug: string; campaignSlug: string; title: string } | null;
   status: "TODO" | "PENDING_VERIFICATION" | "UNDER_REVIEW" | "VERIFIED" | "FAILED";
@@ -297,6 +294,12 @@ const REASON_TEXT: Record<string, string> = {
   position_not_held: "The position wasn't kept for the holding period.",
   evidence_reused: "That transaction was already used for another requirement in this mission.",
   mainnet_wallet_required: "Verify a NEAR wallet first.",
+  no_successful_stake: "No successful stake with a validator in that transaction.",
+  wrong_contract: "That transaction didn't call the required contract.",
+  wrong_program: "That transaction didn't use the required program.",
+  tx_failed: "That transaction failed on chain.",
+  no_event_yet: "No event from the app yet. Enter your code there, then check again.",
+  no_meteor_wallet: "Sign in or link a wallet using Meteor Wallet first.",
   network_mismatch: "This activity is on a different NEAR network than this app.",
   no_verified_wallet: "Verify a NEAR wallet in your profile first.",
   rejected_by_reviewer: "The reviewers didn't approve this submission.",
@@ -337,7 +340,9 @@ export async function hintCards(db: Db, userId: string, questionId: string): Pro
           label: describeActivity(l.activity, { campaign: (id) => targets.find((x) => x.id === id)?.title }),
           type: l.activity.type,
           category: entry?.category ?? "internal",
-          verification: entry?.category === "onchain" ? "onchain" : entry?.support === "manual" ? "manual" : "automatic",
+          verification: l.activity.type === "partner_api_event" ? "app" : entry?.category === "onchain" ? "onchain" : entry?.support === "manual" ? "manual" : "automatic",
+          appOrgId: l.activity.type === "partner_api_event" ? l.ownerOrgId : null,
+          chainFamily: l.activity.type === "evm_contract_interaction" ? "evm" : l.activity.type === "solana_program_interaction" ? "solana" : entry?.category === "onchain" ? "near" : null,
           provider: { orgName: o?.name ?? "Unknown", spaceSlug: o?.spaceSlug ?? null, spaceName: o?.spaceName ?? null },
           target: t ? { spaceSlug: t.spaceSlug, campaignSlug: t.slug, title: t.title } : null,
           status: done ? "VERIFIED" : last?.status === "pending" ? "PENDING_VERIFICATION" : last?.status === "under_review" ? "UNDER_REVIEW" : last?.status === "failed" ? "FAILED" : "TODO",
@@ -373,7 +378,7 @@ export async function hintCards(db: Db, userId: string, questionId: string): Pro
   );
 }
 
-/** Players may work on hints of questions they have reached, in a live hunt they joined. */
+/** Players may work on hints of any clue, in a live hunt they joined. */
 async function assertPlayerAccess(db: Db, user: SessionUser, campaignId: string, hintId: string) {
   const [c] = await db.select().from(campaigns).where(eq(campaigns.id, campaignId)).limit(1);
   if (!c || !c.currentVersion || c.moderation !== "approved") throw notFound("Campaign not found.");
@@ -383,7 +388,8 @@ async function assertPlayerAccess(db: Db, user: SessionUser, campaignId: string,
   const [e] = await db.select().from(participantEntries).where(and(eq(participantEntries.campaignId, c.id), eq(participantEntries.userId, user.userId))).limit(1);
   if (!e) throw badRequest("Start the mission first.");
   if (e.status !== "in_progress") throw conflict("You've already finished this mission.");
-  if (pos.position > e.progress) throw forbidden("You haven't reached that question yet.");
+  // sealed hunts show every clue at once, so any clue's hints can be worked on once the player has joined
+  void pos.position;
   const [q] = await db.select({ questionId: treasureHints.questionId }).from(treasureHints).where(eq(treasureHints.id, hintId)).limit(1);
   return { campaign: c, questionId: q!.questionId };
 }

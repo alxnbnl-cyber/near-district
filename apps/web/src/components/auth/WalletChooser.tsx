@@ -9,7 +9,9 @@ export function WalletChooser({
   returnTo,
   onDone,
   intro,
+  hideNote = false,
 }: {
+  hideNote?: boolean;
   purpose: "near_login" | "link_wallet" | "step_up";
   returnTo: string;
   onDone: () => void;
@@ -20,7 +22,7 @@ export function WalletChooser({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    walletOptions().then(setOptions, (e) => setError(String(e?.message ?? e)));
+    walletOptions().then((o) => setOptions([...o].sort((a, b) => Number(b.id === "meteor-wallet") - Number(a.id === "meteor-wallet"))), (e) => setError(String(e?.message ?? e)));
   }, []);
 
   return (
@@ -56,9 +58,11 @@ export function WalletChooser({
         ))}
       </ul>
       {error && <Notice tone="danger">{error}</Notice>}
-      <p className="text-[12px] leading-relaxed text-ink-3">
-        You'll be asked to sign a short message. Signing is free, sends no transaction and does not give Yielvy access to your funds.
-      </p>
+      {!hideNote && (
+        <p className="text-[12px] leading-relaxed text-ink-3">
+          You'll be asked to sign a short message. Signing is free, sends no transaction and does not give Yielvy access to your funds.
+        </p>
+      )}
     </div>
   );
 }

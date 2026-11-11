@@ -68,7 +68,7 @@ export async function proveWallet(walletId: string, purpose: Purpose, returnTo =
   if (!signed) return "redirecting";
   await api("/api/auth/near/verify", {
     method: "POST",
-    body: { nonce: ch.nonce, accountId: signed.accountId, publicKey: signed.publicKey, signature: signed.signature },
+    body: { nonce: ch.nonce, accountId: signed.accountId, publicKey: signed.publicKey, signature: signed.signature, walletApp: walletId },
   });
   sessionStorage.removeItem("yv_near_pending");
   return "done";

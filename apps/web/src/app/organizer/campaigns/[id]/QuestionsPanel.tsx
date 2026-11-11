@@ -14,6 +14,7 @@ export interface QuestionRow {
   type: "short_text" | "multiple_choice" | "numeric";
   prompt: string;
   clue: string | null;
+  revealText?: string | null;
   options: { id: string; label: string }[] | null;
   referenceUrl: string | null;
   difficulty: number;
@@ -25,6 +26,11 @@ export interface QuestionRow {
 const HINT_ACTIVITIES = [
   { type: "near_rhea_swap", title: "Swap on RHEA", body: "Player makes a swap on RHEA." },
   { type: "near_rhea_lending_supply", title: "Supply to RHEA Lending", body: "Player supplies a token to RHEA Lending." },
+  { type: "near_stake", title: "Stake NEAR", body: "Player stakes NEAR with a validator." },
+  { type: "meteor_wallet_signin", title: "Sign in with Meteor", body: "Player proves a wallet using Meteor Wallet." },
+  { type: "partner_api_event", title: "Do something in your app", body: "Your app confirms it (e.g. sign-up). Set up a key in Settings." },
+  { type: "evm_contract_interaction", title: "Use an EVM app", body: "Player sends a transaction to your contract (Ethereum, Base)." },
+  { type: "solana_program_interaction", title: "Use a Solana app", body: "Player sends a transaction that calls your program." },
   { type: "manual_review", title: "Share feedback or work", body: "Player submits something, your team approves it." },
 ] as const;
 
@@ -122,6 +128,7 @@ function ClueForm({
 }) {
   const existingLeaf = leafOf(hint);
   const [prompt, setPrompt] = useState(existing?.prompt ?? "");
+  const [reveal, setReveal] = useState(existing?.revealText ?? "");
   const [answers, setAnswers] = useState("");
   const [withHint, setWithHint] = useState(Boolean(hint));
   const [clue, setClue] = useState(hint?.content ?? "");
@@ -140,7 +147,7 @@ function ClueForm({
       if (!prompt.trim()) throw new ApiError("Write the question first.", 400);
       if (!list.length) throw new ApiError(existing ? "Type the answer again to save (answers are never shown back, for safety)." : "Add the answer.", 400);
       if (withHint && (!clue.trim() || !activity)) throw new ApiError("Write the hidden clue and pick the activity that unlocks it.", 400);
-      const body = { type: "short_text", prompt, answers: list, caseSensitive: false, stripPunctuation: true, difficulty: 1, maxAttempts: 100, cooldownSeconds: 60 };
+      const body = { type: "short_text", prompt, answers: list, ...(reveal.trim() ? { revealText: reveal.trim() } : {}), caseSensitive: false, stripPunctuation: true, difficulty: 1, maxAttempts: 100, cooldownSeconds: 0 };
       let qid = existing?.id;
       if (existing) await api(`/api/organizer/campaigns/${campaignId}/questions/${existing.id}`, { method: "PATCH", body });
       else qid = (await api<{ id: string }>(`/api/organizer/campaigns/${campaignId}/questions`, { method: "POST", body })).id;
@@ -177,6 +184,11 @@ function ClueForm({
         <span className="text-[13px] font-semibold">Answer</span>
         <input className={`${inputClass} mt-1.5 h-11`} value={answers} onChange={(e) => setAnswers(e.target.value)} placeholder={existing ? "Type the answer again" : "RHEA"} />
         <span className="mt-1 block text-[12px] text-ink-3">Capitals and punctuation are ignored. Separate other accepted spellings with commas.</span>
+      </label>
+      <label>
+        <span className="text-[13px] font-semibold">Revealed after the deadline</span>
+        <textarea className={`${textareaClass} mt-1.5 min-h-16`} maxLength={2000} value={reveal} onChange={(e) => setReveal(e.target.value)} placeholder="Answer: RHEA. Ref Finance and Burrow merged into RHEA in 2025." />
+        <span className="mt-1 block text-[12px] text-ink-3">Players never see right or wrong while the mission runs. When it ends, they see this.</span>
       </label>
 
       {/* hint, unlocked by one activity */}

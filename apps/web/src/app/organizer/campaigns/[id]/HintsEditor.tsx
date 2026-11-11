@@ -389,6 +389,19 @@ export function ActivityConfig({ type, options, onPick }: { type: string; option
           return onPick({ type, network: options.network, ...(tokenA ? { tokenIn: tokenA } : {}), ...(tokenB ? { tokenOut: tokenB } : {}), ...(tokenA && amount ? { minAmountIn: units(tokenA, amount) } : {}) });
         case "near_rhea_lending_supply":
           return onPick({ type, network: options.network, tokenId: tokenA, minAmount: units(tokenA, amount), ...(num ? { minHoldSeconds: Math.round(Number(num) * 3600) } : {}) });
+        case "near_stake": {
+          if (!/^\d+(\.\d{1,24})?$/.test(amount.trim()) || Number(amount) <= 0) throw new Error("Enter a minimum stake in NEAR, e.g. 1 or 0.5.");
+          const [w, f = ""] = amount.trim().split(".");
+          return onPick({ type, network: options.network, minAmount: (BigInt(w!) * 10n ** 24n + BigInt((f + "0".repeat(24)).slice(0, 24))).toString() });
+        }
+        case "meteor_wallet_signin":
+          return onPick({ type });
+        case "partner_api_event":
+          return onPick({ type, eventType: tokenA.trim(), instructions: text.trim() });
+        case "evm_contract_interaction":
+          return onPick({ type, chain: (tokenA || (options.network === "testnet" ? "base-sepolia" : "base")) as "base", contract: text.trim() });
+        case "solana_program_interaction":
+          return onPick({ type, cluster: options.network === "testnet" ? "devnet" : "mainnet-beta", programId: text.trim() });
       }
     } catch (e) {
       setError((e as Error).message);
@@ -463,6 +476,43 @@ export function ActivityConfig({ type, options, onPick }: { type: string; option
             <input id="act-hold" inputMode="numeric" className={inputClass} value={num} onChange={(e) => setNum(e.target.value.replace(/\D/g, ""))} />
           </Field>
         </>
+      )}
+      {type === "near_stake" && (
+        <Field label="Minimum stake (NEAR)" htmlFor="act-stake" hint="Any validator pool on this network counts.">
+          <input id="act-stake" inputMode="decimal" className={inputClass} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="1" />
+        </Field>
+      )}
+      {type === "evm_contract_interaction" && (
+        <>
+          <Field label="Chain" htmlFor="act-chain">
+            <select id="act-chain" className={inputClass} value={tokenA || (options.network === "testnet" ? "base-sepolia" : "base")} onChange={(e) => setTokenA(e.target.value)}>
+              {(options.network === "testnet" ? [["base-sepolia", "Base Sepolia"], ["sepolia", "Ethereum Sepolia"]] : [["base", "Base"], ["ethereum", "Ethereum"]]).map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Contract address" htmlFor="act-contract" hint="The player's transaction must be sent to this contract.">
+            <input id="act-contract" className={inputClass} value={text} onChange={(e) => setText(e.target.value)} placeholder="0x…" />
+          </Field>
+        </>
+      )}
+      {type === "solana_program_interaction" && (
+        <Field label="Program id" htmlFor="act-program" hint={options.network === "testnet" ? "Checked on Solana devnet." : "Checked on Solana mainnet."}>
+          <input id="act-program" className={inputClass} value={text} onChange={(e) => setText(e.target.value)} placeholder="Program address" />
+        </Field>
+      )}
+      {type === "partner_api_event" && (
+        <>
+          <Field label="What should players do?" htmlFor="act-instr">
+            <input id="act-instr" className={inputClass} maxLength={200} value={text} onChange={(e) => setText(e.target.value)} placeholder="Create an account in our app" />
+          </Field>
+          <Field label="Event name your app sends" htmlFor="act-event" hint="Lowercase, e.g. signed_up. See Settings → App events.">
+            <input id="act-event" className={inputClass} value={tokenA} onChange={(e) => setTokenA(e.target.value)} placeholder="signed_up" />
+          </Field>
+        </>
+      )}
+      {type === "meteor_wallet_signin" && (
+        <p className="text-[13px] text-ink-2">The player signs in (or links a wallet) with Meteor Wallet. The signature proves they own the account; which app signed is reported by the wallet.</p>
       )}
       {type.startsWith("near_") && (
         <details className="rounded-md bg-paper px-3 py-2 text-[12.5px] text-ink-2">

@@ -39,19 +39,14 @@ export function StatusBar({ viewer, live }: { viewer: ViewerStats | null; live: 
       </div>
       <div className={chip} style={frame(9, `${INK} / .18)`)}>
         <span className="relative grid size-[18px] place-items-center">
-          <span className="absolute size-2.5 animate-ping rounded-full bg-orange/60" />
-          <span className="size-2 rounded-full bg-orange" />
+          <span className="absolute size-2.5 animate-ping rounded-full bg-[#34d399]/60" />
+          <span className="size-2 rounded-full bg-[#34d399]" />
         </span>
         <div>
-          <p className={label} style={{ color: `${INK} / .5)` }}>On the map</p>
+          <p className={label} style={{ color: `${INK} / .5)` }}>Live on map</p>
           <p className="font-display text-[16px] font-bold leading-tight text-ink">{live} mission{live === 1 ? "" : "s"}</p>
         </div>
       </div>
-      {!viewer && (
-        <Link href="/signin?next=/explore" className={`${chip} font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-orange hover:text-orange-ink`} style={frame(9, "rgb(255 145 56 / .45)")}>
-          Sign in to track ›
-        </Link>
-      )}
     </div>
   );
 }

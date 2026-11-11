@@ -62,6 +62,8 @@ export const questionInput = z
     type: z.enum(["short_text", "multiple_choice", "numeric"]),
     prompt: plainText(1000, 3),
     clue: plainText(500).optional(),
+    /** Answer & explanation shown to players only after the deadline. */
+    revealText: plainText(2000).optional(),
     referenceUrl: httpUrl.optional().or(z.literal("").transform(() => undefined)),
     imageUploadId: z.string().uuid().nullable().optional(),
     difficulty: z.number().int().min(1).max(5).default(1),

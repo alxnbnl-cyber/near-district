@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { frame } from "./GameHud";
+import { FIXED_REWARDS_ENABLED } from "@/lib/features";
 import { buttonClass } from "@/components/ui";
 
 /** Shown once per browser on the first visit to the game. */
@@ -69,7 +70,7 @@ const STEPS: Record<Side, Step[]> = {
       icon: ICON.earn,
       tag: "Rewards",
       title: "How rewards work",
-      body: "Prize money sits in an on-chain vault, never with Yielvy. There are two kinds of reward:",
+      body: "Prize money sits in an on-chain vault, never with Yielvy. Rewards grow from interest:",
       objectives: [],
       rewards: true,
     },
@@ -86,8 +87,8 @@ const STEPS: Record<Side, Step[]> = {
       icon: ICON.earn,
       tag: "Fund",
       title: "Fund the reward",
-      body: "Deposit USDC into the vault first. It is supplied to RHEA lending and only the interest becomes the prize, so your deposit stays yours. You can also add a fixed bonus on top.",
-      objectives: ["Deposit stays yours, withdraw it later", "Interest grows the prize every day", "Optional fixed bonus"],
+      body: "Deposit USDC into the vault first. It is supplied to RHEA lending and only the interest becomes the prize, so your deposit stays yours.",
+      objectives: ["Deposit stays yours, withdraw it later", "Interest grows the prize every day", "Winners paid on-chain"],
     },
     {
       icon: ICON.host,
@@ -233,7 +234,7 @@ export function Tutorial({ open, onClose, onStart, initialSide = "player" }: { o
               </ul>
             )}
             {step.rewards && (
-              <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+              <div className={`mt-4 grid gap-2.5 ${FIXED_REWARDS_ENABLED ? "sm:grid-cols-2" : ""}`}>
                 <div className="yv-tut-row bg-[rgb(255_194_75/.05)] p-3" style={{ animationDelay: "300ms", ...frame(10, "rgb(255 194 75 / .35)") }}>
                   <p className="text-[11.5px] font-bold uppercase tracking-[0.22em] text-reward">Growing reward</p>
                   <p className="mt-1 font-sans text-[14.5px] leading-snug text-[rgb(214_219_225/.75)]">
@@ -241,6 +242,7 @@ export function Tutorial({ open, onClose, onStart, initialSide = "player" }: { o
                   </p>
                   <p className="mt-2 text-[12.5px] font-bold text-mint-ink">e.g. up to $120.00 · +$0.03/day</p>
                 </div>
+                {FIXED_REWARDS_ENABLED && (
                 <div className="yv-tut-row bg-[rgb(214_219_225/.03)] p-3" style={{ animationDelay: "420ms", ...frame(10, "rgb(214 219 225 / .18)") }}>
                   <p className="text-[11.5px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.8)]">Fixed reward</p>
                   <p className="mt-1 font-sans text-[14.5px] leading-snug text-[rgb(214_219_225/.75)]">
@@ -248,6 +250,7 @@ export function Tutorial({ open, onClose, onStart, initialSide = "player" }: { o
                   </p>
                   <p className="mt-2 text-[12.5px] font-bold text-[rgb(214_219_225/.6)]">Paid in USDC to your NEAR wallet</p>
                 </div>
+                )}
               </div>
             )}
           </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { FIXED_REWARDS_ENABLED } from "@/lib/features";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { formatUnits, parseUnits } from "@yielvy/core";
@@ -16,7 +17,7 @@ export function FundingActions({ campaignId, registered, vaultDeployed, token, d
   const [wallets, setWallets] = useState<WalletOption[]>([]);
   const [walletId, setWalletId] = useState<string>("");
   const [amount, setAmount] = useState("");
-  const [kind, setKind] = useState<"principal" | "bonus">(defaultKind);
+  const [kind, setKind] = useState<"principal" | "bonus">(FIXED_REWARDS_ENABLED ? defaultKind : "principal");
   const [msg, setMsg] = useState<{ tone: "ok" | "danger" | "warn" | "info"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [stepUp, setStepUp] = useState(false);
@@ -75,7 +76,7 @@ export function FundingActions({ campaignId, registered, vaultDeployed, token, d
             <div className="grid gap-3 sm:grid-cols-[160px_1fr_auto] sm:items-end">
               <Field label="Deposit as" htmlFor={`k-${campaignId}`}>
                 <select id={`k-${campaignId}`} className={inputClass} value={kind} onChange={(e) => setKind(e.target.value as "bonus")}>
-                  <option value="bonus">Prize budget</option>
+                  {FIXED_REWARDS_ENABLED && <option value="bonus">Prize budget</option>}
                   <option value="principal">Interest deposit (you keep it)</option>
                 </select>
               </Field>

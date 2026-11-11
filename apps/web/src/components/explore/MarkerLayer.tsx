@@ -208,7 +208,7 @@ const Pin = memo(function Pin({
               <span className="block border-t border-dashed border-[rgb(255_194_75/.35)] bg-[linear-gradient(90deg,rgb(255_194_75/.1),rgb(255_194_75/.02))] px-3 pb-2 pt-1.5">
                 <span className="flex items-center justify-between gap-3 text-[9px] font-bold uppercase tracking-[0.22em]">
                   <span className="text-[rgb(255_194_75/.75)]">Reward</span>
-                  {rewardRate(prize).perDay ? <span className="text-mint-ink">{formatRate(rewardRate(prize).perDay!, prize.symbol)}</span> : <span className="text-[rgb(214_219_225/.45)]">Fixed</span>}
+                  {rewardRate(prize).perDay ? <span className="text-mint-ink">{formatRate(rewardRate(prize).perDay!, prize.symbol)}</span> : null}
                 </span>
                 <span className="mt-0.5 block font-display text-[15px] font-bold text-reward">
                   <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[rgb(255_194_75/.7)]">Up to</span>

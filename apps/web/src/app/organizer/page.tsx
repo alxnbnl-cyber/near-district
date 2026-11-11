@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { analyticsEvents, and, campaigns, count, eq, inArray, participantEntries, qualifications } from "@yielvy/db";
+import { and, campaigns, count, eq, inArray, participantEntries, qualifications } from "@yielvy/db";
 import type { CampaignRules } from "@yielvy/core";
 import { getSessionUser } from "@/server/session";
 import { db } from "@/server/db";
@@ -42,7 +42,6 @@ export default async function OwnerHome() {
   const [{ n: finishers } = { n: 0 }] = ids.length
     ? await database.select({ n: count() }).from(qualifications).where(and(inArray(qualifications.campaignId, ids), eq(qualifications.status, "qualified")))
     : [{ n: 0 }];
-  const [{ n: visitors } = { n: 0 }] = await database.select({ n: count() }).from(analyticsEvents).where(and(eq(analyticsEvents.spaceId, s.id), eq(analyticsEvents.kind, "space_view")));
   const onMap = camps.filter((c) => c.status === "LIVE" || c.status === "SCHEDULED").length;
 
   const approved = s.moderation === "approved" && mine.org.status === "approved";
@@ -50,18 +49,17 @@ export default async function OwnerHome() {
   const locked = !approved;
 
   const steps: Step[] = [
-    { icon: "profile", title: "Company profile", body: "Name, logo and a one-line pitch. This is what players see on your pin.", done: true, action: { href: "/organizer/space", label: "Edit profile" } },
+    { icon: "profile", title: "Company profile", body: "Shown on your map pin", done: true, action: { href: "/organizer/space", label: "Edit profile" } },
     {
       icon: "explore",
       title: "Get approved",
-      body: approved ? "Approved. Your spot on the map is ready." : "We're checking your profile. This usually takes a moment.",
+      body: approved ? "You're on the map" : "Usually takes a moment",
       done: approved,
       waiting: !approved,
     },
-    { icon: "host", title: "Create a mission", body: "Pick a clue hunt or a creative challenge and choose the reward.", done: camps.length > 0, locked, action: { href: "/organizer/campaigns/new", label: "Create mission" } },
-    { icon: "earn", title: "Fund the reward", body: "Deposit USDC into the vault. The interest becomes the prize; your deposit stays yours.", done: funded, locked, action: { href: "/organizer/funding", label: "Fund reward" } },
-    { icon: "play", title: "Team up", body: "Invite partner projects to unlock hints or build a shared trail.", done: false, optional: true, locked, action: { href: "/organizer/cooperation", label: "Find partners" } },
-    { icon: "explore", title: "Go live", body: "Publish the mission and your pin lights up on the map.", done: onMap > 0, locked, action: { href: "/organizer/campaigns", label: "Publish" } },
+    { icon: "host", title: "Create a mission", body: "Clues, partners and dates", done: camps.length > 0, locked, action: { href: "/organizer/campaigns/new", label: "Create mission" } },
+    { icon: "earn", title: "Fund the reward", body: "Your deposit stays yours", done: funded, locked, action: { href: "/organizer/funding", label: "Fund reward" } },
+    { icon: "explore", title: "Go live", body: "Your pin lights up", done: onMap > 0, locked, action: { href: "/organizer/campaigns", label: "Publish" } },
   ];
   const current = steps.findIndex((x) => !x.done && !x.optional);
   const doneCount = steps.filter((x) => x.done).length;
@@ -103,7 +101,7 @@ export default async function OwnerHome() {
                   {st.title}
                   {st.optional && <span className="text-[9.5px] tracking-[0.2em] text-[rgb(214_219_225/.45)]">Optional</span>}
                 </p>
-                <p className="mt-1 font-sans text-[14px] leading-snug text-[rgb(214_219_225/.7)]">{st.body}</p>
+                {now && <p className="mt-0.5 font-sans text-[13px] text-[rgb(214_219_225/.6)]">{st.body}</p>}
               </div>
               <div className="shrink-0">
                 {st.waiting ? (
@@ -128,13 +126,12 @@ export default async function OwnerHome() {
         })}
       </ol>
 
-      <section className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+      <section className="grid grid-cols-3 gap-2.5">
         {(
           [
             ["Missions on map", onMap, "text-orange"],
             ["Players", players, "text-sky"],
             ["Finished", finishers, "text-reward"],
-            ["Visitors", visitors, "text-white"],
           ] as const
         ).map(([label, value, cls]) => (
           <div key={label} className="bg-[rgb(10_13_18/.6)] p-4" style={frame(10, `${INK} / .12)`)}>

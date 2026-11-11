@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { HintCards, type HintCard } from "@/components/campaign/HintCards";
 import { Burst } from "@/components/art/Burst";
@@ -18,80 +18,214 @@ interface Question {
   imageUrl: string | null;
   referenceUrl: string | null;
   difficulty: number;
-  maxAttempts: number;
-  attemptsUsed: number;
-  cooldownUntil: string | null;
+  saved: string | null;
+  savedAt: string | null;
+  result: { correct: boolean; reveal: string | null } | null;
   hints: HintCard[];
 }
+interface Timeline {
+  startsAt: string | null;
+  endsAt: string | null;
+  closed: boolean;
+}
 type PlayState =
-  | { status: string; joined: false; total: number }
-  | { status: string; joined: true; total: number; progress: number; entryStatus: string; score: number; completedAt: string | null; question: Question | null };
+  | { status: string; joined: false; total: number; timeline: Timeline }
+  | {
+      status: string;
+      joined: true;
+      total: number;
+      answered: number;
+      timeline: Timeline;
+      entryStatus: string;
+      score: number | null;
+      correctCount: number | null;
+      qualification: "qualified" | "held" | "revoked" | "not_qualified" | null;
+      questions: Question[];
+    };
 
 const INK = "rgb(214 219 225";
 const HEX = "polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)";
 const pad = (n: number) => String(n).padStart(2, "0");
+const bigBtn =
+  "inline-flex h-12 items-center justify-center gap-2 bg-[linear-gradient(180deg,#ffa458,#ff8a2a)] px-6 font-mono text-[12.5px] font-black uppercase tracking-[0.18em] text-[#140c05] shadow-[0_0_24px_rgb(255_145_56/.35)] transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[0_0_36px_rgb(255_145_56/.6)] disabled:opacity-50";
 
-/** The trail across the map: hex waypoints joined by a dashed route, ending at the treasure. */
-function Trail({ total, progress, done }: { total: number; progress: number; done: boolean }) {
-  return (
-    <div className="font-mono" aria-label={`Clue ${Math.min(progress + 1, total)} of ${total}`}>
-      <div className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-[0.24em]">
-        <span className="text-[rgb(214_219_225/.55)]">Treasure trail</span>
-        <span className="text-orange">{done ? "Treasure found" : `${Math.round((progress / Math.max(1, total)) * 100)}% explored`}</span>
-      </div>
-      <div className="mt-3 flex items-center">
-        {Array.from({ length: total }, (_, i) => {
-          const passed = i < progress || done;
-          const here = i === progress && !done;
-          return (
-            <div key={i} className="flex flex-1 items-center">
-              <span className="relative grid size-10 shrink-0 place-items-center">
-                <span className="absolute inset-0" style={{ clipPath: HEX, background: passed ? "#FFC24B" : here ? "#FF9138" : "rgb(214 219 225 / .2)" }} />
-                <span
-                  className={`absolute inset-[2px] grid place-items-center text-[12px] font-black ${passed ? "text-[#2a1600]" : here ? "text-orange" : "text-[rgb(214_219_225/.45)]"}`}
-                  style={{ clipPath: HEX, background: passed ? "linear-gradient(180deg,#ffd27a,#ffb02e)" : "linear-gradient(180deg,#141922,#07090c)" }}
-                >
-                  {passed ? "✓" : pad(i + 1)}
-                </span>
-                {here && <span aria-hidden className="absolute -inset-1.5 border border-orange/70" style={{ clipPath: HEX, animation: "yv-pulse-ring 1.8s ease-out infinite" }} />}
-              </span>
-              <span className={`mx-1 h-[2px] flex-1 ${i < progress || done ? "bg-[linear-gradient(90deg,#FFC24B,#FF9138)]" : "bg-[repeating-linear-gradient(90deg,rgb(214_219_225/.25)_0_5px,transparent_5px_10px)]"}`} />
-            </div>
-          );
-        })}
-        <span className={`relative grid size-14 shrink-0 place-items-center ${done ? "yv-chest-open" : ""}`} aria-hidden>
-          <span className={`absolute inset-0 rounded-full ${done ? "bg-[radial-gradient(circle,rgb(255_194_75/.55),transparent_70%)]" : "bg-[radial-gradient(circle,rgb(255_194_75/.18),transparent_70%)]"}`} />
-          <GameIcon name="earn" size={52} className={done ? "" : "opacity-80 grayscale-[.3]"} />
-          {!done && <span className="absolute -bottom-1 font-mono text-[9px] font-black tracking-[0.2em] text-[rgb(255_194_75/.8)]">X</span>}
-        </span>
-      </div>
-    </div>
-  );
+function useNow(ms = 1000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(t);
+  }, [ms]);
+  return now;
 }
 
-/** Dark angled game panel. */
+function left(iso: string | null, now: number) {
+  if (!iso) return null;
+  const ms = Date.parse(iso) - now;
+  if (ms <= 0) return "0s";
+  const d = Math.floor(ms / 86_400_000), h = Math.floor((ms % 86_400_000) / 3_600_000), m = Math.floor((ms % 3_600_000) / 60_000), s = Math.floor((ms % 60_000) / 1000);
+  return d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
+}
+const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—");
+
 function Panel({ children, tone = `${INK} / .14)`, className = "" }: { children: React.ReactNode; tone?: string; className?: string }) {
   return (
-    <div className={`relative overflow-hidden bg-[rgb(8_11_16/.82)] p-6 backdrop-blur-xl md:p-8 ${className}`} style={frame(18, tone)}>
+    <div className={`relative overflow-hidden bg-[rgb(8_11_16/.82)] p-5 backdrop-blur-xl md:p-6 ${className}`} style={frame(16, tone)}>
       {children}
     </div>
   );
 }
 
-const bigBtn =
-  "inline-flex h-14 items-center gap-3 bg-[linear-gradient(180deg,#ffa458,#ff8a2a)] px-8 font-mono text-[14px] font-black uppercase tracking-[0.18em] text-[#140c05] shadow-[0_0_28px_rgb(255_145_56/.45)] transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[0_0_40px_rgb(255_145_56/.65)] disabled:opacity-50";
+/** Trail of hex waypoints: filled once an answer is sealed in (or, after the end, green/red by result). */
+function Trail({ questions, total, closed }: { questions: Question[] | null; total: number; closed: boolean }) {
+  return (
+    <div className="flex items-center">
+      {Array.from({ length: total }, (_, i) => {
+        const q = questions?.[i];
+        const tone = closed ? (q?.result?.correct ? "#34d399" : "#f87171") : q?.saved ? "#FFC24B" : "rgb(214 219 225 / .22)";
+        const filled = closed || Boolean(q?.saved);
+        return (
+          <div key={i} className="flex flex-1 items-center">
+            <span className="relative grid size-9 shrink-0 place-items-center">
+              <span className="absolute inset-0" style={{ clipPath: HEX, background: tone }} />
+              <span
+                className={`absolute inset-[2px] grid place-items-center font-mono text-[11px] font-black ${filled ? "text-[#1a1206]" : "text-[rgb(214_219_225/.5)]"}`}
+                style={{ clipPath: HEX, background: filled ? tone : "linear-gradient(180deg,#141922,#07090c)" }}
+              >
+                {closed ? (q?.result?.correct ? "✓" : "✗") : q?.saved ? "◆" : pad(i + 1)}
+              </span>
+            </span>
+            <span className={`mx-1 h-[2px] flex-1 ${filled ? "bg-[linear-gradient(90deg,#FFC24B,#FF9138)]" : "bg-[repeating-linear-gradient(90deg,rgb(214_219_225/.25)_0_5px,transparent_5px_10px)]"}`} />
+          </div>
+        );
+      })}
+      <GameIcon name="earn" size={46} className={closed ? "" : "opacity-80 grayscale-[.3]"} />
+    </div>
+  );
+}
+
+/** One clue: answer field that can be saved and edited until the deadline; never says right or wrong before the end. */
+function ClueCard({ q, total, campaignId, returnTo, closed, onSaved, onHints }: { q: Question; total: number; campaignId: string; returnTo: string; closed: boolean; onSaved(): void; onHints(h: HintCard[]): void }) {
+  const [value, setValue] = useState(q.saved ?? "");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+  const [flash, setFlash] = useState(false);
+  useEffect(() => setValue(q.saved ?? ""), [q.saved]);
+  const dirty = value.trim() !== (q.saved ?? "").trim();
+
+  const save = async (v: string) => {
+    if (!v.trim() || busy) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await api(`/api/campaigns/${campaignId}/answer`, { method: "POST", body: { questionId: q.id, answer: v } });
+      setFlash(true);
+      setTimeout(() => setFlash(false), 900);
+      setMsg({ tone: "ok", text: q.saved ? "Answer updated and sealed" : "Answer sealed" });
+      onSaved();
+    } catch (e) {
+      setMsg({ tone: "err", text: e instanceof ApiError ? e.message : "Couldn't save. Your other answers are safe." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const tone = closed ? (q.result?.correct ? "rgb(52 211 153 / .7)" : "rgb(248 113 113 / .6)") : flash ? "rgb(255 194 75 / .9)" : q.saved ? "rgb(255 194 75 / .4)" : `${INK} / .14)`;
+  return (
+    <Panel tone={tone}>
+      {flash && <span className="yv-stamp absolute right-5 top-5 border-2 border-reward px-3 py-1 font-mono text-[11px] font-black uppercase tracking-[0.3em] text-reward">Sealed</span>}
+      <div className="flex flex-wrap items-center gap-3 font-mono">
+        <span className="bg-[rgb(255_194_75/.12)] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-reward">Clue {pad(q.index + 1)}</span>
+        <span className="text-[10.5px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.45)]">of {pad(total)}</span>
+        {!closed && q.saved && <span className="ml-auto text-[10px] font-bold uppercase tracking-[0.2em] text-gold">◆ Sealed {q.savedAt ? `· ${new Date(q.savedAt).toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" })}` : ""}</span>}
+        {closed && <span className={`ml-auto text-[11px] font-black uppercase tracking-[0.2em] ${q.result?.correct ? "text-mint-ink" : "text-danger"}`}>{q.result?.correct ? "✓ Correct" : q.saved ? "✗ Not quite" : "✗ No answer"}</span>}
+      </div>
+      <h3 className="mt-3 whitespace-pre-line font-display text-[21px] font-bold leading-snug text-white md:text-[24px]">{q.prompt}</h3>
+      {q.clue && <p className="mt-2 font-sans text-[14px] italic text-[rgb(214_219_225/.65)]">{q.clue}</p>}
+      {q.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={q.imageUrl} alt="Image for this clue" className="mt-3 max-h-72 border border-[rgb(255_255_255/.1)] object-contain" />
+      )}
+      {q.referenceUrl && (
+        <a href={q.referenceUrl} target="_blank" rel="noopener noreferrer nofollow" className="mt-2 inline-block font-mono text-[10.5px] font-bold uppercase tracking-[0.16em] text-orange hover:underline">
+          Investigate ↗
+        </a>
+      )}
+
+      {closed ? (
+        <div className="mt-4 font-mono">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.5)]">Your answer</p>
+          <p className="mt-1 font-sans text-[15px] text-white">{q.type === "multiple_choice" ? (q.options?.find((o) => o.id === q.saved)?.label ?? "—") : (q.saved ?? "—")}</p>
+          {q.result?.reveal && (
+            <div className="mt-3 bg-[rgb(255_194_75/.07)] p-3" style={frame(8, "rgb(255 194 75 / .3)")}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-reward">Revealed</p>
+              <p className="mt-1 whitespace-pre-line font-sans text-[14px] text-[rgb(214_219_225/.85)]">{q.result.reveal}</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-5">
+          {q.type === "multiple_choice" ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {q.options!.map((o, i) => {
+                const picked = (q.saved ?? "") === o.id;
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => save(o.id)}
+                    aria-pressed={picked}
+                    className={`group flex items-center gap-3 px-4 py-3.5 text-left text-[15px] font-medium text-white transition-colors disabled:opacity-50 ${picked ? "bg-[rgb(255_194_75/.12)]" : "bg-[rgb(255_255_255/.03)] hover:bg-[rgb(255_145_56/.1)]"}`}
+                    style={frame(10, picked ? "rgb(255 194 75 / .6)" : `${INK} / .18)`)}
+                  >
+                    <span className={`grid size-7 shrink-0 place-items-center border font-mono text-[12px] font-black ${picked ? "border-reward text-reward" : "border-[rgb(214_219_225/.3)] text-[rgb(214_219_225/.7)] group-hover:border-orange group-hover:text-orange"}`}>
+                      {picked ? "◆" : String.fromCharCode(65 + i)}
+                    </span>
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <form
+              className="flex flex-col gap-2 sm:flex-row"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void save(value);
+              }}
+            >
+              <label htmlFor={`a-${q.id}`} className="sr-only">Your answer</label>
+              <input
+                id={`a-${q.id}`}
+                autoComplete="off"
+                inputMode={q.type === "numeric" ? "decimal" : "text"}
+                className="h-12 w-full border border-[rgb(255_255_255/.14)] bg-[rgb(60_76_100/.12)] px-4 font-mono text-[16px] tracking-[0.04em] text-white placeholder:text-[rgb(214_219_225/.35)] focus:border-orange focus:outline-none"
+                placeholder="Type your answer"
+                value={value}
+                maxLength={500}
+                onChange={(e) => setValue(e.target.value)}
+              />
+              <button type="submit" className={`${bigBtn} shrink-0`} style={plate(11)} disabled={busy || !value.trim() || !dirty}>
+                {busy ? "Sealing…" : q.saved ? (dirty ? "Update" : "Sealed ◆") : "Seal answer"}
+              </button>
+            </form>
+          )}
+          <p className="mt-2 min-h-5 font-mono text-[11px] font-bold uppercase tracking-[0.14em]" aria-live="polite">
+            {msg ? <span className={msg.tone === "ok" ? "text-gold" : "text-danger"}>{msg.text}</span> : <span className="text-[rgb(214_219_225/.4)]">You can change this any time before the deadline</span>}
+          </p>
+          {q.hints.length > 0 && <HintCards campaignId={campaignId} hints={q.hints} returnTo={returnTo} onChange={onHints} />}
+        </div>
+      )}
+    </Panel>
+  );
+}
 
 export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaignId: string; status: string; signedIn: boolean; returnTo: string }) {
   const [state, setState] = useState<PlayState | null>(null);
-  const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
-  const [feedback, setFeedback] = useState<{ tone: "ok" | "danger" | "warn"; text: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [now, setNow] = useState(Date.now());
-  const [win, setWin] = useState(0);
-  const [shake, setShake] = useState(0);
-  const [flash, setFlash] = useState<"ok" | "bad" | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [burst, setBurst] = useState(0);
+  const now = useNow();
 
   const load = useCallback(async () => {
     try {
@@ -105,7 +239,7 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
     if (signedIn) void load();
   }, [signedIn, load]);
 
-  // Coming back from a partner quest: refresh hints without losing the current clue.
+  // coming back from a partner's activity: refresh hints
   useEffect(() => {
     if (!signedIn) return;
     const onVisible = () => document.visibilityState === "visible" && void load();
@@ -113,29 +247,24 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [signedIn, load]);
 
-  const cooldown = state?.joined ? state.question?.cooldownUntil : null;
+  // when the deadline passes while the player is watching, reload to reveal results
+  const endsAt = state?.timeline.endsAt ?? null;
+  const closed = state?.timeline.closed ?? false;
   useEffect(() => {
-    if (!cooldown) return;
-    const t = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(t);
-  }, [cooldown]);
-  const coolLeft = cooldown ? Math.max(0, Math.ceil((Date.parse(cooldown) - now) / 1000)) : 0;
-
-  useEffect(() => {
-    if (!flash) return;
-    const t = setTimeout(() => setFlash(null), 900);
+    if (!endsAt || closed) return;
+    const ms = Date.parse(endsAt) - Date.now();
+    if (ms <= 0 || ms > 2 ** 31 - 1) return;
+    const t = setTimeout(() => void load(), ms + 1500);
     return () => clearTimeout(t);
-  }, [flash]);
+  }, [endsAt, closed, load]);
 
   const styles = (
     <style>{`
-      @keyframes yv-chest { 0% { transform: scale(.6) rotate(-10deg) } 60% { transform: scale(1.15) rotate(4deg) } 100% { transform: none } }
-      .yv-chest-open { animation: yv-chest 700ms cubic-bezier(.2,.8,.2,1) both }
       @keyframes yv-stamp { 0% { opacity: 0; transform: scale(1.8) rotate(-12deg) } 40% { opacity: 1; transform: scale(.95) rotate(-6deg) } 100% { opacity: 1; transform: scale(1) rotate(-6deg) } }
       .yv-stamp { animation: yv-stamp 420ms cubic-bezier(.2,.8,.2,1) both }
       @keyframes yv-rays { to { transform: rotate(360deg) } }
       .yv-rays { animation: yv-rays 18s linear infinite }
-      @media (prefers-reduced-motion: reduce) { .yv-chest-open, .yv-stamp, .yv-rays { animation: none } }
+      @media (prefers-reduced-motion: reduce) { .yv-stamp, .yv-rays { animation: none } }
     `}</style>
   );
 
@@ -144,11 +273,11 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
       <Panel>
         {styles}
         <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
-          <GameIcon name="explore" size={130} className="yv-float shrink-0" />
+          <GameIcon name="explore" size={120} className="yv-float shrink-0" />
           <div className="font-mono">
             <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-orange">Ready, explorer?</p>
-            <h2 className="mt-1 font-display text-[28px] font-bold uppercase leading-tight text-white">Sign in to start the hunt</h2>
-            <p className="mt-1 font-sans text-[15px] text-[rgb(214_219_225/.7)]">Your progress is saved. Come back any time.</p>
+            <h2 className="mt-1 font-display text-[26px] font-bold uppercase leading-tight text-white">Sign in to start the mission</h2>
+            <p className="mt-1 font-sans text-[15px] text-[rgb(214_219_225/.7)]">Your answers are saved. Come back any time before the deadline.</p>
             <Link href={`/signin?next=${encodeURIComponent(returnTo)}`} className={`${bigBtn} mt-5`} style={plate(12)}>
               Sign in & start →
             </Link>
@@ -160,6 +289,9 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
   if (error) return <Panel><p className="text-danger">{error}</p></Panel>;
   if (!state) return <Panel><p className="font-mono text-[12px] uppercase tracking-[0.24em] text-[rgb(214_219_225/.5)]">Unrolling the map…</p></Panel>;
 
+  const t = state.timeline;
+  const lockIn = left(t.endsAt, now);
+
   if (!state.joined) {
     return (
       <Panel tone="rgb(255 145 56 / .45)">
@@ -167,216 +299,128 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
         <div className="flex flex-col items-center gap-7 text-center md:flex-row md:text-left">
           <div className="relative shrink-0">
             <span aria-hidden className="yv-rays absolute -inset-6 rounded-full bg-[conic-gradient(from_0deg,transparent,rgb(255_145_56/.18),transparent_30%,rgb(255_194_75/.14),transparent_60%)]" />
-            <GameIcon name="explore" size={150} className="yv-float relative" />
+            <GameIcon name="explore" size={140} className="yv-float relative" />
           </div>
           <div className="flex-1 font-mono">
             <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-orange">Briefing</p>
-            <h2 className="mt-1 font-display text-[30px] font-bold uppercase leading-tight text-white">
-              {state.total} clue{state.total === 1 ? "" : "s"} stand between you and the treasure
+            <h2 className="mt-1 font-display text-[28px] font-bold uppercase leading-tight text-white">
+              Crack {state.total} clue{state.total === 1 ? "" : "s"} to qualify for the prize pool
             </h2>
             <ul className="mt-3 space-y-1.5 text-[11.5px] font-bold uppercase tracking-[0.14em] text-[rgb(214_219_225/.75)]">
-              <li><span className="text-orange">▸</span> Crack each clue to move along the trail</li>
-              <li><span className="text-orange">▸</span> Stuck? Unlock a hint</li>
-              <li><span className="text-orange">▸</span> Reach the X to qualify for the prize</li>
+              <li><span className="text-orange">▸</span> Every clue is open: answer in any order</li>
+              <li><span className="text-orange">▸</span> Answers are sealed: change them any time until the deadline</li>
+              <li><span className="text-orange">▸</span> Results are revealed when the mission ends</li>
             </ul>
-            {status !== "LIVE" ? (
-              <p className="mt-5 text-[12px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.5)]">{status === "SCHEDULED" ? "The hunt hasn't started yet" : "This hunt is closed"}</p>
+            {status !== "LIVE" || t.closed ? (
+              <p className="mt-5 text-[12px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.5)]">{status === "SCHEDULED" ? `Opens ${when(t.startsAt)}` : "This mission has ended"}</p>
             ) : (
               <button
                 type="button"
-                className={`${bigBtn} mt-6`}
+                className={`${bigBtn} mt-6 h-14 px-8 text-[14px]`}
                 style={plate(12)}
                 disabled={busy}
                 onClick={async () => {
                   setBusy(true);
-                  setFeedback(null);
+                  setError(null);
                   try {
                     await api(`/api/campaigns/${campaignId}/join`, { method: "POST" });
                     await load();
                   } catch (e) {
-                    setFeedback({ tone: "danger", text: e instanceof ApiError ? e.message : "Couldn't start the hunt." });
+                    setError(e instanceof ApiError ? e.message : "Couldn't start the mission.");
                   } finally {
                     setBusy(false);
                   }
                 }}
               >
-                {busy ? "Starting…" : "Start the hunt →"}
+                {busy ? "Starting…" : "Start the mission →"}
               </button>
             )}
-            {feedback && <p className="mt-3 font-sans text-[14px] text-danger">{feedback.text}</p>}
+            {lockIn && !t.closed && <p className="mt-3 text-[10.5px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.5)]">Answers lock in {lockIn}</p>}
           </div>
         </div>
       </Panel>
     );
   }
 
-  if (state.entryStatus === "completed") {
-    return (
-      <Panel tone="rgb(255 194 75 / .6)">
-        {styles}
-        <Burst trigger={1} />
-        <Trail total={state.total} progress={state.total} done />
-        <div className="mt-8 text-center font-mono">
-          <div className="relative mx-auto w-fit">
-            <span aria-hidden className="yv-rays absolute -inset-10 rounded-full bg-[conic-gradient(from_0deg,transparent,rgb(255_194_75/.35),transparent_15%,rgb(255_194_75/.3),transparent_35%,rgb(255_194_75/.3),transparent_55%,rgb(255_194_75/.3),transparent_75%)]" />
-            <GameIcon name="earn" size={170} className="yv-chest-open relative" />
-          </div>
-          <p className="yv-stamp mx-auto mt-4 w-fit border-2 border-reward px-4 py-1 text-[13px] font-black uppercase tracking-[0.3em] text-reward">Treasure found</p>
-          <h2 className="mt-3 font-display text-[30px] font-bold uppercase text-white">You cracked every clue!</h2>
-          <p className="mx-auto mt-1 max-w-md font-sans text-[15px] text-[rgb(214_219_225/.7)]">Winners are picked by the mission&apos;s rules when it ends. We&apos;ll let you know.</p>
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            <Link href="/explore?panel=progress" className={bigBtn} style={plate(12)}>
-              My rewards
-            </Link>
-            <Link href="/explore" className="inline-flex h-14 items-center px-6 text-[12px] font-bold uppercase tracking-[0.18em] text-[rgb(214_219_225/.8)] hover:text-white" style={frame(12, `${INK} / .25)`)}>
-              Find another hunt
-            </Link>
-          </div>
-        </div>
-      </Panel>
-    );
-  }
+  const allSealed = state.answered === state.total;
+  const setHints = (qid: string, hints: HintCard[]) =>
+    setState((prev) => (prev && prev.joined ? { ...prev, questions: prev.questions.map((q) => (q.id === qid ? { ...q, hints } : q)) } : prev));
 
-  const q = state.question;
-  if (!q) return <Panel><p className="text-[rgb(214_219_225/.6)]">This hunt is not available right now.</p></Panel>;
-  const limited = q.maxAttempts < 100;
-  const out = q.attemptsUsed >= q.maxAttempts;
-  const locked = busy || out || coolLeft > 0;
-
-  const submit = async (value: string) => {
-    if (!value.trim() || busy) return;
-    setBusy(true);
-    setFeedback(null);
-    try {
-      const r = await api<{ correct: boolean; completed: boolean; attemptsLeft: number }>(`/api/campaigns/${campaignId}/answer`, {
-        method: "POST",
-        body: { questionId: q.id, answer: value },
-      });
-      if (r.correct) {
-        setAnswer("");
-        setWin((w) => w + 1);
-        setFlash("ok");
-        setFeedback({ tone: "ok", text: r.completed ? "Treasure found!" : "Clue cracked! On to the next one." });
-      } else {
-        setShake((s) => s + 1);
-        setFlash("bad");
-        setFeedback({ tone: "warn", text: limited && r.attemptsLeft <= 0 ? "That was your last try for this clue." : "Not quite. Try again in a minute, or unlock a hint." });
-      }
-      setTimeout(() => void load(), r.correct ? 900 : 0);
-      inputRef.current?.focus();
-    } catch (e) {
-      setShake((s) => s + 1);
-      setFlash("bad");
-      setFeedback({ tone: "danger", text: e instanceof ApiError ? e.message : "Something went wrong. Your progress is safe." });
-      if (e instanceof ApiError && e.code === "stale_question") await load();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const tone = flash === "ok" ? "rgb(110 231 183 / .9)" : flash === "bad" ? "rgb(255 99 99 / .85)" : "rgb(255 194 75 / .4)";
   return (
     <div className="flex flex-col gap-4">
       {styles}
-      <Burst trigger={win} />
-      <Panel className="py-5 md:py-6">
-        <Trail total={state.total} progress={state.progress} done={false} />
+      <Burst trigger={burst} />
+
+      {/* status bar: trail, count, countdown */}
+      <Panel className="py-4 md:py-5" tone={t.closed ? (state.qualification === "qualified" ? "rgb(52 211 153 / .6)" : `${INK} / .2)`) : allSealed ? "rgb(255 194 75 / .5)" : `${INK} / .14)`}>
+        <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[10.5px] font-bold uppercase tracking-[0.22em]">
+          <span className="text-[rgb(214_219_225/.55)]">{t.closed ? "Results" : `${state.answered} / ${state.total} sealed`}</span>
+          {t.closed ? (
+            <span className="text-[rgb(214_219_225/.7)]">Ended {when(t.endsAt)}</span>
+          ) : (
+            <span className="text-orange">⏱ Answers lock in {lockIn ?? "—"}</span>
+          )}
+        </div>
+        <div className="mt-3">
+          <Trail questions={state.questions} total={state.total} closed={t.closed} />
+        </div>
+        {!t.closed && (
+          <p className="mt-3 font-sans text-[13px] text-[rgb(214_219_225/.65)]">
+            {allSealed ? "All clues sealed. You can still change any answer until the deadline. Results are revealed when it ends." : "Your answers stay sealed: we never say right or wrong before the deadline, so nobody can brute-force the clues."}
+          </p>
+        )}
       </Panel>
 
-      <div key={q.id} className={`yv-enter ${shake ? "yv-shake" : ""}`} onAnimationEnd={() => setShake(0)}>
-        <Panel tone={tone} className="transition-[box-shadow]">
-          {flash === "ok" && (
-            <span className="yv-stamp absolute right-6 top-6 border-2 border-mint-ink px-3 py-1 font-mono text-[12px] font-black uppercase tracking-[0.3em] text-mint-ink">Cracked</span>
+      {/* the outcome, once revealed */}
+      {t.closed && (
+        <Panel tone={state.qualification === "qualified" ? "rgb(52 211 153 / .7)" : `${INK} / .2)`} className="text-center">
+          {state.qualification === "qualified" ? (
+            <>
+              <div className="relative mx-auto w-fit">
+                <span aria-hidden className="yv-rays absolute -inset-8 rounded-full bg-[conic-gradient(from_0deg,transparent,rgb(52_211_153/.3),transparent_20%,rgb(255_194_75/.3),transparent_45%,rgb(52_211_153/.3),transparent_70%)]" />
+                <GameIcon name="earn" size={120} className="relative" />
+              </div>
+              <p className="yv-stamp mx-auto mt-3 w-fit border-2 border-mint-ink px-4 py-1 font-mono text-[12px] font-black uppercase tracking-[0.3em] text-mint-ink">Qualified</p>
+              <h2 className="mt-3 font-display text-[26px] font-bold uppercase text-white">Every clue cracked!</h2>
+              <p className="mx-auto mt-1 max-w-md font-sans text-[15px] text-[rgb(214_219_225/.7)]">You&apos;re in the prize pool. Winners are paid by the mission&apos;s rules; check your Progress panel.</p>
+              <Link href="/explore?panel=progress" className={`${bigBtn} mt-5`} style={plate(12)} onClick={() => setBurst((b) => b + 1)}>
+                See my rewards
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.26em] text-[rgb(214_219_225/.6)]">Mission over</p>
+              <h2 className="mt-1 font-display text-[26px] font-bold uppercase text-white">
+                {state.correctCount ?? 0} / {state.total} correct
+              </h2>
+              <p className="mx-auto mt-1 max-w-md font-sans text-[15px] text-[rgb(214_219_225/.7)]">
+                {state.qualification === "held" ? "Your result is being reviewed." : "Not every clue this time. The answers are revealed below. Try another mission!"}
+              </p>
+              <Link href="/explore" className="mt-4 inline-flex h-11 items-center px-6 font-mono text-[11.5px] font-bold uppercase tracking-[0.18em] text-[rgb(214_219_225/.8)] hover:text-white" style={frame(10, `${INK} / .25)`)}>
+                Find another mission
+              </Link>
+            </>
           )}
-          <div className="font-mono">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="bg-[rgb(255_194_75/.12)] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-reward">Clue {pad(q.index + 1)}</span>
-              <span className="text-[10.5px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.45)]">of {pad(state.total)}</span>
-              {limited && (
-                <span className="ml-auto flex items-center gap-1" aria-label={`${Math.max(0, q.maxAttempts - q.attemptsUsed)} tries left`}>
-                  {Array.from({ length: Math.min(q.maxAttempts, 10) }, (_, i) => (
-                    <span key={i} className={`h-2 w-3 ${i < q.maxAttempts - q.attemptsUsed ? "bg-orange" : "bg-[rgb(214_219_225/.15)]"}`} style={{ clipPath: "polygon(0 0, 100% 0, 80% 100%, 0 100%)" }} />
-                  ))}
-                </span>
-              )}
-            </div>
-            <h2 className="mt-4 whitespace-pre-line font-display text-[24px] font-bold leading-snug text-white md:text-[28px]">{q.prompt}</h2>
-          </div>
-          {q.imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={q.imageUrl} alt="Image for this clue" className="mt-4 max-h-80 border border-[rgb(255_255_255/.1)] object-contain" />
-          )}
-
-          <div className="mt-6">
-            {q.type === "multiple_choice" ? (
-              <fieldset disabled={locked}>
-                <legend className="sr-only">Choose an answer</legend>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {q.options!.map((o, i) => (
-                    <button
-                      key={o.id}
-                      type="button"
-                      onClick={() => submit(o.id)}
-                      className="group flex items-center gap-3 bg-[rgb(255_255_255/.03)] px-4 py-3.5 text-left text-[15px] font-medium text-white transition-colors hover:bg-[rgb(255_145_56/.12)] disabled:opacity-50"
-                      style={frame(10, `${INK} / .18)`)}
-                    >
-                      <span className="grid size-7 shrink-0 place-items-center border border-[rgb(214_219_225/.3)] font-mono text-[12px] font-black text-[rgb(214_219_225/.7)] group-hover:border-orange group-hover:text-orange">
-                        {String.fromCharCode(65 + i)}
-                      </span>
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-            ) : (
-              <form
-                className="flex flex-col gap-2 sm:flex-row"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void submit(answer);
-                }}
-              >
-                <label htmlFor="answer" className="sr-only">Your answer</label>
-                <input
-                  ref={inputRef}
-                  id="answer"
-                  autoComplete="off"
-                  inputMode={q.type === "numeric" ? "decimal" : "text"}
-                  className="h-14 w-full border border-[rgb(255_255_255/.14)] bg-[rgb(60_76_100/.12)] px-4 font-mono text-[17px] tracking-[0.06em] text-white placeholder:text-[rgb(214_219_225/.35)] focus:border-orange focus:outline-none disabled:opacity-50"
-                  placeholder="Type your answer"
-                  value={answer}
-                  maxLength={500}
-                  disabled={locked}
-                  onChange={(e) => setAnswer(e.target.value)}
-                />
-                <button type="submit" className={`${bigBtn} shrink-0 justify-center`} style={plate(12)} disabled={locked || !answer.trim()}>
-                  <svg aria-hidden width="16" height="16" viewBox="0 0 24 24">
-                    <rect x="5" y="11" width="14" height="10" rx="1.5" fill="none" stroke="currentColor" strokeWidth="2.4" />
-                    <path d="M8 11V8a4 4 0 0 1 7.5-2" fill="none" stroke="currentColor" strokeWidth="2.4" />
-                  </svg>
-                  {busy ? "Checking…" : "Unlock"}
-                </button>
-              </form>
-            )}
-            <p className="mt-3 min-h-5 font-mono text-[12px] font-bold uppercase tracking-[0.14em]" aria-live="polite">
-              {feedback ? (
-                <span className={feedback.tone === "ok" ? "text-mint-ink" : feedback.tone === "warn" ? "text-gold" : "text-danger"}>{feedback.text}</span>
-              ) : out ? (
-                <span className="text-[rgb(214_219_225/.5)]">No tries left for this clue</span>
-              ) : coolLeft > 0 ? (
-                <span className="text-[rgb(214_219_225/.5)]">Next try in {coolLeft}s</span>
-              ) : null}
-            </p>
-          </div>
         </Panel>
-      </div>
+      )}
 
-      <HintCards
-        campaignId={campaignId}
-        hints={q.hints}
-        returnTo={returnTo}
-        onChange={(hints) => setState((prev) => (prev && prev.joined && prev.question ? { ...prev, question: { ...prev.question, hints } } : prev))}
-      />
+      {state.questions.map((q) => (
+        <ClueCard
+          key={q.id}
+          q={q}
+          total={state.total}
+          campaignId={campaignId}
+          returnTo={returnTo}
+          closed={t.closed}
+          onSaved={() => {
+            void load().then(() => {
+              /* celebrate the moment the last clue is sealed */
+            });
+            if (state.answered + (q.saved ? 0 : 1) === state.total) setBurst((b) => b + 1);
+          }}
+          onHints={(h) => setHints(q.id, h)}
+        />
+      ))}
     </div>
   );
 }

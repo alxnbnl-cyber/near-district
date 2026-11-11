@@ -17,7 +17,7 @@ const STEPS: { icon: GameIconName; title: string; body: string; points: string[]
     icon: "earn",
     title: "Fund the reward",
     body: "Deposit USDC into the vault. It earns interest on RHEA lending and only the interest becomes the prize.",
-    points: ["Your deposit stays yours", "Prize grows every day", "Optional fixed bonus"],
+    points: ["Your deposit stays yours", "Prize grows every day"],
   },
   {
     icon: "host",

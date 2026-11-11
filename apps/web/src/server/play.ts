@@ -1,7 +1,7 @@
 import "server-only";
-import { and, campaigns, count, desc, eq, organizationMembers, participantEntries, qualifications, questionAttempts, spaces, treasureAnswerRules, treasureQuestions, type Db } from "@yielvy/db";
+import { and, campaigns, count, eq, finalizeSealedHunt, organizationMembers, participantEntries, qualifications, questionAttempts, sealedAnswers, spaces, sql, treasureAnswerRules, treasureQuestions, type Db } from "@yielvy/db";
 import { answerDigest, checkAnswer, normalizeText, DEFAULT_TEXT_NORMALIZATION, type AnswerRule, type CampaignRules } from "@yielvy/core";
-import { decryptJson } from "./crypto";
+import { decryptJson, encryptJson } from "./crypto";
 import { env } from "./env";
 import { audit } from "./audit";
 import { badRequest, conflict, forbidden, HttpError, notFound } from "./http";
@@ -76,31 +76,36 @@ export interface PublicQuestion {
   imageUrl: string | null;
   referenceUrl: string | null;
   difficulty: number;
-  maxAttempts: number;
-  attemptsUsed: number;
-  cooldownUntil: string | null;
+  /** The player's saved answer (sealed until the end), or null. */
+  saved: string | null;
+  savedAt: string | null;
+  /** Only after the mission ends. */
+  result: { correct: boolean; reveal: string | null } | null;
   /** Optional hints; locked content is never included. */
   hints: HintCardView[];
 }
 
+/** Once a mission's deadline passes, sealed answers are scored and revealed. */
+function isClosed(c: { endsAt: Date | null }, status: string) {
+  return (c.endsAt !== null && c.endsAt <= new Date()) || ["ENDED", "AWAITING_RESULTS", "COMPLETED"].includes(status);
+}
+
 export async function getPlayState(db: Db, user: SessionUser, campaignId: string) {
   const { c, status } = await loadLive(db, campaignId);
+  const closed = isClosed(c, status);
+  if (closed) await finalizeSealedHunt(db, c.id);
   const [entry] = await db.select().from(participantEntries).where(and(eq(participantEntries.campaignId, c.id), eq(participantEntries.userId, user.userId))).limit(1);
   const questions = await db.select().from(treasureQuestions).where(eq(treasureQuestions.campaignId, c.id)).orderBy(treasureQuestions.position);
-  if (!entry) return { status, joined: false as const, total: questions.length };
-  let current: PublicQuestion | null = null;
-  if (entry.status === "in_progress" && entry.progress < questions.length) {
-    const q = questions[entry.progress]!;
-    const attempts = await db
-      .select({ correct: questionAttempts.correct, createdAt: questionAttempts.createdAt })
-      .from(questionAttempts)
-      .where(and(eq(questionAttempts.entryId, entry.id), eq(questionAttempts.questionId, q.id)))
-      .orderBy(desc(questionAttempts.createdAt));
-    const last = attempts[0];
-    const cooldownUntil = last && !last.correct && q.cooldownSeconds > 0 ? new Date(last.createdAt.getTime() + q.cooldownSeconds * 1000) : null;
-    current = {
+  const timeline = { startsAt: c.startsAt?.toISOString() ?? null, endsAt: c.endsAt?.toISOString() ?? null, closed };
+  if (!entry) return { status, joined: false as const, total: questions.length, timeline };
+  const saved = await db.select().from(sealedAnswers).where(eq(sealedAnswers.entryId, entry.id));
+  const byQ = new Map(saved.map((r) => [r.questionId, r]));
+  const list: PublicQuestion[] = [];
+  for (const [i, q] of questions.entries()) {
+    const r = byQ.get(q.id);
+    list.push({
       id: q.id,
-      index: entry.progress,
+      index: i,
       type: q.type,
       prompt: q.prompt,
       clue: q.clue,
@@ -108,46 +113,51 @@ export async function getPlayState(db: Db, user: SessionUser, campaignId: string
       imageUrl: q.imageUploadId ? `/api/uploads/${q.imageUploadId}` : null,
       referenceUrl: q.referenceUrl,
       difficulty: q.difficulty,
-      maxAttempts: q.maxAttempts,
-      attemptsUsed: attempts.length,
-      cooldownUntil: cooldownUntil && cooldownUntil > new Date() ? cooldownUntil.toISOString() : null,
-      hints: await hintCards(db, user.userId, q.id),
-    };
+      saved: r ? decryptJson<{ a: string }>(r.answerCipher).a : null,
+      savedAt: r ? r.updatedAt.toISOString() : null,
+      result: closed ? { correct: Boolean(r?.correct), reveal: q.revealText ?? null } : null,
+      hints: closed ? [] : await hintCards(db, user.userId, q.id),
+    });
   }
+  const [qual] = closed ? await db.select({ status: qualifications.status }).from(qualifications).where(and(eq(qualifications.campaignId, c.id), eq(qualifications.userId, user.userId))).limit(1) : [];
   return {
     status,
     joined: true as const,
     total: questions.length,
-    progress: entry.progress,
+    answered: saved.length,
+    timeline,
     entryStatus: entry.status,
-    score: entry.score,
-    completedAt: entry.completedAt?.toISOString() ?? null,
-    question: current,
+    score: closed ? entry.score : null,
+    correctCount: closed ? saved.filter((r) => r.correct).length : null,
+    qualification: closed ? (qual?.status ?? "not_qualified") : null,
+    questions: list,
   };
 }
 
-export interface AnswerResult {
-  correct: boolean;
-  completed: boolean;
-  attemptsLeft: number;
-  cooldownUntil: string | null;
-  qualification: "qualified" | "held" | null;
+export interface SaveResult {
+  saved: true;
+  answered: number;
+  total: number;
+  savedAt: string;
 }
 
-export async function submitAnswer(db: Db, user: SessionUser, campaignId: string, questionId: string, answer: string, ipHash: string | null): Promise<AnswerResult> {
+/**
+ * Saves (or replaces) the player's answer for one clue. Correctness is computed now but never returned:
+ * answers stay sealed until the deadline, so feedback can't be used to brute-force or share answers.
+ */
+export async function submitAnswer(db: Db, user: SessionUser, campaignId: string, questionId: string, answer: string, ipHash: string | null): Promise<SaveResult> {
   if (typeof answer !== "string" || answer.trim().length === 0) throw badRequest("Type an answer first.");
   if (answer.length > 500) throw badRequest("That answer is too long.");
   // Layered throttles: per user overall, per user+question, per IP.
   await rateLimit(db, `answer:u:${user.userId}`, 60, 60);
-  await rateLimit(db, `answer:q:${user.userId}:${questionId}`, 12, 60);
+  await rateLimit(db, `answer:q:${user.userId}:${questionId}`, 20, 60);
   if (ipHash) await rateLimit(db, `answer:ip:${ipHash}`, 240, 60);
 
   const { c, status } = await loadLive(db, campaignId);
-  if (status !== "LIVE") throw conflict("This campaign isn't accepting answers right now.");
+  if (status !== "LIVE" || isClosed(c, status)) throw conflict("Answers are locked: this mission has ended.");
   const pepper = env().ANSWER_PEPPER;
 
   return db.transaction(async (tx) => {
-    // Row lock serializes concurrent submissions from the same participant.
     const [entry] = await tx
       .select()
       .from(participantEntries)
@@ -155,71 +165,29 @@ export async function submitAnswer(db: Db, user: SessionUser, campaignId: string
       .for("update")
       .limit(1);
     if (!entry) throw badRequest("Start the mission first.");
-    if (entry.status !== "in_progress") throw conflict("You've already finished this mission.");
-    const questions = await tx.select().from(treasureQuestions).where(eq(treasureQuestions.campaignId, c.id)).orderBy(treasureQuestions.position);
-    const q = questions[entry.progress];
-    if (!q) throw conflict("No question is waiting for you.");
-    if (q.id !== questionId) throw conflict("That isn't your current question. Refresh to continue.", "stale_question");
-
-    const attempts = await tx
-      .select({ correct: questionAttempts.correct, createdAt: questionAttempts.createdAt })
-      .from(questionAttempts)
-      .where(and(eq(questionAttempts.entryId, entry.id), eq(questionAttempts.questionId, q.id)))
-      .orderBy(desc(questionAttempts.createdAt));
-    if (attempts.length >= q.maxAttempts) throw conflict("You've used every attempt for this question.", "out_of_attempts");
-    const last = attempts[0];
-    if (last && !last.correct && q.cooldownSeconds > 0) {
-      const until = new Date(last.createdAt.getTime() + q.cooldownSeconds * 1000);
-      if (until > new Date()) throw new HttpError(429, "Take a breath — you can try again shortly.", "cooldown");
-    }
+    if (entry.status !== "in_progress") throw conflict("This mission is already scored.");
+    const [q] = await tx.select().from(treasureQuestions).where(and(eq(treasureQuestions.id, questionId), eq(treasureQuestions.campaignId, c.id))).limit(1);
+    if (!q) throw notFound("Clue not found.");
+    if (q.type === "multiple_choice" && !(q.options ?? []).some((o) => o.id === answer)) throw badRequest("Pick one of the options.");
 
     const [ruleRow] = await tx.select().from(treasureAnswerRules).where(eq(treasureAnswerRules.questionId, q.id)).limit(1);
     if (!ruleRow) throw new HttpError(500, "Question is misconfigured.");
     const rule = decryptJson<AnswerRule>(ruleRow.ciphertext);
     const correct = checkAnswer(rule, answer, pepper, ruleRow.salt);
-    await tx.insert(questionAttempts).values({
-      entryId: entry.id,
-      questionId: q.id,
-      correct,
-      submissionDigest: answerDigest(pepper, `attempt:${q.id}`, normalizeText(answer, DEFAULT_TEXT_NORMALIZATION)),
-      ipHash,
-    });
-
-    const attemptsLeft = q.maxAttempts - attempts.length - 1;
-    if (!correct) {
-      return {
-        correct: false,
-        completed: false,
-        attemptsLeft,
-        cooldownUntil: q.cooldownSeconds > 0 ? new Date(Date.now() + q.cooldownSeconds * 1000).toISOString() : null,
-        qualification: null,
-      };
-    }
-    const progress = entry.progress + 1;
-    const score = entry.score + questionPoints(q.difficulty, attempts.length);
-    const completed = progress >= questions.length;
+    const digest = answerDigest(pepper, `attempt:${q.id}`, normalizeText(answer, DEFAULT_TEXT_NORMALIZATION));
+    const now = new Date();
     await tx
-      .update(participantEntries)
-      .set({ progress, score, ...(completed ? { status: "completed" as const, completedAt: new Date() } : {}) })
-      .where(eq(participantEntries.id, entry.id));
-    let qualification: AnswerResult["qualification"] = null;
-    if (completed) {
-      const seconds = (Date.now() - entry.startedAt.getTime()) / 1000;
-      const suspicious = seconds < MIN_SECONDS_PER_QUESTION * questions.length;
-      qualification = suspicious ? "held" : "qualified";
-      await tx
-        .insert(qualifications)
-        .values({
-          campaignId: c.id,
-          userId: user.userId,
-          score,
-          status: qualification,
-          holdReason: suspicious ? `Completed ${questions.length} questions in ${Math.round(seconds)}s` : null,
-          qualifiedAt: new Date(),
-        })
-        .onConflictDoNothing();
-      await audit(tx, { actorUserId: user.userId, action: "hunt.completed", targetType: "campaign", targetId: c.id, metadata: { score, seconds: Math.round(seconds), qualification } });
-    }
-    return { correct: true, completed, attemptsLeft, cooldownUntil: null, qualification };
+      .insert(sealedAnswers)
+      .values({ entryId: entry.id, questionId: q.id, answerCipher: encryptJson({ a: answer.trim() }), correct, submissionDigest: digest })
+      .onConflictDoUpdate({
+        target: [sealedAnswers.entryId, sealedAnswers.questionId],
+        set: { answerCipher: encryptJson({ a: answer.trim() }), correct, submissionDigest: digest, updatedAt: now, edits: sql`${sealedAnswers.edits} + 1` },
+      });
+    // keep an audit trail of every save (also feeds shared-answer detection); never exposed to players
+    await tx.insert(questionAttempts).values({ entryId: entry.id, questionId: q.id, correct, submissionDigest: digest, ipHash });
+    const [{ n } = { n: 0 }] = await tx.select({ n: count() }).from(sealedAnswers).where(eq(sealedAnswers.entryId, entry.id));
+    const total = (await tx.select({ id: treasureQuestions.id }).from(treasureQuestions).where(eq(treasureQuestions.campaignId, c.id))).length;
+    await tx.update(participantEntries).set({ progress: n }).where(eq(participantEntries.id, entry.id));
+    return { saved: true as const, answered: n, total, savedAt: now.toISOString() };
   });
 }

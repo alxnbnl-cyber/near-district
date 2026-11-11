@@ -135,49 +135,45 @@ describe("treasure hunt", () => {
     await expectHttp(joinCampaign(h.db, organizer, campaignId, null), 403, /Organizer/);
   });
 
-  it("never sends answers to the player", async () => {
+  it("never sends answers to the player; every clue is open at once", async () => {
     await joinCampaign(h.db, player, campaignId, null);
     const state = await getPlayState(h.db, player, campaignId);
     const json = JSON.stringify(state);
     expect(json).not.toMatch(/lighthouse|digest|salt|ciphertext/i);
-    expect(state.joined && state.question?.index).toBe(0);
+    if (!state.joined) throw new Error("expected joined");
+    expect(state.questions.map((q) => q.index)).toEqual([0, 1, 2]);
+    expect(state.questions.every((q) => q.saved === null && q.result === null)).toBe(true);
   });
 
-  it("rejects answers to a question other than the current one", async () => {
-    await expectHttp(submitAnswer(h.db, player, campaignId, qIds[2]!, "3.14", null), 409, /current question/);
-  });
-
-  it("counts wrong attempts and enforces the limit", async () => {
-    const r1 = await submitAnswer(h.db, player, campaignId, qIds[0]!, "a candle", null);
-    expect(r1).toMatchObject({ correct: false, attemptsLeft: 2 });
-    const r2 = await submitAnswer(h.db, player, campaignId, qIds[0]!, "  A   LIGHTHOUSE ", null);
-    expect(r2).toMatchObject({ correct: true, completed: false });
-  });
-
-  it("serializes concurrent submissions so progress advances once", async () => {
-    const results = await Promise.allSettled([
-      submitAnswer(h.db, player, campaignId, qIds[1]!, "b", null),
-      submitAnswer(h.db, player, campaignId, qIds[1]!, "b", null),
-    ]);
-    const ok = results.filter((r) => r.status === "fulfilled");
-    expect(ok).toHaveLength(1);
-    const [entry] = await h.db.select().from(participantEntries).where(and(eq(participantEntries.campaignId, campaignId), eq(participantEntries.userId, player.userId)));
-    expect(entry!.progress).toBe(2);
-  });
-
-  it("completes and qualifies (held for review when implausibly fast)", async () => {
+  it("saves answers to any clue without revealing if they're right", async () => {
     const r = await submitAnswer(h.db, player, campaignId, qIds[2]!, "3.141", null);
-    expect(r).toMatchObject({ correct: true, completed: true, qualification: "held" });
-    const [q] = await h.db.select().from(qualifications).where(eq(qualifications.userId, player.userId));
-    expect(q!.status).toBe("held");
-    expect(q!.score).toBe(90 + 200 + 100);
-    await expectHttp(submitAnswer(h.db, player, campaignId, qIds[2]!, "3.14", null), 409, /finished/);
+    expect(r).toMatchObject({ saved: true, answered: 1, total: 3 });
+    expect(JSON.stringify(r)).not.toMatch(/correct/);
   });
 
-  it("locks out a question after max attempts", async () => {
+  it("lets players edit an answer as often as they like (sealed, no feedback)", async () => {
+    await submitAnswer(h.db, player, campaignId, qIds[0]!, "a candle", null);
+    const r2 = await submitAnswer(h.db, player, campaignId, qIds[0]!, "  A   LIGHTHOUSE ", null);
+    expect(r2).toMatchObject({ saved: true, answered: 2 });
+    const state = await getPlayState(h.db, player, campaignId);
+    if (!state.joined) throw new Error("expected joined");
+    expect(state.questions[0]).toMatchObject({ saved: "A   LIGHTHOUSE", result: null });
+    expect(state.score).toBeNull();
+  });
+
+  it("serializes concurrent saves to the same clue", async () => {
+    const results = await Promise.allSettled([submitAnswer(h.db, player, campaignId, qIds[1]!, "b", null), submitAnswer(h.db, player, campaignId, qIds[1]!, "b", null)]);
+    expect(results.every((r) => r.status === "fulfilled")).toBe(true);
+    const [entry] = await h.db.select().from(participantEntries).where(and(eq(participantEntries.campaignId, campaignId), eq(participantEntries.userId, player.userId)));
+    expect(entry!.progress).toBe(3);
+    expect(entry!.status).toBe("in_progress");
+  });
+
+  it("has no attempt limit: a player can keep changing an answer", async () => {
     await joinCampaign(h.db, player2, campaignId, null);
-    for (let i = 0; i < 3; i++) await submitAnswer(h.db, player2, campaignId, qIds[0]!, `wrong ${i}`, null);
-    await expectHttp(submitAnswer(h.db, player2, campaignId, qIds[0]!, "lighthouse", null), 409, /every attempt/);
+    for (let i = 0; i < 5; i++) await submitAnswer(h.db, player2, campaignId, qIds[0]!, `guess ${i}`, null);
+    const r = await submitAnswer(h.db, player2, campaignId, qIds[0]!, "lighthouse", null);
+    expect(r).toMatchObject({ saved: true, answered: 1 });
   });
 
   it("blocks material rule changes once people have joined, allows extending", async () => {
@@ -187,6 +183,19 @@ describe("treasure hunt", () => {
     await updateCampaign(h.db, organizer, c!, { rules: { endsAt: new Date(Date.now() + 5 * 86_400_000).toISOString() } }, "We extended the hunt by a few days.");
     const [after] = await h.db.select().from(campaigns).where(eq(campaigns.id, campaignId));
     expect(after!.currentVersion).toBe(2);
+  });
+
+  it("scores and reveals at the deadline; answers lock", async () => {
+    await h.db.update(campaigns).set({ endsAt: new Date(Date.now() - 1000) }).where(eq(campaigns.id, campaignId));
+    const state = await getPlayState(h.db, player, campaignId);
+    if (!state.joined) throw new Error("expected joined");
+    expect(state.questions.map((q) => q.result?.correct)).toEqual([true, true, true]);
+    expect(state).toMatchObject({ correctCount: 3, qualification: "qualified", score: 100 + 200 + 100 });
+    const [q] = await h.db.select().from(qualifications).where(and(eq(qualifications.campaignId, campaignId), eq(qualifications.userId, player.userId)));
+    expect(q!.status).toBe("qualified");
+    const other = await getPlayState(h.db, player2, campaignId);
+    expect(other.joined && other.qualification).toBe("not_qualified");
+    await expectHttp(submitAnswer(h.db, player, campaignId, qIds[2]!, "3.14", null), 409, /locked/);
   });
 });
 

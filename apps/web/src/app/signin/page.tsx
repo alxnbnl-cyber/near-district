@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/server/session";
 import { emailEnabled } from "@/server/env";
 import { frame } from "@/components/explore/frame";
 import { SignInForm } from "./SignInForm";
+import { CloseLink } from "./CloseLink";
 
 export const metadata = { title: "Sign in" };
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   const back = safeNext.startsWith("/organizer") || safeNext === "/" ? { href: "/", label: "Back to home" } : { href: safeNext.startsWith("/explore") ? safeNext : "/explore", label: "Back to map" };
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#05070a] text-ink">
+    <main data-signin className="yv-si relative min-h-dvh overflow-hidden bg-[#05070a] text-ink">
       {/* the world, slowly drifting */}
       <div aria-hidden className="yv-si-map absolute -inset-[8%] bg-cover bg-center opacity-60 [filter:grayscale(1)_brightness(.55)_contrast(1.15)]" style={{ backgroundImage: "url(/assets/world/map-v1@2x.webp)" }} />
       <div
@@ -51,24 +51,28 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
         ))}
       </div>
 
-      <Link
+      <CloseLink
         href={back.href}
-        className="group absolute left-6 top-6 z-10 flex h-10 items-center gap-2 bg-[rgb(5_7_10/.75)] px-4 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.75)] backdrop-blur transition-colors hover:text-white"
+        className="group absolute left-6 top-6 z-30 flex h-10 items-center gap-2 bg-[rgb(5_7_10/.75)] px-4 font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.75)] backdrop-blur transition-colors hover:text-white"
         style={frame(9, `${INK} / .22)`)}
       >
         <span aria-hidden className="transition-transform group-hover:-translate-x-0.5">←</span>
         {back.label}
-      </Link>
+      </CloseLink>
 
       <div className="relative z-10 grid min-h-dvh place-items-center px-4 py-20">
-        <SignInForm next={safeNext} emailAvailable={emailEnabled()} />
+        <SignInForm next={safeNext} emailAvailable={emailEnabled()} closeHref={back.href} />
       </div>
 
       <style>{`
+        @keyframes yv-si-bg-in { from { opacity: 0 } to { opacity: 1 } }
+        .yv-si > * { animation: yv-si-bg-in 380ms ease-out both }
+        @keyframes yv-si-bg-out { to { opacity: 0 } }
+        .yv-si[data-closing] > * { animation: yv-si-bg-out 260ms ease-in both }
         @keyframes yv-si-drift { 0% { transform: translate(0,0) scale(1.02) } 50% { transform: translate(-2.5%,-1.5%) scale(1.06) } 100% { transform: translate(0,0) scale(1.02) } }
         .yv-si-map { animation: yv-si-drift 60s ease-in-out infinite }
         @keyframes yv-si-ping { 0% { transform: scale(.4); opacity: .9 } 100% { transform: scale(1.6); opacity: 0 } }
-        @media (prefers-reduced-motion: reduce) { .yv-si-map { animation: none } }
+        @media (prefers-reduced-motion: reduce) { .yv-si-map, .yv-si > * { animation: none } }
       `}</style>
     </main>
   );

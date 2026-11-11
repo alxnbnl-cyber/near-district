@@ -20,6 +20,7 @@ import {
   users,
   type DbHandle,
   type EngineDeps,
+  finalizeSealedHunt,
 } from "@yielvy/db";
 import type { RuleNode } from "@yielvy/core";
 import { addQuestion, checkPublishable, createDraft, listQuestions, publishCampaign, updateCampaign } from "./campaigns";
@@ -90,7 +91,7 @@ async function finishHunt(player: SessionUser, campaignId: string, answers: stri
   const qs = await listQuestions(h.db, campaignId);
   for (const [i, q] of qs.entries()) {
     const r = await submitAnswer(h.db, player, campaignId, q.id, answers[i]!, null);
-    expect(r.correct).toBe(true);
+    expect(r.saved).toBe(true);
   }
 }
 
@@ -166,13 +167,11 @@ describe("partner hints: end-to-end acceptance", () => {
   it("9–11: the player starts; Hint 2 is locked and its clue never leaves the server", async () => {
     await joinCampaign(h.db, users_.player!, huntA, null);
     const state = await getPlayState(h.db, users_.player!, huntA);
-    if (!state.joined || !state.question) throw new Error("expected a question");
-    const cards = state.question.hints;
+    if (!state.joined || !state.questions[0]) throw new Error("expected a question");
+    const cards = state.questions[0].hints;
     expect(cards.map((x) => [x.title, x.status])).toEqual([["A free nudge", "AVAILABLE"], ["The Lending Secret", "LOCKED"]]);
     expect(cards[1]!.requirements[0]).toMatchObject({ provider: { orgName: "B Labs", spaceSlug: "b-labs" }, target: { campaignSlug: expect.any(String) }, status: "TODO" });
     expect(JSON.stringify(state)).not.toMatch(/powered by RHEA|Think about lending|harbor/);
-    // Can't work on hints for questions not reached yet.
-    await expectHttp(verifyHintActivity(h.db, users_.player!, huntA, hintManual, { leafId: "feedback", submission: { text: "Docs need search" } }), 403);
     // Verifying before doing the activity fails honestly.
     const early = await verifyHintActivity(h.db, users_.player!, huntA, hint2, { leafId: "rhea-quiz" });
     expect(early.outcome).toMatchObject({ status: "failed", reason: "not_started" });
@@ -200,11 +199,12 @@ describe("partner hints: end-to-end acceptance", () => {
     expect(unlocks).toHaveLength(1);
   });
 
-  it("17: the player answers with the clue; progress continues on the same entry", async () => {
+  it("17: the player answers with the clue; the answer is saved, sealed, on the same entry", async () => {
     const r = await submitAnswer(h.db, users_.player!, huntA, q1, "RHEA", null);
-    expect(r).toMatchObject({ correct: true, completed: false });
+    expect(r).toMatchObject({ saved: true, answered: 1 });
     const state = await getPlayState(h.db, users_.player!, huntA);
-    expect(state.joined && state.question?.id).toBe(q2);
+    expect(state.joined && state.questions.find((q) => q.id === q1)?.saved).toBe("RHEA");
+    expect(state.joined && state.questions.find((q) => q.id === q2)?.saved).toBeNull();
   });
 
   it("manual review: owner's reviewers approve; players can't review themselves", async () => {
@@ -223,7 +223,9 @@ describe("partner hints: end-to-end acceptance", () => {
 
   it("18–19: finishing updates the existing campaign progress and qualification", async () => {
     const r = await submitAnswer(h.db, users_.player!, huntA, q2, "harbor", null);
-    expect(r.completed).toBe(true);
+    expect(r).toMatchObject({ saved: true, answered: 2, total: 2 });
+    // score as if the deadline had passed, without ending the hunt the later tests still use
+    await finalizeSealedHunt(h.db, huntA, new Date(Date.now() + 8 * 86_400_000));
     const [entry] = await h.db.select().from(participantEntries).where(and(eq(participantEntries.campaignId, huntA), eq(participantEntries.userId, users_.player!.userId)));
     expect(entry!.status).toBe("completed");
     const [q] = await h.db.select().from(qualifications).where(and(eq(qualifications.campaignId, huntA), eq(qualifications.userId, users_.player!.userId)));
@@ -357,6 +359,7 @@ describe("shared expedition: end-to-end acceptance", () => {
   it("9: existing reward rules decide eligibility in the reward chapter", async () => {
     const p = users_.player2!;
     await finishHunt(p, finale, ["gold"]);
+    await finalizeSealedHunt(h.db, finale, new Date(Date.now() + 8 * 86_400_000));
     const [q] = await h.db.select().from(qualifications).where(and(eq(qualifications.campaignId, finale), eq(qualifications.userId, p.userId)));
     expect(q).toBeTruthy();
     expect(await huntIdByAsync("Finale: The Vault")).toBe(finale);

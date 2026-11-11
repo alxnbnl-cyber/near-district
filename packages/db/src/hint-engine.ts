@@ -7,7 +7,7 @@
  *
  * Nothing here pays out. Unlocking a hint only reveals a clue.
  */
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { evaluateRule, leaves, type ActivityDef, type ActivityLeaf, type RuleNode } from "@yielvy/core";
 import type { Db, Tx } from "./index";
 import {
@@ -26,6 +26,8 @@ import {
   treasureHints,
   treasureQuestions,
   walletConnections,
+  externalWallets,
+  partnerEvents,
 } from "./schema";
 
 export class HintEngineError extends Error {
@@ -52,7 +54,8 @@ export interface EngineDeps {
 }
 
 export const MAX_PENDING_ATTEMPTS = 60;
-const ONCHAIN_TYPES = new Set(["near_rhea_swap", "near_rhea_lending_supply"]);
+const ONCHAIN_TYPES = new Set(["near_rhea_swap", "near_rhea_lending_supply", "near_stake", "evm_contract_interaction", "solana_program_interaction"]);
+const familyOf = (t: string) => (t === "evm_contract_interaction" ? "evm" : t === "solana_program_interaction" ? "solana" : "near");
 
 type HintRow = typeof treasureHints.$inferSelect;
 type CampaignRow = typeof campaigns.$inferSelect;
@@ -115,7 +118,26 @@ async function liveTarget(db: Db | Tx, campaignId: string): Promise<CampaignRow 
 }
 
 /** InternalCampaignVerifier / InternalQuizVerifier / question sequence / contest entry. */
-export async function verifyInternal(db: Db | Tx, userId: string, a: ActivityDef): Promise<InternalResult> {
+export async function verifyInternal(db: Db | Tx, userId: string, a: ActivityDef, ownerOrgId?: string): Promise<InternalResult> {
+  if (a.type === "partner_api_event") {
+    if (!ownerOrgId) return { ok: false, reason: "no_event_yet" };
+    const [ev] = await db
+      .select({ id: partnerEvents.id, at: partnerEvents.createdAt })
+      .from(partnerEvents)
+      .where(and(eq(partnerEvents.userId, userId), eq(partnerEvents.organizationId, ownerOrgId), eq(partnerEvents.eventType, a.eventType)))
+      .limit(1);
+    if (!ev) return { ok: false, reason: "no_event_yet" };
+    return { ok: true, evidenceRef: `partner-event:${ev.id}`, evidence: { eventType: a.eventType, organizationId: ownerOrgId }, at: ev.at };
+  }
+  if (a.type === "meteor_wallet_signin") {
+    const [w] = await db
+      .select({ id: walletConnections.id, at: walletConnections.verifiedAt, account: walletConnections.accountId })
+      .from(walletConnections)
+      .where(and(eq(walletConnections.userId, userId), eq(walletConnections.walletApp, "meteor-wallet")))
+      .limit(1);
+    if (!w) return { ok: false, reason: "no_meteor_wallet" };
+    return { ok: true, evidenceRef: `wallet:${w.id}`, evidence: { walletApp: "meteor-wallet", accountId: w.account }, at: w.at };
+  }
   if (!("campaignId" in a)) return { ok: false, reason: "not_internal" };
   const target = await liveTarget(db, a.campaignId);
   if (!target) return { ok: false, reason: "campaign_unavailable" };
@@ -130,9 +152,16 @@ export async function verifyInternal(db: Db | Tx, userId: string, a: ActivityDef
     if (e.status !== "completed" && e.progress < a.questionCount) return { ok: false, reason: "sequence_incomplete" };
     return { ok: true, evidenceRef: `entry:${e.id}:q${a.questionCount}`, evidence: { campaignId: target.id, entryId: e.id, progress: e.progress }, at: new Date() };
   }
-  if (e.status !== "completed" || !e.completedAt) return { ok: false, reason: "not_completed" };
-  if (a.type === "internal_quiz" && a.minScore && e.score < a.minScore) return { ok: false, reason: "score_below_minimum" };
-  return { ok: true, evidenceRef: `entry:${e.id}`, evidence: { campaignId: target.id, entryId: e.id, score: e.score }, at: e.completedAt };
+  // Sealed hunts only score at the deadline. For unlocking hints, answering every clue counts as finishing;
+  // a minimum score can only be checked once the hunt has been scored.
+  if (e.status === "completed" && e.completedAt) {
+    if (a.type === "internal_quiz" && a.minScore && e.score < a.minScore) return { ok: false, reason: "score_below_minimum" };
+    return { ok: true, evidenceRef: `entry:${e.id}`, evidence: { campaignId: target.id, entryId: e.id, score: e.score }, at: e.completedAt };
+  }
+  if (a.type === "internal_quiz" && a.minScore) return { ok: false, reason: "not_completed" };
+  const [{ n } = { n: 0 }] = await db.select({ n: count() }).from(treasureQuestions).where(eq(treasureQuestions.campaignId, target.id));
+  if (n === 0 || e.progress < n) return { ok: false, reason: "not_completed" };
+  return { ok: true, evidenceRef: `entry:${e.id}`, evidence: { campaignId: target.id, entryId: e.id, answered: e.progress }, at: new Date() };
 }
 
 // ---------------------------------------------------------------------------- completion + unlock
@@ -291,7 +320,7 @@ export async function requestVerification(db: Db, deps: EngineDeps, req: VerifyR
   }
 
   // Internal activities: checked against our own tables.
-  const r = await verifyInternal(db, req.userId, a);
+  const r = await verifyInternal(db, req.userId, a, leaf.ownerOrgId);
   const [row] = await db
     .insert(activityVerifications)
     .values({ ...base, status: r.ok ? "verified" : "failed", reasonCode: r.ok ? null : r.reason, attempts: 1 })
@@ -321,10 +350,16 @@ export async function processVerification(db: Db, deps: EngineDeps, verification
     return { status: "failed" as const, reason, unlocked: false };
   };
   if (!leaf || !ONCHAIN_TYPES.has(leaf.activity.type)) return fail("requirement_changed");
-  const actNet = (leaf.activity as { network?: string }).network ?? "mainnet";
-  if (deps.walletNetwork !== actNet) return fail("network_mismatch");
+  const family = familyOf(leaf.activity.type);
+  if (family === "near") {
+    const actNet = (leaf.activity as { network?: string }).network ?? "mainnet";
+    if (deps.walletNetwork !== actNet) return fail("network_mismatch");
+  }
   if (!deps.onchain) return fail("onchain_verifier_unavailable");
-  const wallets = (await db.select({ a: walletConnections.accountId }).from(walletConnections).where(and(eq(walletConnections.userId, v.userId), eq(walletConnections.network, deps.walletNetwork)))).map((w) => w.a);
+  const wallets =
+    family === "near"
+      ? (await db.select({ a: walletConnections.accountId }).from(walletConnections).where(and(eq(walletConnections.userId, v.userId), eq(walletConnections.network, deps.walletNetwork)))).map((w) => w.a)
+      : (await db.select({ a: externalWallets.address }).from(externalWallets).where(and(eq(externalWallets.userId, v.userId), eq(externalWallets.chain, family)))).map((w) => w.a);
   if (!wallets.length) return fail("no_verified_wallet");
   const [c] = await db.select().from(campaigns).where(eq(campaigns.id, v.campaignId)).limit(1);
   if (!c) return fail("campaign_missing");
@@ -355,8 +390,8 @@ export async function processVerification(db: Db, deps: EngineDeps, verification
         leafId: leaf.id,
         verificationId: v.id,
         provider: ev.provider,
-        evidenceRef: `near:${deps.walletNetwork}:${ev.txHash}:${ev.receiptId}`,
-        exclusiveRef: `near:${deps.walletNetwork}:${ev.txHash}`,
+        evidenceRef: `${family}:${ev.network}:${ev.txHash}:${ev.receiptId}`,
+        exclusiveRef: `${family}:${ev.network}:${ev.txHash}`,
         evidence: ev,
         amount: BigInt(ev.amount),
         now,

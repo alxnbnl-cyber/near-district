@@ -13,10 +13,12 @@ const input = z.object({
   accountId: z.string().min(2).max(64),
   publicKey: z.string().startsWith("ed25519:").max(80),
   signature: z.string().min(40).max(200),
+  /** Reported by the wallet selector; only used to recognise partner wallets (never for security). */
+  walletApp: z.enum(["meteor-wallet", "my-near-wallet", "here-wallet", "intear-wallet", "sender", "hot-wallet"]).optional(),
 });
 
 export const POST = route(async (req, { user }) => {
-  const { nonce, accountId, publicKey, signature } = await body(req, input);
+  const { nonce, accountId, publicKey, signature, walletApp } = await body(req, input);
   const database = await db();
 
   // Consume the challenge atomically so it can never be replayed.
@@ -49,7 +51,7 @@ export const POST = route(async (req, { user }) => {
       if (existingIdentity) return existingIdentity.userId;
       const [u] = await tx.insert(users).values({ displayName: accountId.slice(0, 40) }).returning({ id: users.id });
       await tx.insert(userIdentities).values({ userId: u!.id, provider: "near", subject, verifiedAt: new Date() });
-      await tx.insert(walletConnections).values({ userId: u!.id, network, accountId, publicKey, isPayout: true, verifiedAt: new Date() });
+      await tx.insert(walletConnections).values({ userId: u!.id, network, accountId, publicKey, isPayout: true, walletApp: walletApp ?? null, verifiedAt: new Date() });
       await audit(tx, { actorUserId: u!.id, action: "auth.near_identity_created", targetType: "wallet", targetId: subject });
       return u!.id;
     });
@@ -72,8 +74,8 @@ export const POST = route(async (req, { user }) => {
     const hasPayout = Boolean(me.payoutAccountId);
     await tx
       .insert(walletConnections)
-      .values({ userId: me.userId, network, accountId, publicKey, isPayout: !hasPayout, verifiedAt: new Date() })
-      .onConflictDoUpdate({ target: [walletConnections.network, walletConnections.accountId], set: { verifiedAt: new Date(), publicKey } });
+      .values({ userId: me.userId, network, accountId, publicKey, isPayout: !hasPayout, walletApp: walletApp ?? null, verifiedAt: new Date() })
+      .onConflictDoUpdate({ target: [walletConnections.network, walletConnections.accountId], set: { verifiedAt: new Date(), publicKey, ...(walletApp ? { walletApp } : {}) } });
     await audit(tx, { actorUserId: me.userId, action: `auth.${ch.purpose}`, targetType: "wallet", targetId: subject });
   });
   await markSessionWalletVerified(me.sessionId);

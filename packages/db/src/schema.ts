@@ -43,7 +43,7 @@ const ts = (name: string) => timestamp(name, { withTimezone: true });
 // ------------------------------------------------------------------ enums
 
 export const userStatus = pgEnum("user_status", ["active", "suspended"]);
-export const identityProvider = pgEnum("identity_provider", ["email", "near"]);
+export const identityProvider = pgEnum("identity_provider", ["email", "near", "near_auth"]);
 export const adminRole = pgEnum("admin_role", ["superadmin", "finance", "moderator", "support"]);
 export const orgRole = pgEnum("org_role", ["owner", "admin", "editor", "reviewer"]);
 export const moderationStatus = pgEnum("moderation_status", ["pending", "approved", "rejected", "suspended"]);
@@ -129,6 +129,8 @@ export const users = pgTable("users", {
   status: userStatus("status").notNull().default("active"),
   suspendedReason: text("suspended_reason"),
   countryCode: text("country_code"),
+  /** Where prizes should go: NEAR wallet (default), an EVM chain via NEAR Intents, or Solana via NEAR Intents. */
+  payoutDestination: jsonb("payout_destination").$type<{ kind: "near" } | { kind: "evm"; chain: "ethereum" | "base" | "arbitrum"; address: string } | { kind: "solana"; address: string }>(),
   createdAt: createdAt(),
 }, (t) => [uniqueIndex("users_email_uq").on(sql`lower(${t.email})`)]);
 
@@ -141,6 +143,48 @@ export const userIdentities = pgTable("user_identities", {
   createdAt: createdAt(),
 }, (t) => [uniqueIndex("user_identities_provider_subject_uq").on(t.provider, t.subject), index("user_identities_user_idx").on(t.userId)]);
 
+/** Keys a company uses to sign app events it sends to Yielvy (secret stored AES-GCM encrypted). */
+export const partnerAppKeys = pgTable("partner_app_keys", {
+  id: id(),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  keyId: text("key_id").notNull(),
+  secretCipher: text("secret_cipher").notNull(),
+  label: text("label").notNull().default(""),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: createdAt(),
+  revokedAt: ts("revoked_at"),
+}, (t) => [uniqueIndex("partner_app_keys_key_uq").on(t.keyId)]);
+
+/** One-time codes a player types into a partner app to link that app's events to their Yielvy profile (consent). */
+export const partnerLinkCodes = pgTable("partner_link_codes", {
+  code: text("code").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  expiresAt: ts("expires_at").notNull(),
+  createdAt: createdAt(),
+});
+
+/** Signed events received from partner apps, attributed to a player through a link code. */
+export const partnerEvents = pgTable("partner_events", {
+  id: id(),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  eventType: text("event_type").notNull(),
+  eventId: text("event_id").notNull(),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex("partner_events_uq").on(t.organizationId, t.eventId), index("partner_events_user_idx").on(t.userId, t.organizationId, t.eventType)]);
+
+/** EVM and Solana addresses whose ownership was proven by signing a server challenge (payout destinations, activity checks). */
+export const externalWallets = pgTable("external_wallets", {
+  id: id(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  chain: text("chain").notNull(), // evm | solana
+  address: text("address").notNull(),
+  walletApp: text("wallet_app"),
+  verifiedAt: ts("verified_at").notNull(),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex("external_wallets_uq").on(t.chain, t.address), index("external_wallets_user_idx").on(t.userId)]);
+
 /** NEAR accounts whose ownership was proven with a signed NEP-413 challenge. */
 export const walletConnections = pgTable("wallet_connections", {
   id: id(),
@@ -149,6 +193,8 @@ export const walletConnections = pgTable("wallet_connections", {
   accountId: text("account_id").notNull(),
   publicKey: text("public_key").notNull(),
   isPayout: boolean("is_payout").notNull().default(false),
+  /** Wallet app that produced the signature, as reported by the wallet selector (e.g. "meteor-wallet"). */
+  walletApp: text("wallet_app"),
   verifiedAt: ts("verified_at").notNull(),
   createdAt: createdAt(),
 }, (t) => [
@@ -326,6 +372,8 @@ export const treasureQuestions = pgTable("treasure_questions", {
   difficulty: smallint("difficulty").notNull().default(1),
   maxAttempts: integer("max_attempts").notNull().default(10),
   cooldownSeconds: integer("cooldown_seconds").notNull().default(0),
+  /** Shown to players only after the mission ends (sealed answers): the answer and why. */
+  revealText: text("reveal_text"),
   createdAt: createdAt(),
 }, (t) => [uniqueIndex("treasure_questions_pos_uq").on(t.campaignId, t.position)]);
 
@@ -360,6 +408,23 @@ export const questionAttempts = pgTable("question_attempts", {
   ipHash: text("ip_hash"),
   createdAt: createdAt(),
 }, (t) => [index("question_attempts_entry_q_idx").on(t.entryId, t.questionId, t.createdAt)]);
+
+/**
+ * Sealed answers: one editable answer per player per clue. Correctness is computed server-side on save and kept
+ * hidden until the mission ends, so answers can't be brute-forced by watching feedback.
+ */
+export const sealedAnswers = pgTable("sealed_answers", {
+  id: id(),
+  entryId: uuid("entry_id").notNull().references(() => participantEntries.id, { onDelete: "cascade" }),
+  questionId: uuid("question_id").notNull().references(() => treasureQuestions.id, { onDelete: "cascade" }),
+  /** AES-256-GCM encrypted answer text, so the player can see and edit what they saved. */
+  answerCipher: text("answer_cipher").notNull(),
+  correct: boolean("correct").notNull(),
+  submissionDigest: text("submission_digest").notNull(),
+  edits: integer("edits").notNull().default(0),
+  createdAt: createdAt(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("sealed_answers_uq").on(t.entryId, t.questionId)]);
 
 export const qualifications = pgTable("qualifications", {
   id: id(),

@@ -7,6 +7,8 @@ import { formatUnits, parseUnits } from "@yielvy/core";
 import { Button, Field, Notice, buttonClass, inputClass, textareaClass } from "@/components/ui";
 import { StatusBadge } from "@/components/campaign/bits";
 import { GameIcon } from "@/components/host/GameIcon";
+import { FIXED_REWARDS_ENABLED } from "@/lib/features";
+import { CooperationPanel } from "../../cooperation/CooperationPanel";
 import { api, ApiError } from "@/lib/api";
 import { QuestionsPanel, type QuestionRow } from "./QuestionsPanel";
 import { SubmissionsPanel, type SubmissionRow } from "./SubmissionsPanel";
@@ -160,7 +162,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
   }
 
   // ------------------------------------------------------------- draft: four-step builder
-  const STEPS = ["Story", hunt ? "Clues" : "Judging", "Prize", "Launch"];
+  const STEPS = ["Story", hunt ? "Clues" : "Judging", "Partners", "Prize", "Timeline & launch"];
   const funded = rules.fundingSource !== "none";
 
   return (
@@ -223,6 +225,14 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
 
           {step === 2 && (
             <div className="flex flex-col gap-4">
+              <StepTitle art={<GameIcon name="play" size={64} />} title="Partners" body="Optional. Team up with other projects: their activities can unlock your hints, and missions can join one shared trail." />
+              <CooperationPanel canManage={canEdit} embedded />
+              <Nav onBack={() => setStep(1)} onNext={() => setStep(3)} busy={busy} />
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="flex flex-col gap-4">
               <StepTitle art={<GameIcon name="earn" size={70} />} title="Set the prize" body="This is what gets explorers excited." />
               <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Prize type">
                 {(
@@ -230,7 +240,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
                     ["direct", "Prize budget", "You put up a fixed prize. Simple and exciting.", <GameIcon key="c" name="earn" size={64} />],
                     ["yield", "Interest prize", "Deposit funds; the interest they earn becomes the prize. You keep your deposit.", <GameIcon key="s" name="earn" size={60} />],
                   ] as const
-                ).map(([v, label, help, art]) => (
+                ).filter(([v]) => FIXED_REWARDS_ENABLED || v !== "direct").map(([v, label, help, art]) => (
                   <button
                     key={v}
                     type="button"
@@ -258,18 +268,18 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
               </div>
               {rules.fundingSource === "yield" && <EconomicsPanel periods={1} winners={rules.reward.winnersCount} minPayout="0" budget="" token={token} />}
               <p className="text-[12.5px] text-ink-3">You&apos;ll deposit the prize under Prize funding. Players only see a prize amount once it&apos;s confirmed on-chain.</p>
-              <Nav onBack={() => setStep(1)} onNext={() => save(3)} busy={busy} />
+              <Nav onBack={() => setStep(2)} onNext={() => save(4)} busy={busy} />
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="flex flex-col gap-4">
-              <StepTitle art={<GameIcon name="explore" size={64} />} title="Launch" body="Pick the dates, then publish." />
+              <StepTitle art={<GameIcon name="explore" size={64} />} title="Timeline & launch" body="Pick when it opens and the deadline. Answers lock and results are revealed at the deadline; winners are paid right after." />
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Starts" htmlFor="start">
                   <input id="start" type="datetime-local" className={inputClass} disabled={!canEdit} value={toLocal(rules.startsAt)} onChange={(e) => setRules({ ...rules, startsAt: fromLocal(e.target.value) })} />
                 </Field>
-                <Field label="Ends" htmlFor="end">
+                <Field label="Deadline: answers lock, results revealed" htmlFor="end">
                   <input id="end" type="datetime-local" className={inputClass} disabled={!canEdit} value={toLocal(rules.endsAt)} onChange={(e) => setRules({ ...rules, endsAt: fromLocal(e.target.value) })} />
                 </Field>
               </div>
@@ -306,7 +316,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
                 </div>
               )}
               <div className="flex items-center gap-3">
-                <Button variant="ghost" onClick={() => setStep(2)}>
+                <Button variant="ghost" onClick={() => setStep(3)}>
                   ← Back
                 </Button>
                 <Button
