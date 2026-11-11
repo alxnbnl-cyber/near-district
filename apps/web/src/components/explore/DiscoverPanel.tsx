@@ -6,11 +6,11 @@ import type { WorldBuildingData } from "@/world/types";
 import { IconChevron, IconSearch } from "./icons";
 import { KIND_COLOR } from "./MarkerLayer";
 import { PrizeChip } from "./PrizeChip";
+import { frame, plate } from "./GameHud";
 
 export type Filter = "all" | "live" | "treasure_hunt" | "creative_contest";
 export const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "live", label: "Live" },
   { id: "treasure_hunt", label: "Missions" },
   { id: "creative_contest", label: "Challenges" },
 ];
@@ -123,31 +123,36 @@ function VaultRow({ b, selected, onPick }: { b: WorldBuildingData; selected: boo
       type="button"
       onClick={() => onPick(b.spaceId)}
       aria-current={selected}
-      className={`group flex w-full items-center gap-3 p-3 text-left transition-all hover:-translate-y-px ${
-        selected ? "bg-[linear-gradient(100deg,rgb(255_145_56/0.24),rgb(255_145_56/0.04))] shadow-[inset_0_0_0_1px_rgb(255_145_56/.7)]" : "bg-[#0a0d12] shadow-[inset_0_0_0_1px_rgb(214_219_225/.1)] hover:shadow-[inset_0_0_0_1px_rgb(214_219_225/.28)]"
+      className={`group relative flex min-h-[104px] w-full items-stretch text-left transition-colors ${
+        selected ? "" : "bg-[rgb(10_13_18/.5)] hover:bg-[rgb(22_28_38/.6)]"
       }`}
-      style={{ clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))" }}
+      style={{ ...plate(10), ...(selected ? { backgroundImage: "linear-gradient(100deg,rgb(255 145 56 / .24),rgb(255 145 56 / .04))" } : {}) }}
     >
-      <SpaceLogo b={b} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate font-semibold">{b.name}</span>
-        <span className="block truncate text-[12.5px] text-ink-3">{b.featured?.title ?? b.tagline ?? CATEGORY_LABEL[b.category]}</span>
-        <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      {/* outline drawn last so it sits over the logo */}
+      <span aria-hidden className="pointer-events-none absolute inset-0 z-10" style={frame(10, selected ? "rgb(255 145 56 / .7)" : "rgb(214 219 225 / .14)")} />
+      {/* logo fills the whole left side of the card */}
+      <span className="relative grid w-[104px] shrink-0 place-items-center overflow-hidden border-r border-[rgb(255_255_255/.1)] bg-[rgb(255_255_255/.04)]">
+        {b.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={b.logoUrl} alt="" className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover:scale-105" />
+        ) : (
+          <span aria-hidden className="font-display text-[28px] font-bold text-[rgb(214_219_225/.7)]">{(b.name.match(/[A-Za-z0-9]/)?.[0] ?? "Y").toUpperCase()}</span>
+        )}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-4 py-3.5">
+        <span className="block truncate font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[rgb(214_219_225/.5)]">{b.name}</span>
+        <span className="block truncate text-[15.5px] font-semibold leading-tight text-white">{b.featured?.title ?? b.tagline ?? CATEGORY_LABEL[b.category]}</span>
+        <span className="mt-2 flex items-center gap-1.5">
           {live && b.featured ? (
-            <>
-              <PrizeChip prize={b.topPrize} rewards={b.featured.rewards} />
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-ink">
-                <span className="size-1.5 animate-pulse rounded-full bg-orange" /> Live
-              </span>
-            </>
+            <PrizeChip prize={b.topPrize} rewards={b.featured.rewards} />
           ) : b.upcomingCampaigns > 0 ? (
-            <span className="rounded-full bg-sky-wash px-2 py-0.5 text-[11px] font-semibold text-sky-ink">Opening soon</span>
+            <span className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-sky-ink">Opening soon</span>
           ) : (
-            <span className="text-[11px] text-ink-3">No mission right now</span>
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-[rgb(214_219_225/.4)]">No mission right now</span>
           )}
         </span>
       </span>
-      <IconChevron size={16} className="text-ink-3 transition-transform group-hover:translate-x-0.5" />
+      <IconChevron size={16} className="mr-3.5 shrink-0 self-center text-[rgb(214_219_225/.4)] transition-colors group-hover:text-orange" />
     </button>
   );
 }

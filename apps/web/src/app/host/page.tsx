@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
-/** The owner dashboard explains everything itself; no separate landing page. */
-export default function HostPage() {
-  redirect("/organizer");
+/** Entry point for companies; keeps where they came from so "Back" returns there. */
+export default async function HostPage({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
+  const { from } = await searchParams;
+  redirect(from === "map" || from === "home" ? `/organizer?from=${from}` : "/organizer");
 }

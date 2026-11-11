@@ -60,7 +60,7 @@ export default async function SpacePage({ params }: { params: Promise<{ slug: st
               {space.description && <p className="mt-4 whitespace-pre-line text-[15px] leading-relaxed text-ink">{space.description}</p>}
 
               <div id="experiences" className="scroll-mt-24" />
-              <CampaignList title="Live missions" items={active} slug={slug} empty="Nothing is running right now." />
+              <CampaignList title="Missions" items={active} slug={slug} empty="Nothing is running right now." />
               <CampaignList title="Coming up" items={upcoming} slug={slug} empty="No upcoming missions yet." />
               {past.length > 0 && <CampaignList title="Previously" items={past} slug={slug} empty="" />}
             </div>

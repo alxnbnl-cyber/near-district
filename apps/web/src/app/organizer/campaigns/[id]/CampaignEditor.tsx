@@ -6,7 +6,7 @@ import { useState } from "react";
 import { formatUnits, parseUnits } from "@yielvy/core";
 import { Button, Field, Notice, buttonClass, inputClass, textareaClass } from "@/components/ui";
 import { StatusBadge } from "@/components/campaign/bits";
-import { CoinStack, Lightbulb, RocketFlag, TreasureChest, TreasureMap } from "@/components/art/Art";
+import { GameIcon } from "@/components/host/GameIcon";
 import { api, ApiError } from "@/lib/api";
 import { QuestionsPanel, type QuestionRow } from "./QuestionsPanel";
 import { SubmissionsPanel, type SubmissionRow } from "./SubmissionsPanel";
@@ -101,7 +101,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
         <Header c={c} spaceSlug={initial.spaceSlug} />
         {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
         <div className="card-reward flex flex-wrap items-center gap-5 rounded-[22px] p-6">
-          <RocketFlag size={90} className="yv-float" />
+          <GameIcon name="explore" size={90} className="yv-float" />
           <div className="min-w-0 flex-1">
             <p className="text-[22px] font-bold">{c.effective === "LIVE" ? "Your mission is live" : c.effective === "SCHEDULED" ? "Your mission starts soon" : "Mission status"}</p>
             <p className="text-ink-2">Ends {new Date(rules.endsAt).toLocaleString()}</p>
@@ -190,7 +190,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
         <div key={step} className="yv-enter min-w-0 rounded-[22px] border border-line bg-card p-6">
           {step === 0 && (
             <div className="flex flex-col gap-4">
-              <StepTitle art={hunt ? <TreasureMap size={70} /> : <Lightbulb size={64} />} title="Tell the story" body="Short and exciting. This is what explorers see first." />
+              <StepTitle art={hunt ? <GameIcon name="host" size={70} /> : <GameIcon name="play" size={64} />} title="Tell the story" body="Short and exciting. This is what explorers see first." />
               <Field label="Mission name" htmlFor="title">
                 <input id="title" className={`${inputClass} h-12 text-[16px]`} disabled={!canEdit} value={details.title} onChange={(e) => setDetails({ ...details, title: e.target.value })} />
               </Field>
@@ -208,12 +208,12 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
             <div className="flex flex-col gap-4">
               {hunt ? (
                 <>
-                  <StepTitle art={<TreasureMap size={70} />} title="Add your clues" body="Each clue is a question with one answer. Add a hint to any clue if you like." />
+                  <StepTitle art={<GameIcon name="host" size={70} />} title="Add your clues" body="Each clue is a question with one answer. Add a hint to any clue if you like." />
                   <QuestionsPanel campaignId={c.id} questions={initial.questions} editable={canEdit} />
                 </>
               ) : (
                 <>
-                  <StepTitle art={<Lightbulb size={64} />} title="How will you judge?" body="Pick what matters. Weights must add up to 100%." />
+                  <StepTitle art={<GameIcon name="play" size={64} />} title="How will you judge?" body="Pick what matters. Weights must add up to 100%." />
                   <CriteriaEditor value={rules.judgingCriteria ?? []} onChange={(v) => setRules({ ...rules, judgingCriteria: v })} editable={canEdit} />
                 </>
               )}
@@ -223,12 +223,12 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
 
           {step === 2 && (
             <div className="flex flex-col gap-4">
-              <StepTitle art={<CoinStack size={70} />} title="Set the prize" body="This is what gets explorers excited." />
+              <StepTitle art={<GameIcon name="earn" size={70} />} title="Set the prize" body="This is what gets explorers excited." />
               <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Prize type">
                 {(
                   [
-                    ["direct", "Prize budget", "You put up a fixed prize. Simple and exciting.", <TreasureChest key="c" size={64} />],
-                    ["yield", "Interest prize", "Deposit funds; the interest they earn becomes the prize. You keep your deposit.", <CoinStack key="s" size={60} />],
+                    ["direct", "Prize budget", "You put up a fixed prize. Simple and exciting.", <GameIcon key="c" name="earn" size={64} />],
+                    ["yield", "Interest prize", "Deposit funds; the interest they earn becomes the prize. You keep your deposit.", <GameIcon key="s" name="earn" size={60} />],
                   ] as const
                 ).map(([v, label, help, art]) => (
                   <button
@@ -264,7 +264,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
 
           {step === 3 && (
             <div className="flex flex-col gap-4">
-              <StepTitle art={<RocketFlag size={64} />} title="Launch" body="Pick the dates, then publish." />
+              <StepTitle art={<GameIcon name="explore" size={64} />} title="Launch" body="Pick the dates, then publish." />
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Starts" htmlFor="start">
                   <input id="start" type="datetime-local" className={inputClass} disabled={!canEdit} value={toLocal(rules.startsAt)} onChange={(e) => setRules({ ...rules, startsAt: fromLocal(e.target.value) })} />
@@ -326,7 +326,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-3">Live preview</p>
           <div className={`relative overflow-hidden rounded-[20px] p-5 ${funded ? "card-reward" : "border border-line bg-card"}`}>
-            <div className="pointer-events-none absolute -right-4 -top-2">{hunt ? <TreasureChest size={100} className="yv-float" /> : <Lightbulb size={90} className="yv-float" />}</div>
+            <div className="pointer-events-none absolute -right-4 -top-2">{hunt ? <GameIcon name="earn" size={100} className="yv-float" /> : <GameIcon name="play" size={90} className="yv-float" />}</div>
             <p className={`text-[10.5px] font-bold uppercase tracking-[0.14em] ${hunt ? "text-sky" : "text-violet-ink"}`}>{hunt ? "Mission" : "Challenge"}</p>
             <p className="mt-1 max-w-[70%] font-display text-[19px] font-bold leading-tight">{details.title || "Your mission"}</p>
             {details.summary && <p className="mt-1 max-w-[80%] text-[12.5px] text-ink-2">{details.summary}</p>}

@@ -6,8 +6,9 @@ import type { AtlasScene } from "@/world/atlas-scene";
 import type { ViewerStats } from "@/world/types";
 import { IconMinus, IconPlus, IconTrophy } from "./icons";
 
-/** Angled "military" plate used across the game HUD. */
-export const plate = (cut = 10) => ({ clipPath: `polygon(0 0, calc(100% - ${cut}px) 0, 100% ${cut}px, 100% 100%, ${cut}px 100%, 0 calc(100% - ${cut}px))` });
+export { cutEdges, frame, plate } from "./frame";
+import { cutEdges, frame, plate } from "./frame";
+
 const INK = "rgb(214 219 225";
 
 /**
@@ -19,14 +20,14 @@ export function StatusBar({ viewer, live }: { viewer: ViewerStats | null; live: 
   const label = "font-mono text-[9.5px] font-bold uppercase tracking-[0.22em]";
   return (
     <div className="yv-enter pointer-events-auto flex flex-wrap items-stretch gap-2">
-      <div className={chip} style={{ ...plate(9), boxShadow: "inset 0 0 0 1px rgb(255 194 75 / .35)" }}>
+      <div className={chip} style={frame(9, "rgb(255 194 75 / .35)")}>
         <IconTrophy size={18} className="text-gold" />
         <div>
           <p className={label} style={{ color: `${INK} / .5)` }}>Rewards earned</p>
           <p className="font-display text-[16px] font-bold leading-tight text-reward">{viewer ? `${viewer.rewardsClaimed} ${viewer.symbol}` : "—"}</p>
         </div>
       </div>
-      <div className={chip} style={{ ...plate(9), boxShadow: `inset 0 0 0 1px ${INK} / .18)` }}>
+      <div className={chip} style={frame(9, `${INK} / .18)`)}>
         <svg width="18" height="18" viewBox="0 0 24 24" className="text-orange" aria-hidden>
           <path d="M12 2 21 7v10l-9 5-9-5V7z" fill="currentColor" fillOpacity=".18" stroke="currentColor" strokeWidth="1.8" />
           <path d="m8 12 3 3 5-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -36,18 +37,18 @@ export function StatusBar({ viewer, live }: { viewer: ViewerStats | null; live: 
           <p className="font-display text-[16px] font-bold leading-tight text-ink">{viewer ? `${viewer.missionsCompleted} / ${viewer.missionsStarted}` : "—"}</p>
         </div>
       </div>
-      <div className={chip} style={{ ...plate(9), boxShadow: `inset 0 0 0 1px ${INK} / .18)` }}>
+      <div className={chip} style={frame(9, `${INK} / .18)`)}>
         <span className="relative grid size-[18px] place-items-center">
           <span className="absolute size-2.5 animate-ping rounded-full bg-orange/60" />
           <span className="size-2 rounded-full bg-orange" />
         </span>
         <div>
-          <p className={label} style={{ color: `${INK} / .5)` }}>Live now</p>
+          <p className={label} style={{ color: `${INK} / .5)` }}>On the map</p>
           <p className="font-display text-[16px] font-bold leading-tight text-ink">{live} mission{live === 1 ? "" : "s"}</p>
         </div>
       </div>
       {!viewer && (
-        <Link href="/signin?next=/explore" className={`${chip} font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-orange hover:text-orange-ink`} style={{ ...plate(9), boxShadow: "inset 0 0 0 1px rgb(255 145 56 / .45)" }}>
+        <Link href="/signin?next=/explore" className={`${chip} font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-orange hover:text-orange-ink`} style={frame(9, "rgb(255 145 56 / .45)")}>
           Sign in to track ›
         </Link>
       )}
@@ -79,7 +80,7 @@ export function ZoomSlider({ scene }: { scene: AtlasScene | null }) {
 
   const btn = "grid size-9 place-items-center text-[rgb(214_219_225/.8)] transition-colors hover:text-white";
   return (
-    <div className="flex flex-col items-center bg-[#05070ae0] py-1 backdrop-blur-sm" style={{ ...plate(8), boxShadow: `inset 0 0 0 1px ${INK} / .18)` }}>
+    <div className="flex flex-col items-center bg-[#05070ae0] py-1 backdrop-blur-sm" style={frame(8, `${INK} / .18)`)}>
       <button type="button" className={btn} aria-label="Zoom in" onClick={() => scene?.zoomBy(1.35)}>
         <IconPlus size={16} />
       </button>
@@ -123,7 +124,7 @@ export function SearchTab({ open, onToggle }: { open: boolean; onToggle(): void 
       aria-expanded={open}
       aria-label={open ? "Close search" : "Open search"}
       className="group flex w-[58px] flex-col items-center gap-1 bg-[#05070ae8] py-3 pl-1 backdrop-blur-sm transition-colors hover:bg-[#0b0f15]"
-      style={{ clipPath: "polygon(14px 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px), 0 14px)", boxShadow: "inset 0 0 0 1px rgb(255 145 56 / .45)" }}
+      style={{ clipPath: "polygon(14px 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px), 0 14px)", boxShadow: "inset 0 0 0 1px rgb(255 145 56 / .45)", ...cutEdges(14, "rgb(255 145 56 / .45)", 1, ["tl", "bl"]) }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/assets/ui/icon-explore.webp" alt="" className="size-9 transition-transform group-hover:scale-110" />
@@ -135,41 +136,53 @@ export function SearchTab({ open, onToggle }: { open: boolean; onToggle(): void 
 
 export type DockId = "explore" | "progress" | "guide";
 
-/** Square action buttons at the bottom centre; "Host a mission" stands apart in orange. */
+/**
+ * Square action buttons at the bottom centre. Explore is the hero (players' main action, glowing
+ * orange); "Host mission" is for organisations, so it sits apart, quieter, with a dashed outline.
+ */
 export function Dock({ active, onPick }: { active: DockId | null; onPick(id: DockId): void }) {
   const items: { id: DockId; label: string; icon: string }[] = [
     { id: "explore", label: "Explore", icon: "/assets/ui/icon-explore.webp" },
     { id: "progress", label: "Progress", icon: "/assets/ui/icon-earn.webp" },
     { id: "guide", label: "Guide", icon: "/assets/ui/icon-play.webp" },
   ];
-  const sq = "group relative flex size-[74px] flex-col items-center justify-center gap-1 backdrop-blur-sm transition-transform hover:-translate-y-1";
+  const sq = "group relative flex size-[78px] flex-col items-center justify-center gap-1 text-center backdrop-blur-sm transition-transform hover:-translate-y-1";
+  const label = "font-mono text-[9.5px] font-bold uppercase leading-tight tracking-[0.14em]";
   return (
-    <nav aria-label="Game menu" className="yv-enter pointer-events-auto flex items-end gap-2">
-      {items.map((it) => (
-        <button
-          key={it.id}
-          type="button"
-          onClick={() => onPick(it.id)}
-          aria-pressed={active === it.id}
-          className={`${sq} ${active === it.id ? "bg-[#1a1209f0]" : "bg-[#05070ae8]"}`}
-          style={{ ...plate(10), boxShadow: `inset 0 0 0 1px ${active === it.id ? "rgb(255 145 56 / .8)" : `${INK} / .2)`}` }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={it.icon} alt="" className="size-9 transition-transform group-hover:scale-110" />
-          <span className={`font-mono text-[9.5px] font-bold uppercase tracking-[0.16em] ${active === it.id ? "text-orange" : "text-[rgb(214_219_225/.75)]"}`}>{it.label}</span>
-        </button>
-      ))}
-      <span aria-hidden className="mx-1 h-12 w-px self-center bg-[rgb(214_219_225/.18)]" />
-      <Link
-        href="/host"
-        className={`${sq} yv-host size-[84px] bg-[linear-gradient(160deg,#ff9f4d,#e2620d)]`}
-        style={{ ...plate(12), boxShadow: "inset 0 0 0 1px rgb(255 230 200 / .5), 0 0 24px rgb(255 145 56 / .45)" }}
-      >
+    <nav aria-label="Game menu" className="yv-enter pointer-events-auto flex items-center gap-2">
+      {items.map((it) => {
+        const hero = it.id === "explore";
+        const on = active === it.id;
+        return (
+          <button
+            key={it.id}
+            type="button"
+            onClick={() => onPick(it.id)}
+            aria-pressed={on}
+            className={`${sq} ${hero ? "yv-hero" : on ? "bg-[#1a1209f0]" : "bg-[#05070ae8]"}`}
+            style={
+              hero
+                ? frame(10, "rgb(255 145 56 / .9)", 1.5, { shadow: "0 0 22px rgb(255 145 56 / .4)", bg: "linear-gradient(160deg,rgb(255 145 56 / .32),rgb(5 7 10 / .92) 70%)" })
+                : frame(10, on ? "rgb(255 145 56 / .8)" : `${INK} / .2)`)
+            }
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={it.icon} alt="" className="size-10 transition-transform group-hover:scale-110" />
+            <span className={`${label} ${hero || on ? "text-orange" : "text-[rgb(214_219_225/.75)]"}`}>{it.label}</span>
+          </button>
+        );
+      })}
+      <span aria-hidden className="mx-1.5 h-10 w-px bg-[rgb(214_219_225/.14)]" />
+      <Link href="/host?from=map" title="For organisations: host a mission on the map" className={`${sq} bg-[#05070ae8]`} style={plate(10)}>
+        {/* dotted outline marks it as the organisation action */}
+        <svg aria-hidden className="pointer-events-none absolute inset-0 size-full" viewBox="0 0 78 78" preserveAspectRatio="none">
+          <path d="M0.75 0.75 H67.5 L77.25 10.5 V77.25 H10.5 L0.75 67.5 Z" fill="none" stroke="rgb(214 219 225 / .5)" strokeWidth="1.2" strokeDasharray="2 3" className="transition-[stroke] group-hover:stroke-[rgb(255_145_56/.8)]" />
+        </svg>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/ui/icon-host.webp" alt="" className="size-10 drop-shadow-[0_2px_4px_rgb(0_0_0/.5)] transition-transform group-hover:scale-110" />
-        <span className="font-mono text-[9.5px] font-black uppercase leading-tight tracking-[0.12em] text-[#1a0d02]">Host mission</span>
+        <img src="/assets/ui/icon-host.webp" alt="" className="size-10 transition-transform group-hover:scale-110" />
+        <span className={`${label} text-[rgb(214_219_225/.75)] group-hover:text-white`}>Host mission</span>
       </Link>
-      <style>{`@keyframes yv-host-glow { 50% { box-shadow: inset 0 0 0 1px rgb(255 230 200 / .7), 0 0 34px rgb(255 145 56 / .7) } } .yv-host { animation: yv-host-glow 2.6s ease-in-out infinite }`}</style>
+      <style>{`@keyframes yv-hero-glow { 50% { box-shadow: inset 0 0 0 1.5px rgb(255 175 110 / 1), 0 0 32px rgb(255 145 56 / .6) } } .yv-hero { animation: yv-hero-glow 2.6s ease-in-out infinite } @media (prefers-reduced-motion: reduce) { .yv-hero { animation: none } }`}</style>
     </nav>
   );
 }
@@ -177,13 +190,24 @@ export function Dock({ active, onPick }: { active: DockId | null; onPick(id: Doc
 /** The player's badge, top right (opens the account menu when signed in). */
 export function ProfileBadge({ name }: { name: string | null }) {
   return (
-    <span className="group flex items-center gap-2.5">
+    <span
+      className="group flex cursor-pointer items-center gap-2.5 bg-[#05070ad0] py-1 pl-3.5 pr-1.5 backdrop-blur-sm transition-colors hover:bg-[#0d1117e6]"
+      style={frame(10, `${INK} / .18)`)}
+    >
       <span className="hidden text-right font-mono sm:block">
         <span className="block text-[9px] font-bold uppercase tracking-[0.24em] text-[rgb(214_219_225/.45)]">{name ? "Player" : "Guest"}</span>
-        <span className="block max-w-36 truncate text-[12px] font-bold uppercase tracking-[0.08em] text-white">{name ?? "Sign in"}</span>
+        <span className="block max-w-36 truncate text-[12px] font-bold uppercase tracking-[0.08em] text-white group-hover:text-orange">{name ?? "Sign in"}</span>
       </span>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/assets/ui/icon-profile.webp" alt="" className="size-14 transition-transform group-hover:scale-105" />
+      <span className="relative">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/assets/ui/icon-profile.webp" alt="" className="size-12 transition-transform group-hover:scale-105" />
+        {/* dropdown cue */}
+        <span aria-hidden className="absolute -bottom-0.5 -right-0.5 grid size-[18px] place-items-center rounded-full border border-orange bg-[#05070a] text-orange shadow-[0_0_8px_rgb(255_145_56/.6)] transition-transform group-hover:translate-y-0.5">
+          <svg width="9" height="9" viewBox="0 0 10 10">
+            <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </span>
     </span>
   );
 }

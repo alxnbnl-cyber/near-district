@@ -22,7 +22,7 @@ export function formatRate(perDay: number, symbol: string) {
 }
 
 /**
- * "Up to $1,375.00" whose fractional tail keeps ticking up for growing rewards, so players can see
+ * "Up to $120.00" whose fractional tail keeps ticking up for growing rewards, so players can see
  * the pool earning. Updates the DOM directly (no React renders).
  */
 export function LiveReward({ prize, className = "", tailClassName = "opacity-45" }: { prize: Prize; className?: string; tailClassName?: string }) {
@@ -34,7 +34,7 @@ export function LiveReward({ prize, className = "", tailClassName = "opacity-45"
   useEffect(() => {
     const paint = () => {
       const v = amount + (perDay ? (perDay / 86_400_000) * (performance.now() - T0) : 0);
-      const [int, frac = ""] = v.toFixed(6).split(".");
+      const [int, frac = ""] = v.toFixed(8).split(".");
       if (main.current) main.current.textContent = `${dollar ? "$" : ""}${Number(int).toLocaleString("en")}.${frac.slice(0, 2)}`;
       if (tail.current) tail.current.textContent = perDay ? frac.slice(2) : "";
     };

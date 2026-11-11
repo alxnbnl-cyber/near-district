@@ -12,10 +12,18 @@ export function demoPrize(campaignId: string, symbol: string): Prize {
   for (const ch of campaignId) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const yieldPrize = h % 2 === 0;
   return {
-    amount: (250 + (h % 19) * 125).toLocaleString("en"),
+    amount: (20 + (h % 19) * 10).toLocaleString("en"), // $20 – $200
     symbol,
     kind: yieldPrize ? "yield" : "budget",
     demo: true,
     apy: yieldPrize ? `${(6 + (h % 50) / 10).toFixed(1)}%` : undefined,
   };
+}
+
+/** Sample company logos for projects that haven't uploaded one (demo mode only). */
+const DEMO_LOGOS = ["/assets/demo/logo-paw.webp", "/assets/demo/logo-r.webp"];
+export function demoLogo(spaceId: string): string {
+  let h = 0;
+  for (const ch of spaceId) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return DEMO_LOGOS[h % DEMO_LOGOS.length]!;
 }

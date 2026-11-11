@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { cutEdges } from "./GameHud";
 import type { Atlas } from "@yielvy/core/world";
 import type { AtlasScene } from "@/world/atlas-scene";
 import type { MarkerKind, WorldBuildingData } from "@/world/types";
@@ -22,8 +23,8 @@ const CLUSTER_BELOW = 0.14;
 const LABEL_FROM = 0.42;
 
 const KIND_TEXT: Record<MarkerKind, string> = {
-  hunt: "Mission · live",
-  contest: "Challenge · live",
+  hunt: "Mission",
+  contest: "Challenge",
   upcoming: "Opening soon",
   space: "Project",
 };
@@ -173,9 +174,10 @@ const Pin = memo(function Pin({
         >
           <span className="absolute inset-0" style={{ clipPath: HEX, background: tone }} />
           <span className="absolute inset-[2.5px] grid place-items-center" style={{ clipPath: HEX, background: "linear-gradient(180deg,#141922,#07090c)", color: tone }}>
-            {b.logoUrl && selected ? (
+            {b.logoUrl ? (
+              // company logo fills the hex badge
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={b.logoUrl} alt="" className="size-[62%] rounded-sm object-cover" />
+              <img src={b.logoUrl} alt="" draggable={false} className="absolute inset-0 size-full object-cover" />
             ) : (
               <Icon size={size * 0.42} />
             )}
@@ -193,12 +195,11 @@ const Pin = memo(function Pin({
         </svg>
         {/* info plate: wipes open after the line */}
         <span className="yv-pl pointer-events-none absolute whitespace-nowrap text-left" style={{ left: size * 0.78 + 46, top: -30 }}>
-          <span className="block min-w-[210px] bg-[#05070af2] font-mono" style={{ clipPath: PLATE, boxShadow: `inset 0 0 0 1px ${tone}55` }}>
+          <span className="block min-w-[210px] bg-[#05070af2] font-mono" style={{ clipPath: PLATE, boxShadow: `inset 0 0 0 1px ${tone}55`, ...cutEdges(10, `${tone}55`) }}>
             <span className="block px-3 pb-2 pt-2">
               <span className="flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-[0.2em]" style={{ color: tone }}>
                 {live && <span className="size-1.5 animate-pulse rounded-full" style={{ background: tone }} />}
                 {typeLabel}
-                {live ? " · live" : ""}
               </span>
               <span className="mt-0.5 block font-display text-[13.5px] font-bold uppercase tracking-[0.03em] text-ink">{b.featured?.title ?? b.name}</span>
               {b.featured && <span className="block text-[9.5px] uppercase tracking-[0.16em] text-[rgb(214_219_225/.5)]">{b.name}</span>}

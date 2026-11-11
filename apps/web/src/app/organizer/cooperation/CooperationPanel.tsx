@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Button, Notice, inputClass } from "@/components/ui";
-import { LinkedVaults } from "@/components/art/Art";
+import { GameIcon } from "@/components/host/GameIcon";
 import { api, ApiError } from "@/lib/api";
 
 interface Partner {
@@ -60,7 +60,7 @@ export function CooperationPanel({ canManage }: { canManage: boolean }) {
   return (
     <div className="flex flex-col gap-6">
       <section className="flex items-center gap-5">
-        <LinkedVaults size={120} className="hidden shrink-0 sm:block" />
+        <GameIcon name="play" size={120} className="hidden shrink-0 sm:block" />
         <div>
           <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">Cooperation</p>
           <h1 className="mt-1 text-[30px] font-bold tracking-[-0.02em]">Team up with other projects</h1>

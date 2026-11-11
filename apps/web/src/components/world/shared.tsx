@@ -13,11 +13,6 @@ export function districtName(id: string): string {
 export function FlagBadges({ flags }: { flags: ActivityFlag[] }) {
   return (
     <>
-      {flags.includes("live") && (
-        <Badge tone="orange" dot>
-          Live
-        </Badge>
-      )}
       {flags.includes("ending_soon") && <Badge tone="gold">Ending soon</Badge>}
       {flags.includes("featured") && <Badge tone="violet">Featured</Badge>}
       {flags.includes("new") && <Badge tone="sky">New</Badge>}

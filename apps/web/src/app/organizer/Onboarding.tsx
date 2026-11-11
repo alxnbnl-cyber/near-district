@@ -1,14 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { SPACE_CATEGORIES } from "@yielvy/core/world";
-import { Button, Field, Notice, inputClass } from "@/components/ui";
+import { Field, Notice, inputClass } from "@/components/ui";
 import { WalletChooser } from "@/components/auth/WalletChooser";
-import { VaultDoor } from "@/components/art/Art";
+import { GameIcon } from "@/components/host/GameIcon";
+import { frame } from "@/components/explore/frame";
 import { slugify, spaceInput } from "@/lib/schemas";
 import { api, ApiError } from "@/lib/api";
-import { HowItWorks } from "./HowItWorks";
 
 const CATEGORY_LABELS: Record<string, string> = {
   project: "Project / product", defi: "DeFi", infrastructure: "Infrastructure", tooling: "Developer tools", other: "Something else",
@@ -16,7 +17,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   community: "Community", dao: "DAO", education: "Education", social: "Social",
 };
 
-/** Two short steps: prove your wallet, name your vault. Everything else can wait. */
+const INK = "rgb(214 219 225";
+const PANEL = "bg-[rgb(10_13_18/.7)] p-6 backdrop-blur";
+
+/** Two short steps: prove your wallet, then the company profile. Everything else unlocks after review. */
 export function Onboarding({ hasWallet, walletAccount }: { hasWallet: boolean; walletAccount: string | null }) {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", slug: "", category: "project", tagline: "" });
@@ -27,27 +31,44 @@ export function Onboarding({ hasWallet, walletAccount }: { hasWallet: boolean; w
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v, ...(k === "name" && !slugTouched ? { slug: slugify(v) } : {}) }));
 
   return (
-    <div className="flex flex-col gap-8">
-      <section className="grid items-center gap-6 md:grid-cols-[1fr_220px]">
-        <div className="yv-enter">
-          <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">Step {hasWallet ? 2 : 1} of 2</p>
-          <h1 className="mt-1 text-[34px] font-bold leading-tight tracking-[-0.02em]">Put your project on the map</h1>
-          <p className="mt-2 max-w-lg text-[16px] text-ink-2">Your project page is where explorers play your missions and win your prizes.</p>
+    <div className="flex flex-col gap-7">
+      <section className="yv-enter flex items-center gap-5 font-mono">
+        <GameIcon name="host" size={96} className="hidden sm:block" />
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-orange">Host a mission</p>
+          <h1 className="mt-1 font-display text-[34px] font-bold uppercase leading-tight tracking-[0.02em] text-white">Put your company on the map</h1>
+          <p className="mt-1 font-sans text-[16px] text-[rgb(214_219_225/.7)]">Two quick steps. Funding and missions unlock after a short review.</p>
         </div>
-        <VaultDoor size={200} className="yv-float hidden md:block" />
       </section>
 
+      <ol className="flex flex-wrap gap-2 font-mono">
+        {["Connect wallet", "Company profile"].map((label, i) => {
+          const done = i === 0 && hasWallet;
+          const now = (i === 0 && !hasWallet) || (i === 1 && hasWallet);
+          return (
+            <li
+              key={label}
+              className={`flex h-10 items-center gap-2.5 px-4 text-[11px] font-bold uppercase tracking-[0.18em] ${now ? "bg-[rgb(255_145_56/.12)] text-orange" : done ? "text-[rgb(214_219_225/.8)]" : "text-[rgb(214_219_225/.4)]"}`}
+              style={frame(9, now ? "rgb(255 145 56 / .6)" : `${INK} / .14)`)}
+            >
+              <span className={`grid size-5 place-items-center text-[10px] font-black ${done ? "bg-orange text-[#140c05]" : "border border-current"}`}>{done ? "✓" : i + 1}</span>
+              {label}
+            </li>
+          );
+        })}
+      </ol>
+
       {!hasWallet ? (
-        <div className="max-w-xl rounded-[18px] border border-line bg-card p-6">
-          <h2 className="text-xl font-semibold">Connect your NEAR wallet</h2>
-          <p className="mt-1 text-[14px] text-ink-2">You&apos;ll fund prizes from it, so we ask you to sign once to prove it&apos;s yours.</p>
+        <div className={`max-w-xl ${PANEL}`} style={frame(14, `${INK} / .14)`)}>
+          <h2 className="font-display text-[20px] font-bold uppercase tracking-[0.04em] text-white">Connect your NEAR wallet</h2>
+          <p className="mt-1 text-[14px] text-[rgb(214_219_225/.7)]">You&apos;ll fund rewards from it, so sign once to prove it&apos;s yours.</p>
           <div className="mt-5">
             <WalletChooser purpose="link_wallet" returnTo="/organizer" onDone={() => router.refresh()} />
           </div>
         </div>
       ) : (
         <form
-          className="grid gap-6 lg:grid-cols-[1fr_280px]"
+          className="grid gap-5 lg:grid-cols-[1fr_260px]"
           onSubmit={async (e) => {
             e.preventDefault();
             setServerError(null);
@@ -62,17 +83,17 @@ export function Onboarding({ hasWallet, walletAccount }: { hasWallet: boolean; w
               await api("/api/organizer/space", { method: "POST", body: parsed.data });
               router.refresh();
             } catch (err) {
-              setServerError(err instanceof ApiError ? err.message : "Could not create your project.");
+              setServerError(err instanceof ApiError ? err.message : "Could not create your profile.");
               setBusy(false);
             }
           }}
         >
-          <div className="flex flex-col gap-4 rounded-[18px] border border-line bg-card p-6">
-            <p className="text-[12.5px] text-mint-ink">✓ Wallet {walletAccount} connected</p>
-            <Field label="Project name" htmlFor="name" error={errors.name ?? errors.organizationName}>
+          <div className={`flex flex-col gap-4 ${PANEL}`} style={frame(14, `${INK} / .14)`)}>
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-mint-ink">✓ Wallet {walletAccount}</p>
+            <Field label="Company name" htmlFor="name" error={errors.name ?? errors.organizationName}>
               <input id="name" className={`${inputClass} h-12 text-[16px]`} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Lantern Labs" />
             </Field>
-            <Field label="Link" htmlFor="slug" error={errors.slug} hint={`yielvy.app/s/${form.slug || "your-project"}`}>
+            <Field label="Link" htmlFor="slug" error={errors.slug} hint={`yielvy.app/s/${form.slug || "your-company"}`}>
               <input
                 id="slug"
                 className={inputClass}
@@ -99,29 +120,40 @@ export function Onboarding({ hasWallet, walletAccount }: { hasWallet: boolean; w
             </div>
             {serverError && <Notice tone="danger">{serverError}</Notice>}
             <div>
-              <Button type="submit" size="lg" className="yv-glow" disabled={busy || form.name.trim().length < 2}>
-                {busy ? "Opening…" : "Put me on the map"}
-              </Button>
+              <button
+                type="submit"
+                disabled={busy || form.name.trim().length < 2}
+                className="h-12 bg-orange px-7 font-mono text-[12.5px] font-black uppercase tracking-[0.16em] text-[#140c05] transition-colors hover:bg-[#ffa458] disabled:opacity-40"
+                style={frame(11, "rgb(255 145 56)")}
+              >
+                {busy ? "Submitting…" : "Submit for review"}
+              </button>
             </div>
           </div>
 
-          <div className="rounded-[18px] border border-line bg-card p-5">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-3">Preview on the map</p>
-            <div className="mt-4 grid place-items-center rounded-[14px] bg-[#0e1520] py-8">
-              <svg width="54" height="68" viewBox="0 0 40 50" className="yv-float drop-shadow-[0_8px_14px_rgb(0_0_0/.75)]" aria-hidden>
-                <path d="M20 49C20 49 3 30.5 3 18.5a17 17 0 0 1 34 0C37 30.5 20 49 20 49Z" fill="#FF9138" stroke="#0b0f15" strokeWidth="2" />
-                <circle cx="20" cy="18.5" r="11.5" fill="#0b0f15" />
-                <text x="20" y="23" textAnchor="middle" fontSize="13" fontWeight="700" fill="#FF9138">{(form.name.match(/[A-Za-z0-9]/)?.[0] ?? "Y").toUpperCase()}</text>
-              </svg>
-              <span className="mt-3 rounded-[10px] border border-white/10 bg-[#0b0f15f0] px-3 py-1.5 text-[13px] font-semibold">{form.name || "Your project"}</span>
-              {form.tagline && <span className="mt-1 text-[12px] text-ink-3">{form.tagline}</span>}
+          <div className={PANEL} style={frame(14, `${INK} / .14)`)}>
+            <p className="font-mono text-[10.5px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.5)]">Preview on the map</p>
+            <div className="mt-4 grid place-items-center bg-[#0b0f15] py-8 shadow-[inset_0_0_0_1px_rgb(255_255_255/.06)]">
+              <span className="yv-float relative block size-14 drop-shadow-[0_0_10px_rgb(255_145_56/.5)]">
+                <span className="absolute inset-0 bg-orange" style={{ clipPath: "polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)" }} />
+                <span
+                  className="absolute inset-[2.5px] grid place-items-center bg-[linear-gradient(180deg,#141922,#07090c)] font-display text-[20px] font-bold text-orange"
+                  style={{ clipPath: "polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)" }}
+                >
+                  {(form.name.match(/[A-Za-z0-9]/)?.[0] ?? "Y").toUpperCase()}
+                </span>
+              </span>
+              <span className="mt-3 max-w-full truncate px-3 font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-white">{form.name || "Your company"}</span>
+              {form.tagline && <span className="mt-1 max-w-full truncate px-3 text-[12px] text-[rgb(214_219_225/.55)]">{form.tagline}</span>}
             </div>
-            <p className="mt-3 text-[12px] text-ink-3">New projects are reviewed before they appear to explorers. You can build missions meanwhile.</p>
+            <p className="mt-3 text-[12.5px] text-[rgb(214_219_225/.55)]">Reviewed before it appears to players.</p>
           </div>
         </form>
       )}
 
-      <HowItWorks open />
+      <Link href="/organizer/how-it-works" className="self-start font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.55)] hover:text-white">
+        How it works →
+      </Link>
     </div>
   );
 }

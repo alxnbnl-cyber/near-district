@@ -2,7 +2,7 @@ import "server-only";
 import { and, campaigns, campaignVersions, count, desc, eq, inArray, organizations, participantEntries, rewardAllocations, rewardClaims, spaces, vaultPositions, worldBuildings } from "@yielvy/db";
 import { formatDisplay } from "@yielvy/core";
 import { token } from "./near";
-import { demoEnabled, demoPrize } from "./demo";
+import { demoEnabled, demoLogo, demoPrize } from "./demo";
 import { lotPosition, type DistrictId } from "@yielvy/core/world";
 import type { CampaignRules } from "@yielvy/core";
 import { db } from "./db";
@@ -105,7 +105,7 @@ export async function getWorldData(viewerId: string | null = null): Promise<Worl
       plotIndex: r.plotIndex,
       x: pos.x,
       y: pos.y,
-      logoUrl: r.logoUploadId ? `/api/uploads/${r.logoUploadId}` : null,
+      logoUrl: r.logoUploadId ? `/api/uploads/${r.logoUploadId}` : demo ? demoLogo(r.spaceId) : null,
       flags,
       kind,
       liveCampaigns: live.length,

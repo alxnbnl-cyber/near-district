@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { frame, plate } from "./GameHud";
 import { ARTWORK_LOTS, type Atlas } from "@yielvy/core/world";
 import type { AtlasScene } from "@/world/atlas-scene";
 import type { WorldBuildingData } from "@/world/types";
-import { buttonClass } from "@/components/ui";
 import { IconChevron } from "./icons";
 import { formatRate, LiveReward, rewardRate } from "./LiveReward";
 import { Tutorial } from "./Tutorial";
@@ -90,67 +90,53 @@ export function WelcomeOverlay({
     // a little above fit, so the drift has room to move both ways without hitting the map edge
     const zoom = Math.min(max, min * 1.6);
     const cx = atlas.width / 2, cy = atlas.height / 2;
-    const R = Math.min(atlas.width, atlas.height) * 0.07;
+    // Anchor: the rewarded mission nearest the map centre (welcome padding puts it on the right
+    // side of the screen). The camera only sways a little around it, never travels.
+    const anchor = [...missions].sort((p, q) => Math.hypot(p.x - cx, p.y - cy) - Math.hypot(q.x - cx, q.y - cy))[0];
+    const [ax, ay] = anchor ? [anchor.x, anchor.y] : [cx, cy];
+    const R = Math.min(atlas.width, atlas.height) * 0.022;
     let a = Math.random() * Math.PI * 2;
     const drift = () => {
       if (!alive) return;
-      a += 0.9 + Math.random() * 0.6;
-      scene.flyTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R * 0.7, zoom, DRIFT_MS);
+      a += 0.8 + Math.random() * 0.5;
+      scene.flyTo(ax + Math.cos(a) * R, ay + Math.sin(a) * R * 0.7, zoom, DRIFT_MS);
       timers.push(setTimeout(drift, DRIFT_MS));
     };
     const scans: Stop[] = ARTWORK_LOTS.map(([lx, ly]) => ({ kind: "scan" as const, x: lx * atlas.width, y: ly * atlas.height }));
-    // Rewarded missions closest to the centre: the camera glides gently between them, and the
-    // welcome padding keeps each one on the right side of the screen.
-    const near = [...missions].sort((p, q) => Math.hypot(p.x - cx, p.y - cy) - Math.hypot(q.x - cx, q.y - cy)).slice(0, 6);
-    const pickNear = (): Stop | null => {
-      const pool = near.filter((m) => m !== last);
-      return pool[Math.floor(Math.random() * pool.length)] ?? near[0] ?? null;
-    };
-    const pickScan = (): Stop | null => {
+    /** Stops currently on the right side of the screen, with room for the plate. */
+    const onRight = (pool: Stop[]) => {
       const el = root.current;
-      if (!el) return null;
+      if (!el) return [];
       const w = el.clientWidth, h = el.clientHeight;
       const cam = scene.camera();
-      const pool = scans.filter((s) => {
-        const sx = s.x * cam.s + cam.tx, sy = s.y * cam.s + cam.ty;
-        return sx > w * 0.56 && sx < w - 420 && sy > 160 && sy < h - 140 && s !== last;
+      return pool.filter((p) => {
+        const sx = p.x * cam.s + cam.tx, sy = p.y * cam.s + cam.ty;
+        return sx > w * 0.5 && sx < w - 320 && sy > 150 && sy < h - 140;
       });
-      return pool[Math.floor(Math.random() * pool.length)] ?? null;
     };
-    const GLIDE_MS = 3200;
-    const tour = () => {
-      if (!alive) return;
-      const s = pickNear();
-      if (!s) return;
-      last = s;
-      setStop(null);
-      scene.flyTo(s.x, s.y, zoom, GLIDE_MS);
-      timers.push(
-        setTimeout(() => {
-          if (!alive) return;
-          setStop({ s, n: ++n, flip: false });
-          timers.push(setTimeout(tour, HOLD_MS + GAP_MS));
-        }, GLIDE_MS - 300),
-      );
-    };
-    // Fallback when no mission is live: drift around the centre and scan empty sectors.
-    const scan = () => {
-      if (!alive) return;
-      const s = pickScan();
-      if (s) {
-        last = s;
-        setStop({ s, n: ++n, flip: false });
+    const pick = (): Stop | null => {
+      // rewarded missions in view first (repeat allowed when only one is visible)
+      const m = onRight(missions);
+      if (m.length) {
+        const fresh = m.filter((x) => x !== last);
+        const pool = fresh.length ? fresh : m;
+        return pool[Math.floor(Math.random() * pool.length)]!;
       }
-      timers.push(setTimeout(scan, s ? HOLD_MS + GAP_MS : 400));
+      if (missions.length) return null; // wait for the sway to bring one back into view
+      const sc = onRight(scans).filter((x) => x !== last);
+      return sc[Math.floor(Math.random() * sc.length)] ?? null;
     };
-    if (near.length) {
-      scene.jumpTo(near[0]!.x, near[0]!.y, zoom);
-      last = null;
-      timers.push(setTimeout(tour, 500));
-    } else {
-      scene.jumpTo(cx, cy, zoom);
-      timers.push(setTimeout(drift, 60), setTimeout(scan, 900));
-    }
+    const step = () => {
+      if (!alive) return;
+      const p = pick();
+      if (p) {
+        last = p;
+        setStop({ s: p, n: ++n, flip: false });
+      }
+      timers.push(setTimeout(step, p ? HOLD_MS + GAP_MS : 400));
+    };
+    scene.jumpTo(ax, ay, zoom);
+    timers.push(setTimeout(drift, 60), setTimeout(step, 800));
     return () => {
       alive = false;
       timers.forEach(clearTimeout);
@@ -197,12 +183,12 @@ export function WelcomeOverlay({
           {/* info plate wipes open */}
           <div
             className="yv-plate absolute left-[120px] -top-[90px] w-[260px] bg-[#05070ae8] px-3.5 py-2.5 font-mono backdrop-blur-sm"
-            style={{ clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))", boxShadow: `inset 0 0 0 1px ${tone}66` }}
+            style={frame(14, `${tone}66`)}
           >
             <p className="yv-row flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: tone, animationDelay: "900ms" }}>
               <span className="flex items-center gap-1.5">
                 <span className="size-1.5 animate-pulse rounded-full" style={{ background: tone }} />
-                {active.kind === "mission" ? (active.b.featured!.template === "treasure_hunt" ? "Mission live" : "Challenge live") : "Scanning sector"}
+                {active.kind === "mission" ? (active.b.featured!.template === "treasure_hunt" ? "Mission" : "Challenge") : "Scanning sector"}
               </span>
               <span className="text-[rgb(214_219_225/.45)]">#{String(stop!.n).padStart(2, "0")}</span>
             </p>
@@ -269,14 +255,36 @@ export function WelcomeOverlay({
             . Complete missions, claim the prize.
           </p>
           <div className="yv-rise mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: "440ms" }}>
-            <button type="button" onClick={onEnter} autoFocus className={buttonClass("primary", "lg", "group yv-glow h-14 px-8 text-[16px]")}>
-              Enter the World
-              <IconChevron size={18} className="transition-transform group-hover:translate-x-1" />
+            {/* primary: angled orange plate with a light sweep */}
+            <button
+              type="button"
+              onClick={onEnter}
+              autoFocus
+              className="yv-cta group relative flex h-14 items-center gap-3 overflow-hidden bg-[linear-gradient(180deg,#ffa458,#ff8a2a)] px-8 font-mono text-[#140c05] shadow-[0_0_28px_rgb(255_145_56/.45)] outline-none transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[0_0_40px_rgb(255_145_56/.65)] focus-visible:ring-2 focus-visible:ring-white"
+              style={plate(14)}
+            >
+              <span className="text-[16px] font-black uppercase tracking-[0.16em]">Enter the world</span>
+              <IconChevron size={18} className="ml-1 transition-transform group-hover:translate-x-1" />
+              <span aria-hidden className="yv-sweep pointer-events-none absolute inset-y-0 -left-1/2 w-1/3 skew-x-[-20deg] bg-white/35" />
             </button>
-            <Link href="/host" className={buttonClass("dark", "lg", "h-14 px-6")}>
-              Host a mission
+            {/* secondary: dark glass plate, dotted like the host tile in the game */}
+            <Link
+              href="/host?from=home"
+              className="group relative flex h-14 items-center bg-[rgb(5_7_10/.72)] px-7 font-mono text-white backdrop-blur-md transition-transform hover:-translate-y-0.5"
+              style={plate(14)}
+            >
+              <span aria-hidden className="pointer-events-none absolute inset-0 transition-opacity group-hover:opacity-0" style={frame(14, "rgb(214 219 225 / .3)")} />
+              <span aria-hidden className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={frame(14, "rgb(255 145 56 / .8)")} />
+              <span className="text-[14px] font-bold uppercase tracking-[0.16em]">Host a mission</span>
             </Link>
-            <button type="button" onClick={() => setHow(true)} className="h-14 px-3 text-[14px] font-semibold text-ink-2 underline-offset-4 hover:text-ink hover:underline">
+          </div>
+          <div className="yv-rise mt-8" style={{ animationDelay: "520ms" }}>
+            <button
+              type="button"
+              onClick={() => setHow(true)}
+              className="group flex h-9 items-center gap-2 px-2 font-mono text-[11.5px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.65)] transition-colors hover:text-white"
+            >
+              <span className="grid size-6 place-items-center border border-[rgb(214_219_225/.35)] text-[11px] transition-colors group-hover:border-orange group-hover:text-orange">?</span>
               How it works
             </button>
           </div>
@@ -286,6 +294,9 @@ export function WelcomeOverlay({
       <Tutorial open={how} onClose={() => setHow(false)} onStart={onEnter} />
 
       <style>{`
+        @keyframes yv-sweep { 0%, 55% { transform: translateX(0) skewX(-20deg) } 100% { transform: translateX(520%) skewX(-20deg) } }
+        .yv-sweep { animation: yv-sweep 3.4s ease-in-out infinite }
+        @media (prefers-reduced-motion: reduce) { .yv-sweep { animation: none; display: none } }
         @keyframes yv-rise { from { opacity: 0; transform: translateY(14px); filter: blur(4px) } to { opacity: 1; transform: none; filter: none } }
         .yv-rise { animation: yv-rise 700ms cubic-bezier(.2,.7,.2,1) both }
         @keyframes yv-scan { from { top: -30% } to { top: 100% } }

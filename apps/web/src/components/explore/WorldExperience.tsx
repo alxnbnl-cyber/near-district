@@ -8,9 +8,9 @@ import type { WorldData } from "@/world/types";
 import { buttonClass } from "@/components/ui";
 import { UserMenu } from "@/components/shell/UserMenu";
 import { MarkerLayer } from "./MarkerLayer";
-import { Dock, plate, ProfileBadge, SearchTab, StatusBar, ZoomSlider, type DockId } from "./GameHud";
+import { Dock, frame, plate, ProfileBadge, StatusBar, ZoomSlider, type DockId } from "./GameHud";
 import { DiscoverPanel, type Filter } from "./DiscoverPanel";
-import { AdventuresTab } from "./PanelTabs";
+import { ProgressPanel } from "./ProgressPanel";
 import { SpaceCard } from "./SpaceCard";
 import { ExpeditionCard } from "./ExpeditionCard";
 import { MapHud } from "./MapHud";
@@ -18,6 +18,7 @@ import { WelcomeOverlay } from "./WelcomeOverlay";
 import { AmbientLayer } from "./AmbientLayer";
 import { Minimap } from "./Minimap";
 import { Tutorial, tutorialSeen } from "./Tutorial";
+import { MissionModal } from "./MissionModal";
 import { IconSearch } from "./icons";
 
 const DRAWER_W = 400;
@@ -40,6 +41,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
   const [mode, setMode] = useState<Mode>(initialMode === "explore" ? "explore" : "pending");
   const [leaving, setLeaving] = useState(false);
   const [panel, setPanel] = useState<Panel | null>(null);
+  const [mission, setMission] = useState<{ slug: string; campaign: string } | null>(null);
   const [tutorial, setTutorial] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [query, setQuery] = useState("");
@@ -65,7 +67,9 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
     if (t === "discover") setPanel("explore");
-    if (t === "adventures" || t === "experiences") setPanel("progress");
+    if (t === "adventures" || t === "experiences" || params.get("panel") === "progress") setPanel("progress");
+    const m = params.get("m")?.match(/^([a-z0-9-]+)\/([a-z0-9-]+)$/);
+    if (m) setMission({ slug: m[1]!, campaign: m[2]! });
     const b = params.get("back");
     if (b && /^\/s\/[a-z0-9-]+\/c\/[a-z0-9-]+$/.test(b)) setBack(b);
     deepLinked.current = { space: params.get("space") ?? undefined, expedition: params.get("expedition") ?? undefined };
@@ -170,6 +174,30 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
   }, [data, query, filter]);
   const visibleIds = useMemo(() => (query.trim() || filter !== "all" ? new Set(results.map((r) => r.spaceId)) : null), [results, query, filter]);
   const selected = selectedId ? data.buildings.find((b) => b.spaceId === selectedId) ?? null : null;
+  /** Missions open over the map; the URL keeps ?m= so links and the back button work. */
+  const openMission = useCallback((slug: string, campaign: string) => {
+    setMission({ slug, campaign });
+    const url = new URL(window.location.href);
+    url.searchParams.set("m", `${slug}/${campaign}`);
+    window.history.pushState({ yvMission: true }, "", url);
+  }, []);
+  const closeMission = useCallback(() => {
+    setMission(null);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("m")) {
+      url.searchParams.delete("m");
+      window.history.replaceState(null, "", url);
+    }
+  }, []);
+  useEffect(() => {
+    const onPop = () => {
+      const m = new URLSearchParams(window.location.search).get("m")?.match(/^([a-z0-9-]+)\/([a-z0-9-]+)$/);
+      setMission(m ? { slug: m[1]!, campaign: m[2]! } : null);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   const stats = useMemo(
     () => ({
       spaces: data.buildings.length,
@@ -272,7 +300,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
   const drawerOpen = exploring && panel !== null;
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-paper">
+    <div className="relative h-full w-full overflow-clip bg-paper">
       <div
         ref={host}
         tabIndex={exploring ? 0 : -1}
@@ -319,17 +347,17 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
 
       {exploring && (
         <>
-          {/* top left: brand + map title */}
-          <Link href="/explore" onClick={() => scene?.home()} className="yv-enter group absolute left-6 top-6 z-30 flex items-center gap-3" aria-label="Yielvy map: back to start">
+          {/* top left: brand + map title (quiet, not a link) */}
+          <div className="yv-enter pointer-events-none absolute left-6 top-6 z-30 flex select-none items-center gap-3 opacity-70">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/brand/yielvy-mark.webp" alt="" className="size-11 drop-shadow-[0_0_12px_rgb(255_145_56/.35)] transition-transform group-hover:rotate-[-8deg] sm:size-12" />
+            <img src="/assets/brand/yielvy-mark.webp" alt="" className="size-10 sm:size-11" />
             <span className="font-mono">
-              <span className="block font-display text-[19px] font-bold leading-none tracking-[0.12em] text-white sm:text-[22px]">YIELVY MAP</span>
-              <span className="mt-1 block text-[9.5px] uppercase tracking-[0.24em]" style={{ color: `${ink} / .55)` }}>
-                {stats.spaces} project{stats.spaces === 1 ? "" : "s"} · {stats.live} live mission{stats.live === 1 ? "" : "s"}
+              <span className="block font-display text-[17px] font-bold leading-none tracking-[0.14em] text-[rgb(214_219_225/.85)] sm:text-[19px]">YIELVY</span>
+              <span className="mt-1 block text-[9px] uppercase tracking-[0.24em]" style={{ color: `${ink} / .45)` }}>
+                {stats.spaces} project{stats.spaces === 1 ? "" : "s"} · {stats.live} mission{stats.live === 1 ? "" : "s"}
               </span>
             </span>
-          </Link>
+          </div>
 
           {/* top centre: player status */}
           {!mobile && (
@@ -339,7 +367,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
           )}
 
           {/* top right: player badge */}
-          <div className="yv-enter absolute right-5 top-4 z-40">
+          <div className="yv-enter absolute right-6 top-5 z-40">
             <UserMenu user={viewer} dark avatar={<ProfileBadge name={viewer?.displayName ?? null} />} />
           </div>
 
@@ -350,25 +378,17 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
             </div>
           )}
 
-          {/* right centre: search drawer handle, rides on the drawer edge */}
-          <div
-            className="absolute top-1/2 z-40 -translate-y-1/2 transition-[right] duration-300 ease-out"
-            style={{ right: drawerOpen && panel === "explore" && !mobile ? DRAWER_W : 0 }}
-          >
-            <SearchTab open={panel === "explore"} onToggle={() => openPanel("explore")} />
-          </div>
-
           {/* right drawer: search + results (or progress) */}
           <aside
             aria-label={panel === "progress" ? "Progress" : "Search"}
-            aria-hidden={!drawerOpen}
-            className={`absolute inset-y-0 right-0 z-30 flex flex-col bg-[#040608f5] font-mono backdrop-blur-md transition-transform duration-300 ease-out ${drawerOpen ? "translate-x-0" : "translate-x-full"}`}
-            style={{ width: mobile ? "100%" : DRAWER_W, boxShadow: `inset 1px 0 0 ${ink} / .14), -30px 0 60px -20px rgb(0 0 0 / .8)` }}
+            inert={!drawerOpen}
+            className={`absolute inset-y-0 right-0 z-[60] flex flex-col bg-[linear-gradient(160deg,rgb(8_11_16/.8),rgb(2_3_5/.9))] font-mono backdrop-blur-xl backdrop-saturate-150 transition-transform duration-300 ease-out ${drawerOpen ? "translate-x-0" : "translate-x-full"}`}
+            style={{ width: mobile ? "100%" : DRAWER_W, boxShadow: `-30px 0 60px -20px rgb(0 0 0 / .8)` }}
           >
-            <span aria-hidden className="absolute inset-y-0 left-0 w-[2px] bg-[linear-gradient(180deg,transparent,rgb(255_145_56/.8)_20%,rgb(255_145_56/.8)_80%,transparent)]" />
+            <span aria-hidden className="absolute inset-y-0 left-0 w-px bg-[rgb(255_255_255/.22)]" />
             <div className="flex items-center justify-between px-5 pb-3 pt-5">
               <div>
-                <p className="text-[9.5px] font-bold uppercase tracking-[0.32em] text-orange">{panel === "progress" ? "// Player" : "// Recon"}</p>
+                {panel === "progress" && <p className="text-[9.5px] font-bold uppercase tracking-[0.32em] text-orange">Player card</p>}
                 <h2 className="mt-0.5 font-display text-[20px] font-bold uppercase tracking-[0.1em] text-white">{panel === "progress" ? "Progress" : "Search"}</h2>
               </div>
               <button type="button" onClick={() => setPanel(null)} className="grid size-8 place-items-center text-[rgb(214_219_225/.6)] hover:text-white" aria-label="Close panel" style={{ boxShadow: `inset 0 0 0 1px ${ink} / .2)` }}>
@@ -376,20 +396,8 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
               </button>
             </div>
             {panel === "progress" ? (
-              <div className="flex min-h-0 flex-1 flex-col">
-                <div className="mx-5 grid grid-cols-2 gap-2">
-                  <div className="bg-[rgb(255_194_75/.06)] px-3 py-2.5" style={{ ...plate(9), boxShadow: "inset 0 0 0 1px rgb(255 194 75 / .3)" }}>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[rgb(255_194_75/.75)]">Rewards earned</p>
-                    <p className="mt-0.5 font-display text-[18px] font-bold text-reward">{data.viewer ? `${data.viewer.rewardsClaimed} ${data.viewer.symbol}` : "—"}</p>
-                  </div>
-                  <div className="px-3 py-2.5" style={{ ...plate(9), boxShadow: `inset 0 0 0 1px ${ink} / .18)` }}>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.55)]">Missions done</p>
-                    <p className="mt-0.5 font-display text-[18px] font-bold text-white">{data.viewer ? `${data.viewer.missionsCompleted} / ${data.viewer.missionsStarted}` : "—"}</p>
-                  </div>
-                </div>
-                <div className="mt-2 min-h-0 flex-1 font-sans">
-                  <AdventuresTab signedIn={Boolean(viewer)} onFocusSpace={select} />
-                </div>
+              <div className="min-h-0 flex-1">
+                <ProgressPanel viewer={data.viewer} signedIn={Boolean(viewer)} onFocusSpace={select} onPlay={openMission} />
               </div>
             ) : (
               <>
@@ -403,8 +411,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="SEARCH MISSIONS & PROJECTS"
-                      className="h-11 w-full bg-[#0a0d12] pl-9 pr-3 text-[12px] uppercase tracking-[0.12em] text-white placeholder:text-[rgb(214_219_225/.35)] focus:outline-none focus:ring-1 focus:ring-orange"
-                      style={{ ...plate(10), boxShadow: `inset 0 0 0 1px ${ink} / .2)` }}
+                      className="h-11 w-full border border-[rgb(255_255_255/.14)] bg-[rgb(60_76_100/.12)] pl-9 pr-3 text-[12px] uppercase tracking-[0.12em] text-white placeholder:text-[rgb(214_219_225/.35)] focus:border-orange focus:outline-none"
                     />
                   </label>
                 </div>
@@ -437,7 +444,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
 
           {/* bottom right: minimap */}
           {!mobile && (
-            <div className="absolute bottom-5 z-20 transition-[right] duration-300" style={{ right: drawerOpen ? DRAWER_W + 20 : 20 }}>
+            <div className="absolute bottom-5 right-5 z-20">
               <Minimap scene={scene} atlas={atlas} buildings={data.buildings} />
             </div>
           )}
@@ -446,11 +453,11 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
           {selected &&
             (mobile ? (
               <div className="absolute inset-x-0 bottom-0 z-40 p-2">
-                <SpaceCard b={selected} onClose={() => setSelectedId(null)} />
+                <SpaceCard b={selected} onClose={() => setSelectedId(null)} onPlay={openMission} />
               </div>
             ) : (
-              <div className="yv-enter absolute bottom-6 left-[88px] z-30 w-[380px]">
-                <SpaceCard b={selected} onClose={() => setSelectedId(null)} />
+              <div className="yv-enter absolute bottom-[116px] left-[88px] z-30 w-[360px]">
+                <SpaceCard b={selected} onClose={() => setSelectedId(null)} onPlay={openMission} />
               </div>
             ))}
 
@@ -458,8 +465,8 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
           {back && (
             <Link
               href={back}
-              className="yv-pop absolute left-1/2 top-[92px] z-30 flex -translate-x-1/2 items-center gap-2 border border-orange/60 bg-[#0b0f15f2] px-4 py-2 font-mono text-[12px] font-bold uppercase tracking-[0.14em] text-orange shadow-pop backdrop-blur hover:bg-[#151b25]"
-              style={plate(9)}
+              className="yv-pop absolute left-1/2 top-[92px] z-30 flex -translate-x-1/2 items-center gap-2 bg-[#0b0f15f2] px-4 py-2 font-mono text-[12px] font-bold uppercase tracking-[0.14em] text-orange shadow-pop backdrop-blur hover:bg-[#151b25]"
+              style={frame(9, "rgb(255 145 56 / .6)")}
             >
               ← Back to your mission
             </Link>
@@ -473,9 +480,9 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
           )}
 
           {empty && (
-            <div className="yv-pop absolute left-1/2 top-1/2 z-20 w-[min(420px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 border border-line bg-[#0b0f15f2] p-6 text-center shadow-pop backdrop-blur" style={plate(14)}>
+            <div className="yv-pop absolute left-1/2 top-1/2 z-20 w-[min(420px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 bg-[#0b0f15f2] p-6 text-center shadow-pop backdrop-blur" style={frame(14, "rgb(214 219 225 / .18)")}>
               <h2 className="text-xl font-semibold">The map is waiting for its first mission.</h2>
-              <Link href="/host" className={buttonClass("primary", "md", "mt-4")}>
+              <Link href="/host?from=map" className={buttonClass("primary", "md", "mt-4")}>
                 Host a mission
               </Link>
             </div>
@@ -484,6 +491,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
       )}
 
       <Tutorial open={tutorial} onClose={() => setTutorial(false)} />
+      {mission && <MissionModal slug={mission.slug} campaign={mission.campaign} onClose={closeMission} />}
     </div>
   );
 }

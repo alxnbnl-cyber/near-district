@@ -93,7 +93,7 @@ export function ExperiencesTab({
                   <p className={`flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em] ${hunt ? "text-sky" : "text-violet-ink"}`}>
                     <Icon size={12} /> {hunt ? "Mission" : "Challenge"}
                   </p>
-                  <span className="text-[11.5px] text-ink-3">{e.status === "LIVE" ? (e.endsAt ? `Ends ${fmt(e.endsAt)}` : "Live") : `Starts ${fmt(e.startsAt)}`}</span>
+                  <span className="text-[11.5px] text-ink-3">{e.status === "LIVE" ? (e.endsAt ? `Ends ${fmt(e.endsAt)}` : "Open now") : `Starts ${fmt(e.startsAt)}`}</span>
                 </div>
                 <p className="mt-1 font-semibold">{e.title}</p>
                 <p className="text-[12.5px] text-ink-3">{e.spaceName}</p>

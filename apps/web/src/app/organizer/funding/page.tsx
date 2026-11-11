@@ -8,7 +8,7 @@ import { myOrganization } from "@/server/spaces";
 import { env } from "@/server/env";
 import { network, token } from "@/server/near";
 import { buttonClass } from "@/components/ui";
-import { CoinStack } from "@/components/art/Art";
+import { GameIcon } from "@/components/host/GameIcon";
 import { OrganizerFinanceSummary } from "../OrganizerFinanceSummary";
 import { FundingActions } from "./FundingActions";
 
@@ -30,7 +30,7 @@ export default async function FundingPage() {
   return (
     <div className="flex flex-col gap-6">
       <section className="flex items-center gap-5">
-        <CoinStack size={110} className="yv-float hidden shrink-0 sm:block" />
+        <GameIcon name="earn" size={110} className="yv-float hidden shrink-0 sm:block" />
         <div>
           <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-orange-ink">Prize funding</p>
           <h1 className="mt-1 text-[30px] font-bold tracking-[-0.02em]">Put up the prize</h1>

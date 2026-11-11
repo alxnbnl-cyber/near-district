@@ -31,7 +31,7 @@ export interface RouteDraw {
 const ZOOM_MIN_FACTOR = 1; // relative to "fit" zoom
 const ZOOM_MAX = 2.4;
 /** Artwork may be magnified at most this much before it looks soft (raise it with a higher-resolution image). */
-const ART_MAX_UPSCALE = 2.0;
+const ART_MAX_UPSCALE = 2.7; // one zoom step (×1.35) past the old 2.0 limit
 
 export class AtlasScene {
   private app!: Application;
@@ -195,6 +195,7 @@ export class AtlasScene {
   /** Soft outlined areas under Spaces; the selected one is orange. Positions in world units. */
   setAreas(areas: { id: string; x: number; y: number; live: boolean }[], selectedId: string | null) {
     const g = this.areaLayer;
+    if (g.destroyed) return;
     g.clear();
     const shape = (x: number, y: number, seed: number, r: number) => {
       const pts: number[] = [];
@@ -310,7 +311,8 @@ export class AtlasScene {
   /** Open zoomed in at the start point (near a live Space). */
   home(animate = true) {
     const [x, y] = this.start;
-    const target = this.cameraFor(x, y, Math.min(this.zoomMax * 0.82, this.screen.width < 768 ? 0.5 : 0.62));
+    // open fully zoomed in
+    const target = this.cameraFor(x, y, this.zoomMax);
     if (!animate || this.opts.reducedMotion) this.apply(target);
     else this.tween = { from: this.camera(), to: target, t: 0, dur: 650 };
   }
@@ -340,6 +342,7 @@ export class AtlasScene {
 
   /** Viewport in normalized map coordinates (for the minimap). */
   viewport(): { x: number; y: number; w: number; h: number } {
+    if (this.world.destroyed) return { x: 0, y: 0, w: 1, h: 1 };
     const { width, height } = this.screen;
     const s = this.world.scale.x;
     return { x: -this.world.x / s / this.atlas.width, y: -this.world.y / s / this.atlas.height, w: width / s / this.atlas.width, h: height / s / this.atlas.height };

@@ -8,7 +8,7 @@ import { myOrganization } from "@/server/spaces";
 import { effectiveStatus } from "@/server/campaigns";
 import { buttonClass } from "@/components/ui";
 import { StatusBadge, formatDate } from "@/components/campaign/bits";
-import { Lightbulb, TreasureMap } from "@/components/art/Art";
+import { GameIcon } from "@/components/host/GameIcon";
 
 export const metadata = { title: "Missions" };
 
@@ -49,7 +49,7 @@ export default async function QuestsPage() {
 
       {rows.length === 0 ? (
         <Link href="/organizer/campaigns/new" className="card-reward yv-pop flex flex-col items-center rounded-[22px] p-10 text-center">
-          <TreasureMap size={150} className="yv-float" />
+          <GameIcon name="host" size={150} className="yv-float" />
           <p className="mt-3 text-[22px] font-bold">Create your first mission</p>
           <p className="mt-1 text-ink-2">A few questions about your project and a prize. That&apos;s it.</p>
         </Link>
@@ -62,7 +62,7 @@ export default async function QuestsPage() {
             return (
               <li key={c.id}>
                 <Link href={`/organizer/campaigns/${c.id}`} className="group flex h-full gap-4 rounded-[18px] border border-line bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-line-strong">
-                  <span className="grid size-20 shrink-0 place-items-center rounded-[14px] bg-paper">{hunt ? <TreasureMap size={68} /> : <Lightbulb size={64} />}</span>
+                  <span className="grid size-20 shrink-0 place-items-center rounded-[14px] bg-paper">{hunt ? <GameIcon name="host" size={68} /> : <GameIcon name="play" size={64} />}</span>
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="flex items-center gap-2">
                       <StatusBadge status={st} />

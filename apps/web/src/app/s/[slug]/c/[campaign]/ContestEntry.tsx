@@ -1,8 +1,9 @@
 "use client";
 
+import { frame } from "@/components/explore/frame";
 import Link from "next/link";
 import { useState } from "react";
-import { Button, Card, Field, Notice, buttonClass, inputClass, textareaClass } from "@/components/ui";
+import { Button, Field, Notice, buttonClass, inputClass, textareaClass } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 
 export function ContestEntry({ campaignId, status, signedIn, returnTo }: { campaignId: string; status: string; signedIn: boolean; returnTo: string }) {
@@ -13,13 +14,13 @@ export function ContestEntry({ campaignId, status, signedIn, returnTo }: { campa
 
   if (!signedIn) {
     return (
-      <Card className="p-6">
-        <h2 className="text-xl font-semibold">Have an idea?</h2>
+      <div className="bg-[rgb(8_11_16/.82)] p-6 backdrop-blur-xl md:p-8" style={frame(18, "rgb(214 219 225 / .14)")}>
+        <h2 className="font-display text-[24px] font-bold uppercase tracking-[0.02em] text-white">Have an idea?</h2>
         <p className="mt-1 text-sm text-ink-2">Sign in to submit your entry.</p>
         <Link href={`/signin?next=${encodeURIComponent(returnTo)}`} className={buttonClass("primary", "lg", "mt-4")}>
           Sign in to submit your idea
         </Link>
-      </Card>
+      </div>
     );
   }
   if (status !== "LIVE") {
@@ -33,8 +34,8 @@ export function ContestEntry({ campaignId, status, signedIn, returnTo }: { campa
     );
   }
   return (
-    <Card className="p-6">
-      <h2 className="text-xl font-semibold">Submit Your Idea</h2>
+    <div className="bg-[rgb(8_11_16/.82)] p-6 backdrop-blur-xl md:p-8" style={frame(18, "rgb(214 219 225 / .14)")}>
+      <h2 className="font-display text-[24px] font-bold uppercase tracking-[0.02em] text-white">Submit Your Idea</h2>
       <p className="mt-1 text-sm text-ink-2">One entry per person. You can't edit it after sending, so take your time.</p>
       <form
         className="mt-5 flex flex-col gap-4"
@@ -85,6 +86,6 @@ export function ContestEntry({ campaignId, status, signedIn, returnTo }: { campa
           {state === "sending" ? "Sending…" : "Submit entry"}
         </Button>
       </form>
-    </Card>
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { describeActivity, type ActivityDef, type RuleNode } from "@yielvy/core";
 import { Button, Notice, inputClass, textareaClass } from "@/components/ui";
-import { KeyArt } from "@/components/art/Art";
+import { GameIcon } from "@/components/host/GameIcon";
 import { api, ApiError } from "@/lib/api";
 import { ActivityConfig, useHintData, type HintRow } from "./HintsEditor";
 
@@ -183,7 +183,7 @@ function ClueForm({
       <div className={`rounded-[14px] border p-4 transition-colors ${withHint ? "border-gold/50 bg-gold-wash/40" : "border-line bg-paper"}`}>
         <label className="flex cursor-pointer items-center gap-3">
           <input type="checkbox" checked={withHint} onChange={(e) => setWithHint(e.target.checked)} className="size-4 accent-[var(--color-gold)]" />
-          <KeyArt size={28} />
+          <GameIcon name="explore" size={28} />
           <span>
             <span className="block text-[14px] font-semibold">Unlock hint with an activity</span>
             <span className="block text-[12px] text-ink-3">Stuck players do one activity to reveal your clue.</span>

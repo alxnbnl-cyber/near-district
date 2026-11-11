@@ -3,12 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Notice, inputClass } from "@/components/ui";
-import { Lightbulb, TreasureMap } from "@/components/art/Art";
+import { GameIcon } from "@/components/host/GameIcon";
 import { api, ApiError } from "@/lib/api";
 
 const TYPES = [
-  { id: "treasure_hunt" as const, art: TreasureMap, title: "Mission", body: "A trail of clues about your project. Solve them all to win.", ph: "The Hidden Signal" },
-  { id: "creative_contest" as const, art: Lightbulb, title: "Creative Challenge", body: "Ask for ideas or work. Your team picks the winners.", ph: "Design our next feature" },
+  { id: "treasure_hunt" as const, icon: "host" as const, title: "Mission", body: "A trail of clues about your project. Solve them all to win.", ph: "The Hidden Signal" },
+  { id: "creative_contest" as const, icon: "play" as const, title: "Creative Challenge", body: "Ask for ideas or work. Your team picks the winners.", ph: "Design our next feature" },
 ];
 
 export default function NewQuestPage() {
@@ -35,7 +35,7 @@ export default function NewQuestPage() {
             onClick={() => setTemplate(t.id)}
             className={`flex flex-col items-center rounded-[22px] border p-6 text-center transition-all hover:-translate-y-1 ${template === t.id ? "card-reward yv-glow" : "border-line bg-card hover:border-line-strong"}`}
           >
-            <t.art size={130} className={template === t.id ? "yv-float" : ""} />
+            <GameIcon name={t.icon} size={130} className={template === t.id ? "yv-float" : ""} />
             <p className="mt-2 font-display text-[20px] font-bold">{t.title}</p>
             <p className="mt-1 text-[14px] text-ink-2">{t.body}</p>
           </button>
