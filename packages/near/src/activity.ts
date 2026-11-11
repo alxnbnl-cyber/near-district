@@ -15,7 +15,7 @@
  *     EVENT_JSON:{"standard":"burrow","event":"deposit","data":[{"account_id","amount","token_id"}]}
  *   with `amount` in Burrow internal units (token decimals + extra_decimals).
  */
-import { activityToken, RHEA_MAINNET, type ActivityDef } from "@yielvy/core";
+import { activityToken, RHEA_CONTRACTS, RHEA_MAINNET, type ActivityDef, type ActivityNetwork } from "@yielvy/core";
 import { RpcError, type NearRpc, type ReceiptOutcome, type TxOutcome } from "./rpc";
 
 export type OnchainVerdict =
@@ -25,7 +25,7 @@ export type OnchainVerdict =
 
 export type OnchainEvidence = {
   provider: "near-rpc";
-  network: "mainnet";
+  network: ActivityNetwork;
   txHash: string;
   receiptId: string;
   signer: string;
@@ -134,7 +134,13 @@ export class NearActivityVerifier {
   constructor(
     private readonly rpc: NearRpc,
     private readonly contracts: { exchange: string; lending: string } = RHEA_MAINNET,
+    private readonly network: ActivityNetwork = "mainnet",
   ) {}
+
+  /** Verifier for a network's own RHEA contracts. */
+  static forNetwork(rpc: NearRpc, network: ActivityNetwork) {
+    return new NearActivityVerifier(rpc, RHEA_CONTRACTS[network], network);
+  }
 
   /** Fetches the FINAL outcome, trying each verified wallet as the sender. */
   private async finalTx(input: VerifyInput): Promise<{ o: TxOutcome } | Exclude<OnchainVerdict, { status: "verified" }>> {
@@ -178,7 +184,7 @@ export class NearActivityVerifier {
       status: "verified",
       evidence: {
         provider: "near-rpc",
-        network: "mainnet",
+        network: this.network,
         txHash: input.txHash,
         receiptId: hit.receiptId,
         signer: r.o.transaction.signer_id,
@@ -195,7 +201,7 @@ export class NearActivityVerifier {
 
   async verifyLendingSupply(def: Extract<ActivityDef, { type: "near_rhea_lending_supply" }>, input: VerifyInput): Promise<OnchainVerdict> {
     const now = input.now ?? new Date();
-    const token = activityToken(def.tokenId);
+    const token = activityToken(def.tokenId, this.network);
     if (!token || token.burrowExtraDecimals === null) return { status: "failed", reason: "token_not_supported" };
     const r = await this.finalTx(input);
     if (!("o" in r)) return r;
@@ -221,7 +227,7 @@ export class NearActivityVerifier {
       status: "verified",
       evidence: {
         provider: "near-rpc",
-        network: "mainnet",
+        network: this.network,
         txHash: input.txHash,
         receiptId: first.receiptId,
         signer,

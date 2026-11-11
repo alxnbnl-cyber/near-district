@@ -7,7 +7,7 @@ import type { Prize } from "@/world/types";
 const T0 = typeof performance !== "undefined" ? performance.now() : 0;
 
 /** Dollar sign for dollar stablecoins; other tokens show their symbol after the number. */
-export const isDollar = (symbol: string) => symbol === "USDC" || symbol === "USDT";
+export const isDollar = (symbol: string) => /^(USDC|USDT)(\.e)?$/.test(symbol);
 
 /** Reward pool and, for growing (yield-funded) rewards with a known APY, how much it adds per day. */
 export function rewardRate(p: Prize): { amount: number; perDay: number | null } {

@@ -69,7 +69,24 @@ export interface ActivityToken {
   burrowExtraDecimals: number | null;
 }
 
-export const RHEA_MAINNET = { exchange: "v2.ref-finance.near", lending: "contract.main.burrow.near" } as const;
+export type ActivityNetwork = "mainnet" | "testnet";
+
+/**
+ * RHEA contracts per network. Testnet verified 2026-11-11: ref-finance-101.testnet (owner
+ * reflabs.sputnikv2.testnet, v1.9.19) and contract.1638481328.burrow.testnet (deposit/withdraw on).
+ */
+export const RHEA_CONTRACTS: Record<ActivityNetwork, { exchange: string; lending: string }> = {
+  mainnet: { exchange: "v2.ref-finance.near", lending: "contract.main.burrow.near" },
+  testnet: { exchange: "ref-finance-101.testnet", lending: "contract.1638481328.burrow.testnet" },
+};
+export const RHEA_MAINNET = RHEA_CONTRACTS.mainnet;
+
+/** Testnet test tokens listed on testnet Burrow (ft_metadata + get_asset, 2026-11-11). */
+export const ACTIVITY_TOKENS_TESTNET: readonly ActivityToken[] = [
+  { contractId: "usdc.fakes.testnet", symbol: "USDC.e", decimals: 6, burrowExtraDecimals: 12 },
+  { contractId: "usdt.fakes.testnet", symbol: "USDT.e", decimals: 6, burrowExtraDecimals: 12 },
+  { contractId: "wrap.testnet", symbol: "wNEAR", decimals: 24, burrowExtraDecimals: 0 },
+];
 
 export const ACTIVITY_TOKENS: readonly ActivityToken[] = [
   { contractId: "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1", symbol: "USDC", decimals: 6, burrowExtraDecimals: 12 },
@@ -79,8 +96,14 @@ export const ACTIVITY_TOKENS: readonly ActivityToken[] = [
   { contractId: "token.rhealab.near", symbol: "RHEA", decimals: 18, burrowExtraDecimals: null },
 ];
 
-export function activityToken(contractId: string): ActivityToken | undefined {
-  return ACTIVITY_TOKENS.find((t) => t.contractId === contractId);
+export function activityTokens(network: ActivityNetwork): readonly ActivityToken[] {
+  return network === "testnet" ? ACTIVITY_TOKENS_TESTNET : ACTIVITY_TOKENS;
+}
+
+/** Contract ids are unique across networks, so without a network both lists are searched. */
+export function activityToken(contractId: string, network?: ActivityNetwork): ActivityToken | undefined {
+  const pool = network ? activityTokens(network) : [...ACTIVITY_TOKENS, ...ACTIVITY_TOKENS_TESTNET];
+  return pool.find((t) => t.contractId === contractId);
 }
 
 // ---------------------------------------------------------------------------- activity params
@@ -93,7 +116,7 @@ export type ActivityDef =
   | { type: "manual_review"; instructions: string; requireLink?: boolean }
   | {
       type: "near_rhea_swap";
-      network: "mainnet";
+      network: ActivityNetwork;
       /** Exact token contract ids; omitted = any token on that side. */
       tokenIn?: string;
       tokenOut?: string;
@@ -102,7 +125,7 @@ export type ActivityDef =
     }
   | {
       type: "near_rhea_lending_supply";
-      network: "mainnet";
+      network: ActivityNetwork;
       tokenId: string;
       /** Minimum supplied amount, smallest token units. */
       minAmount: string;
@@ -136,9 +159,9 @@ export function validateActivity(a: ActivityDef): string[] {
       if (!a.instructions?.trim() || a.instructions.length > 1000) p.push("Explain what the player should submit (up to 1000 characters).");
       break;
     case "near_rhea_swap":
-      if (a.network !== "mainnet") p.push("RHEA activities are verified on mainnet only.");
-      if (a.tokenIn && !activityToken(a.tokenIn)) p.push("Input token isn't on the approved list.");
-      if (a.tokenOut && !activityToken(a.tokenOut)) p.push("Output token isn't on the approved list.");
+      if (a.network !== "mainnet" && a.network !== "testnet") p.push("Unknown NEAR network.");
+      if (a.tokenIn && !activityToken(a.tokenIn, a.network)) p.push("Input token isn't on the approved list.");
+      if (a.tokenOut && !activityToken(a.tokenOut, a.network)) p.push("Output token isn't on the approved list.");
       if (a.tokenIn && a.tokenOut && a.tokenIn === a.tokenOut) p.push("Input and output tokens must differ.");
       if (a.minAmountIn !== undefined) {
         if (!a.tokenIn) p.push("A minimum amount needs a specific input token.");
@@ -146,8 +169,8 @@ export function validateActivity(a: ActivityDef): string[] {
       }
       break;
     case "near_rhea_lending_supply": {
-      if (a.network !== "mainnet") p.push("RHEA activities are verified on mainnet only.");
-      const t = activityToken(a.tokenId);
+      if (a.network !== "mainnet" && a.network !== "testnet") p.push("Unknown NEAR network.");
+      const t = activityToken(a.tokenId, a.network);
       if (!t) p.push("Token isn't on the approved list.");
       else if (t.burrowExtraDecimals === null) p.push(`${t.symbol} isn't listed on RHEA Lending.`);
       if (!INT.test(a.minAmount) || BigInt(a.minAmount) === 0n) p.push("Set a minimum supply amount above zero.");

@@ -11,10 +11,10 @@ export const activityInput = z.discriminatedUnion("type", [
   z.object({ type: z.literal("internal_question_sequence"), campaignId: uuid, questionCount: z.number().int().min(1).max(50) }),
   z.object({ type: z.literal("internal_contest_entry"), campaignId: uuid }),
   z.object({ type: z.literal("manual_review"), instructions: plainText(1000, 10), requireLink: z.boolean().optional() }),
-  z.object({ type: z.literal("near_rhea_swap"), network: z.literal("mainnet"), tokenIn: z.string().max(80).optional(), tokenOut: z.string().max(80).optional(), minAmountIn: intStr.optional() }),
+  z.object({ type: z.literal("near_rhea_swap"), network: z.enum(["mainnet", "testnet"]), tokenIn: z.string().max(80).optional(), tokenOut: z.string().max(80).optional(), minAmountIn: intStr.optional() }),
   z.object({
     type: z.literal("near_rhea_lending_supply"),
-    network: z.literal("mainnet"),
+    network: z.enum(["mainnet", "testnet"]),
     tokenId: z.string().max(80),
     minAmount: intStr,
     minHoldSeconds: z.number().int().min(0).max(90 * 86_400).optional(),

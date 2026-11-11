@@ -20,6 +20,8 @@ const schema = z.object({
   EMAIL_FROM: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   ONE_CLICK_JWT: z.string().optional(),
+  /** Testnet only: account that receives cash-out (offramp) transfers. The fiat payout itself is simulated. */
+  OFFRAMP_ACCOUNT_ID: z.string().optional().transform((v) => (v ? v : undefined)),
   /** ISO country codes where random-draw rewards may be offered (comma separated). Empty = nowhere. */
   RANDOM_DRAW_ALLOWED_COUNTRIES: z.string().default(""),
   /** Header carrying the visitor country from the CDN (e.g. cf-ipcountry). */

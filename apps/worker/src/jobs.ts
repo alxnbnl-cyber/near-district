@@ -260,10 +260,10 @@ export async function pruneRateLimits(ctx: JobCtx): Promise<string> {
  * web app, so a pending activity is never marked complete until the chain evidence is final and valid.
  */
 export function hintEngineDeps(ctx: JobCtx): EngineDeps {
-  const mainnet = ctx.network === "mainnet";
-  const v = mainnet ? new NearActivityVerifier(ctx.rpc) : null;
+  const network = ctx.network === "mainnet" ? "mainnet" : "testnet";
+  const v = NearActivityVerifier.forNetwork(ctx.rpc, network);
   return {
-    walletNetwork: mainnet ? "mainnet" : "testnet",
+    walletNetwork: network,
     onchain: v
       ? {
           verify: (def, input) =>

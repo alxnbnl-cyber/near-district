@@ -45,7 +45,7 @@ export interface OnchainPort {
 }
 
 export interface EngineDeps {
-  /** Network user wallets are verified on. On-chain RHEA activities require "mainnet". */
+  /** Network user wallets are verified on; an on-chain activity must target the same network. */
   walletNetwork: "mainnet" | "testnet";
   onchain: OnchainPort | null;
   now?: () => Date;
@@ -321,9 +321,10 @@ export async function processVerification(db: Db, deps: EngineDeps, verification
     return { status: "failed" as const, reason, unlocked: false };
   };
   if (!leaf || !ONCHAIN_TYPES.has(leaf.activity.type)) return fail("requirement_changed");
-  if (deps.walletNetwork !== "mainnet") return fail("mainnet_wallet_required");
+  const actNet = (leaf.activity as { network?: string }).network ?? "mainnet";
+  if (deps.walletNetwork !== actNet) return fail("network_mismatch");
   if (!deps.onchain) return fail("onchain_verifier_unavailable");
-  const wallets = (await db.select({ a: walletConnections.accountId }).from(walletConnections).where(and(eq(walletConnections.userId, v.userId), eq(walletConnections.network, "mainnet")))).map((w) => w.a);
+  const wallets = (await db.select({ a: walletConnections.accountId }).from(walletConnections).where(and(eq(walletConnections.userId, v.userId), eq(walletConnections.network, deps.walletNetwork)))).map((w) => w.a);
   if (!wallets.length) return fail("no_verified_wallet");
   const [c] = await db.select().from(campaigns).where(eq(campaigns.id, v.campaignId)).limit(1);
   if (!c) return fail("campaign_missing");
@@ -354,8 +355,8 @@ export async function processVerification(db: Db, deps: EngineDeps, verification
         leafId: leaf.id,
         verificationId: v.id,
         provider: ev.provider,
-        evidenceRef: `near:mainnet:${ev.txHash}:${ev.receiptId}`,
-        exclusiveRef: `near:mainnet:${ev.txHash}`,
+        evidenceRef: `near:${deps.walletNetwork}:${ev.txHash}:${ev.receiptId}`,
+        exclusiveRef: `near:${deps.walletNetwork}:${ev.txHash}`,
         evidence: ev,
         amount: BigInt(ev.amount),
         now,

@@ -198,6 +198,31 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  /** Pin click: zoom right in on the pin, then open its mission over the map. */
+  const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pickPin = useCallback(
+    (id: string) => {
+      const b = data.buildings.find((x) => x.spaceId === id);
+      if (!b) return;
+      // no small card: the pin zooms in and its mission opens as the modal
+      setSelectedId(null);
+      if (pinTimer.current) clearTimeout(pinTimer.current);
+      if (!scene) return;
+      const max = scene.zoomRange().max;
+      scene.flyTo(b.x * atlas.width, b.y * atlas.height, max, 750);
+      const f = b.featured;
+      if (!f) return;
+      // already zoomed in: open straight away (the camera still glides over while the modal grows)
+      const zoomedIn = scene.camera().s >= max * 0.95;
+      if (zoomedIn) openMission(b.slug, f.slug);
+      else pinTimer.current = setTimeout(() => openMission(b.slug, f.slug), 700);
+    },
+    [data, scene, atlas, openMission],
+  );
+  useEffect(() => () => {
+    if (pinTimer.current) clearTimeout(pinTimer.current);
+  }, []);
+
   const stats = useMemo(
     () => ({
       spaces: data.buildings.length,
@@ -338,7 +363,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
           visibleIds={visibleIds}
           selectedId={selectedId}
           interactive={exploring}
-          onSelect={select}
+          onSelect={pickPin}
           onZoomTo={(x, y, s) => scene?.flyTo(x, y, s)}
         />
       </div>
@@ -491,7 +516,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
       )}
 
       <Tutorial open={tutorial} onClose={() => setTutorial(false)} />
-      {mission && <MissionModal slug={mission.slug} campaign={mission.campaign} onClose={closeMission} />}
+      {mission && <MissionModal key={`${mission.slug}/${mission.campaign}`} slug={mission.slug} campaign={mission.campaign} onClose={closeMission} onOpen={openMission} />}
     </div>
   );
 }

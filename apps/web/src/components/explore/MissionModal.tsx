@@ -11,7 +11,17 @@ import { GameIcon } from "@/components/host/GameIcon";
 
 interface MissionData {
   campaign: { id: string; slug: string; title: string; summary: string | null; description: string | null; template: string; startsAt: string | null; endsAt: string | null };
-  space: { name: string; slug: string; logoUrl: string | null };
+  space: {
+    name: string;
+    slug: string;
+    logoUrl: string | null;
+    tagline: string | null;
+    description: string | null;
+    category: string;
+    websiteUrl: string | null;
+    socials: Record<string, string>;
+    otherMissions: { title: string; slug: string; template: string; status: string }[];
+  };
   rules: { funded: boolean; winnersCount: number; equalShare: boolean; claimWindowDays: number; judgingCriteria: { key: string; label: string; weightBps: number }[] | null };
   participants: number;
   status: string;
@@ -33,8 +43,78 @@ function timeLeft(iso: string | null) {
   return d > 0 ? `${d}d ${h}h left` : `${h}h ${Math.floor((ms % 3_600_000) / 60_000)}m left`;
 }
 
+const SOCIAL_LABEL: Record<string, string> = { x: "X", twitter: "X", telegram: "Telegram", discord: "Discord", github: "GitHub", medium: "Medium", youtube: "YouTube", linkedin: "LinkedIn" };
+
+const safeUrl = (u: string) => (/^https?:\/\//i.test(u) ? u : null);
+
+/** Who's behind the mission: logo, pitch, links and their other missions. */
+function CompanyCard({ space, onOpen }: { space: MissionData["space"]; onOpen?(slug: string, campaign: string): void }) {
+  const links = [
+    ...(space.websiteUrl && safeUrl(space.websiteUrl) ? [["Website", space.websiteUrl] as const] : []),
+    ...Object.entries(space.socials)
+      .map(([k, v]) => [SOCIAL_LABEL[k.toLowerCase()] ?? k, v] as const)
+      .filter(([, v]) => Boolean(v && safeUrl(v))),
+  ];
+  return (
+    <section className="mt-6 overflow-hidden bg-[rgb(10_13_18/.6)] font-mono" style={frame(14, `${INK} / .14)`)}>
+      <div className="flex items-stretch">
+        <span className="relative w-[96px] shrink-0 overflow-hidden border-r border-[rgb(255_255_255/.08)] bg-[rgb(255_255_255/.04)]">
+          {space.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={space.logoUrl} alt="" className="absolute inset-0 size-full object-cover" />
+          ) : (
+            <span className="grid size-full place-items-center font-display text-[34px] font-bold text-orange">{space.name[0]?.toUpperCase()}</span>
+          )}
+        </span>
+        <div className="min-w-0 flex-1 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-orange">About the company</p>
+          <h2 className="mt-1 font-display text-[22px] font-bold uppercase leading-tight tracking-[0.02em] text-white">{space.name}</h2>
+          {space.tagline && <p className="mt-0.5 font-sans text-[14px] text-[rgb(214_219_225/.7)]">{space.tagline}</p>}
+          <span className="mt-2 inline-block bg-[rgb(255_255_255/.05)] px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.18em] text-[rgb(214_219_225/.6)]">{space.category}</span>
+        </div>
+      </div>
+      {space.description && <p className="border-t border-[rgb(255_255_255/.06)] px-4 py-3 font-sans text-[14px] leading-relaxed text-[rgb(214_219_225/.72)]">{space.description}</p>}
+      {(links.length > 0 || space.otherMissions.length > 0) && (
+        <div className="grid gap-4 border-t border-[rgb(255_255_255/.06)] px-4 py-3 md:grid-cols-2">
+          {links.length > 0 && (
+            <div>
+              <p className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.45)]">Links</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {links.map(([label, url]) => (
+                  <a key={label} href={url} target="_blank" rel="noopener noreferrer nofollow" className="px-2.5 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[rgb(214_219_225/.8)] hover:text-orange" style={frame(6, `${INK} / .2)`)}>
+                    {label} ↗
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+          {space.otherMissions.length > 0 && (
+            <div>
+              <p className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.45)]">More missions</p>
+              <ul className="mt-2 flex flex-col gap-1">
+                {space.otherMissions.map((m) => (
+                  <li key={m.slug}>
+                    <button
+                      type="button"
+                      onClick={() => onOpen?.(space.slug, m.slug)}
+                      className="group flex w-full items-center justify-between gap-2 bg-[rgb(255_255_255/.03)] px-3 py-2 text-left text-[11.5px] font-bold uppercase tracking-[0.08em] text-white hover:bg-[rgb(255_145_56/.1)]"
+                    >
+                      <span className="truncate">{m.title}</span>
+                      <span className="shrink-0 text-orange transition-transform group-hover:translate-x-0.5">→</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** A mission, played right on top of the map. */
-export function MissionModal({ slug, campaign, onClose }: { slug: string; campaign: string; onClose(): void }) {
+export function MissionModal({ slug, campaign, onClose, onOpen }: { slug: string; campaign: string; onClose(): void; onOpen?(slug: string, campaign: string): void }) {
   const [data, setData] = useState<MissionData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,6 +223,8 @@ export function MissionModal({ slug, campaign, onClose }: { slug: string; campai
                   )}
                 </section>
 
+                <CompanyCard space={data.space} onOpen={onOpen} />
+
                 <section className="mt-6 grid gap-3 font-mono md:grid-cols-2">
                   {data.campaign.description && (
                     <details className="bg-[rgb(10_13_18/.6)] px-4 py-3" style={frame(10, `${INK} / .12)`)}>
@@ -166,8 +248,8 @@ export function MissionModal({ slug, campaign, onClose }: { slug: string; campai
         </div>
       </div>
       <style>{`
-        @keyframes yv-mm-in { from { opacity: 0; transform: scale(.97) } to { opacity: 1; transform: none } }
-        .yv-mm { animation: yv-mm-in 320ms cubic-bezier(.2,.8,.2,1) both }
+        @keyframes yv-mm-in { 0% { opacity: 0; transform: scale(.18); filter: blur(10px) brightness(2) } 55% { opacity: 1; filter: blur(0) brightness(1.2) } 100% { opacity: 1; transform: none; filter: none } }
+        .yv-mm { animation: yv-mm-in 520ms cubic-bezier(.2,.9,.2,1) both; transform-origin: 50% 50% }
         @keyframes yv-mm-fade { from { opacity: 0 } to { opacity: 1 } }
         .yv-mm-fade { animation: yv-mm-fade 260ms ease-out both }
         @media (prefers-reduced-motion: reduce) { .yv-mm, .yv-mm-fade { animation: none } }

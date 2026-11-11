@@ -59,9 +59,10 @@ export function UserMenu({ user, avatar, dark = false }: { user: { displayName: 
       {open && (
         <div
           role="menu"
-          className={`yv-enter absolute right-0 z-50 w-56 border p-1.5 shadow-pop ${dark ? "top-[calc(100%+8px)] border-[rgb(214_219_225/.16)] bg-[#06080bf2] backdrop-blur" : "top-11 rounded-lg border-line bg-card"}`}
+          className={`yv-enter absolute right-0 z-50 border p-1.5 shadow-pop ${dark ? "w-44 top-[calc(100%+8px)] border-[rgb(214_219_225/.16)] bg-[#06080bf2] backdrop-blur" : "w-56 top-11 rounded-lg border-line bg-card"}`}
         >
-          {[
+          {/* the game HUD menu is just "Sign out"; the site header keeps the full menu */}
+          {!dark && [
             ["/me/rewards", "My rewards"],
             ["/me/profile", "Wallet & profile"],
             ["/organizer", "My vault"],
@@ -71,11 +72,15 @@ export function UserMenu({ user, avatar, dark = false }: { user: { displayName: 
               {label}
             </Link>
           ))}
-          <hr className="my-1 border-line" />
+          {!dark && <hr className="my-1 border-line" />}
           <button
             role="menuitem"
             type="button"
-            className="block w-full rounded-md px-3 py-2 text-left text-[14px] text-ink-2 hover:bg-paper-2"
+            className={
+              dark
+                ? "block w-full px-3 py-2.5 text-left font-mono text-[11.5px] font-bold uppercase tracking-[0.18em] text-[rgb(214_219_225/.8)] hover:bg-[rgb(255_255_255/.05)] hover:text-white"
+                : "block w-full rounded-md px-3 py-2 text-left text-[14px] text-ink-2 hover:bg-paper-2"
+            }
             onClick={async () => {
               await api("/api/auth/signout", { method: "POST" });
               router.push("/");

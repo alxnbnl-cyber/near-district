@@ -51,7 +51,8 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
     tokens: process.env.NEXT_PUBLIC_TESTNET_USDC_CONTRACT
       ? [
           {
-            symbol: "USDC",
+            // must equal the token's on-chain ft_metadata symbol (e.g. usdc.fakes.testnet is "USDC.e")
+            symbol: process.env.NEXT_PUBLIC_TESTNET_USDC_SYMBOL ?? "USDC",
             contractId: process.env.NEXT_PUBLIC_TESTNET_USDC_CONTRACT,
             decimals: 6,
             rheaExtraDecimals: 12,

@@ -28,7 +28,7 @@ import {
 } from "@yielvy/db";
 import {
   ACTIVITY_CATALOGUE,
-  ACTIVITY_TOKENS,
+  activityTokens,
   catalogueEntry,
   definitionHash,
   describeActivity,
@@ -52,15 +52,15 @@ import type { SessionUser } from "./session";
 
 export const MAX_HINTS_PER_QUESTION = 4;
 
-/** On-chain RHEA activities need mainnet wallets (ownership is proven per network). */
+/** On-chain RHEA activities are verified on this deployment's network (mainnet or testnet). */
 export function onchainEnabled(): boolean {
-  return env().NEAR_NETWORK === "mainnet";
+  return true;
 }
 
 export function engineDeps(): EngineDeps {
   let onchain: OnchainPort | null = null;
   if (onchainEnabled()) {
-    const v = new NearActivityVerifier(nearRpc());
+    const v = NearActivityVerifier.forNetwork(nearRpc(), env().NEAR_NETWORK);
     onchain = {
       verify: (def, input) =>
         def.type === "near_rhea_swap"
@@ -205,7 +205,8 @@ export async function orgBuilderOptions(db: Db, orgId: string, excludeCampaignId
     })),
     ownCampaigns: own.filter((x) => x.id !== excludeCampaignId),
     partnerOfferings: await partnerOfferings(db, orgId),
-    tokens: ACTIVITY_TOKENS,
+    tokens: activityTokens(env().NEAR_NETWORK),
+    network: env().NEAR_NETWORK,
     onchainEnabled: onchain,
   };
 }
@@ -295,7 +296,8 @@ const REASON_TEXT: Record<string, string> = {
   outside_time_window: "That activity happened outside the mission's time window.",
   position_not_held: "The position wasn't kept for the holding period.",
   evidence_reused: "That transaction was already used for another requirement in this mission.",
-  mainnet_wallet_required: "Verify a NEAR mainnet wallet first.",
+  mainnet_wallet_required: "Verify a NEAR wallet first.",
+  network_mismatch: "This activity is on a different NEAR network than this app.",
   no_verified_wallet: "Verify a NEAR wallet in your profile first.",
   rejected_by_reviewer: "The reviewers didn't approve this submission.",
   not_final: "Waiting for the transaction to be final.",

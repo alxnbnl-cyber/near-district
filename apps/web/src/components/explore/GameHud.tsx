@@ -162,12 +162,12 @@ export function Dock({ active, onPick }: { active: DockId | null; onPick(id: Doc
             className={`${sq} ${hero ? "yv-hero" : on ? "bg-[#1a1209f0]" : "bg-[#05070ae8]"}`}
             style={
               hero
-                ? frame(10, "rgb(255 145 56 / .9)", 1.5, { shadow: "0 0 22px rgb(255 145 56 / .4)", bg: "linear-gradient(160deg,rgb(255 145 56 / .32),rgb(5 7 10 / .92) 70%)" })
+                ? frame(10, "rgb(255 145 56 / .6)", 1, { shadow: "0 0 12px rgb(255 145 56 / .18)", bg: "linear-gradient(160deg,rgb(255 145 56 / .16),rgb(5 7 10 / .92) 70%)" })
                 : frame(10, on ? "rgb(255 145 56 / .8)" : `${INK} / .2)`)
             }
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={it.icon} alt="" className="size-10 transition-transform group-hover:scale-110" />
+            <img src={it.icon} alt="" className={`size-10 group-hover:scale-110 ${on ? "[filter:none] transition-transform" : "[filter:saturate(.4)_brightness(.8)_contrast(1.05)] transition-[filter,transform] duration-300 group-hover:[filter:none]"}`} />
             <span className={`${label} ${hero || on ? "text-orange" : "text-[rgb(214_219_225/.75)]"}`}>{it.label}</span>
           </button>
         );
@@ -179,10 +179,10 @@ export function Dock({ active, onPick }: { active: DockId | null; onPick(id: Doc
           <path d="M0.75 0.75 H67.5 L77.25 10.5 V77.25 H10.5 L0.75 67.5 Z" fill="none" stroke="rgb(214 219 225 / .5)" strokeWidth="1.2" strokeDasharray="2 3" className="transition-[stroke] group-hover:stroke-[rgb(255_145_56/.8)]" />
         </svg>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/ui/icon-host.webp" alt="" className="size-10 transition-transform group-hover:scale-110" />
+        <img src="/assets/ui/icon-host.webp" alt="" className="size-10 group-hover:scale-110 [filter:saturate(.4)_brightness(.8)_contrast(1.05)] transition-[filter,transform] duration-300 group-hover:[filter:none]" />
         <span className={`${label} text-[rgb(214_219_225/.75)] group-hover:text-white`}>Host mission</span>
       </Link>
-      <style>{`@keyframes yv-hero-glow { 50% { box-shadow: inset 0 0 0 1.5px rgb(255 175 110 / 1), 0 0 32px rgb(255 145 56 / .6) } } .yv-hero { animation: yv-hero-glow 2.6s ease-in-out infinite } @media (prefers-reduced-motion: reduce) { .yv-hero { animation: none } }`}</style>
+      <style>{`@keyframes yv-hero-glow { 50% { box-shadow: inset 0 0 0 1px rgb(255 160 90 / .8), 0 0 18px rgb(255 145 56 / .3) } } .yv-hero { animation: yv-hero-glow 3.6s ease-in-out infinite } @media (prefers-reduced-motion: reduce) { .yv-hero { animation: none } }`}</style>
     </nav>
   );
 }
@@ -200,7 +200,7 @@ export function ProfileBadge({ name }: { name: string | null }) {
       </span>
       <span className="relative">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/ui/icon-profile.webp" alt="" className="size-12 transition-transform group-hover:scale-105" />
+        <img src="/assets/ui/icon-profile.webp" alt="" className="size-12 group-hover:scale-105 [filter:saturate(.4)_brightness(.8)_contrast(1.05)] transition-[filter,transform] duration-300 group-hover:[filter:none]" />
         {/* dropdown cue */}
         <span aria-hidden className="absolute -bottom-0.5 -right-0.5 grid size-[18px] place-items-center rounded-full border border-orange bg-[#05070a] text-orange shadow-[0_0_8px_rgb(255_145_56/.6)] transition-transform group-hover:translate-y-0.5">
           <svg width="9" height="9" viewBox="0 0 10 10">

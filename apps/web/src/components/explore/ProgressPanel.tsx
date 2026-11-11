@@ -7,6 +7,7 @@ import { api, ApiError } from "@/lib/api";
 import { ClaimButton } from "@/app/me/rewards/ClaimButton";
 import { GameIcon } from "@/components/host/GameIcon";
 import { frame, plate } from "./frame";
+import { WalletCard } from "./CashOut";
 
 const INK = "rgb(214 219 225";
 
@@ -121,6 +122,9 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
           </div>
         </div>
       </div>
+
+      {/* wallet + cash out (testnet demo) */}
+      <WalletCard />
 
       {/* rewards */}
       <Section title="My rewards" count={rewards?.items.length}>

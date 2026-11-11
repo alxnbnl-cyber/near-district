@@ -1,4 +1,6 @@
+import { and, campaigns, desc, eq, inArray, ne } from "@yielvy/db";
 import { notFound, route } from "@/server/http";
+import { db } from "@/server/db";
 import { getPublicCampaign } from "@/server/public";
 import { getSessionUser } from "@/server/session";
 import { trackView } from "@/server/analytics";
@@ -12,13 +14,26 @@ export const GET = route<{ params: Promise<{ slug: string; campaign: string }> }
   if (!d) throw notFound("This mission isn't available.");
   await trackView("campaign_view", d.space.id, d.campaign.id);
   const c = d.campaign;
+  const s = d.space;
   const user = await getSessionUser();
+  const others = await (await db())
+    .select({ title: campaigns.title, slug: campaigns.slug, template: campaigns.template, status: campaigns.status })
+    .from(campaigns)
+    .where(and(eq(campaigns.spaceId, s.id), ne(campaigns.id, c.id), eq(campaigns.moderation, "approved"), inArray(campaigns.status, ["LIVE", "SCHEDULED"])))
+    .orderBy(desc(campaigns.publishedAt))
+    .limit(4);
   return {
     campaign: { id: c.id, slug: c.slug, title: c.title, summary: c.summary, description: c.description, template: c.template, startsAt: c.startsAt, endsAt: c.endsAt },
     space: {
-      name: d.space.name,
-      slug: d.space.slug,
-      logoUrl: d.space.logoUploadId ? `/api/uploads/${d.space.logoUploadId}` : demoEnabled() ? demoLogo(d.space.id) : null,
+      name: s.name,
+      slug: s.slug,
+      tagline: s.tagline,
+      description: s.description,
+      category: s.category,
+      websiteUrl: s.websiteUrl,
+      socials: (s.socials ?? {}) as Record<string, string>,
+      logoUrl: s.logoUploadId ? `/api/uploads/${s.logoUploadId}` : demoEnabled() ? demoLogo(s.id) : null,
+      otherMissions: others,
     },
     rules: {
       funded: d.rules.fundingSource !== "none" || Boolean(d.prize?.demo),

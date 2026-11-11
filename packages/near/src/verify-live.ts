@@ -24,8 +24,13 @@ const check = (ok: boolean, label: string, detail = "") => {
 const meta = await rpc.view<{ symbol: string; decimals: number }>(token.contractId, "ft_metadata");
 check(meta.symbol === token.symbol && meta.decimals === token.decimals, "token metadata matches allowlist", `${meta.symbol}/${meta.decimals}`);
 
-const cfg = await rpc.view<{ contract_mode: string; owner_id: string }>(net.rheaLendingContract, "get_config");
-check(cfg.contract_mode === "Running", "RHEA lending contract is running", `owner ${cfg.owner_id}`);
+const cfg = await rpc.view<{ contract_mode?: string; owner_id: string }>(net.rheaLendingContract, "get_config");
+if (cfg.contract_mode === undefined) {
+  // Older Burrow builds (the testnet deployment) have no pause switch; deposit/withdraw flags below decide.
+  console.log(`INFO  RHEA lending contract has no contract_mode (older build), owner ${cfg.owner_id}`);
+} else {
+  check(cfg.contract_mode === "Running", "RHEA lending contract is running", `owner ${cfg.owner_id}`);
+}
 
 const rhea = new RheaClient(rpc, net.rheaLendingContract);
 const asset = await rhea.getAsset(token);

@@ -27,6 +27,7 @@ export interface Options {
   ownCampaigns: { id: string; title: string; template: string; status: string }[];
   partnerOfferings: Offering[];
   tokens: ActivityToken[];
+  network: "mainnet" | "testnet";
   onchainEnabled: boolean;
 }
 export interface HintRow {
@@ -385,9 +386,9 @@ export function ActivityConfig({ type, options, onPick }: { type: string; option
         case "manual_review":
           return onPick({ type, instructions: text, requireLink: flag });
         case "near_rhea_swap":
-          return onPick({ type, network: "mainnet", ...(tokenA ? { tokenIn: tokenA } : {}), ...(tokenB ? { tokenOut: tokenB } : {}), ...(tokenA && amount ? { minAmountIn: units(tokenA, amount) } : {}) });
+          return onPick({ type, network: options.network, ...(tokenA ? { tokenIn: tokenA } : {}), ...(tokenB ? { tokenOut: tokenB } : {}), ...(tokenA && amount ? { minAmountIn: units(tokenA, amount) } : {}) });
         case "near_rhea_lending_supply":
-          return onPick({ type, network: "mainnet", tokenId: tokenA, minAmount: units(tokenA, amount), ...(num ? { minHoldSeconds: Math.round(Number(num) * 3600) } : {}) });
+          return onPick({ type, network: options.network, tokenId: tokenA, minAmount: units(tokenA, amount), ...(num ? { minHoldSeconds: Math.round(Number(num) * 3600) } : {}) });
       }
     } catch (e) {
       setError((e as Error).message);
