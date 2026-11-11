@@ -58,7 +58,6 @@ export default async function FundingPage() {
         <ul className="yv-stagger flex flex-col gap-4">
           {funded.map((c) => {
             const rules = c.draftRules as CampaignRules | null;
-            const kind = rules?.fundingSource === "yield" ? "principal" : "bonus";
             const steps = [
               ["Set up", c.vaultCampaignId !== null],
               ["Deposit", orders.some((o) => o.campaignId === c.id && ["RECEIVED", "SUPPLIED", "SUPPLY_PENDING"].includes(o.state))],
@@ -70,7 +69,7 @@ export default async function FundingPage() {
                   <div>
                     <p className="font-display text-[18px] font-semibold">{c.title}</p>
                     <p className="text-[13px] text-gold-ink">
-                      {kind === "bonus" ? `Prize budget${rules?.plannedDirectBudget ? ` · ${formatDisplay(BigInt(rules.plannedDirectBudget), t.decimals)} ${t.symbol}` : ""}` : "Interest prize"}
+                      {`Prize${rules?.plannedDirectBudget ? ` · ${formatDisplay(BigInt(rules.plannedDirectBudget), t.decimals)} ${t.symbol}` : ""}`}
                     </p>
                   </div>
                   <ol className="flex items-center gap-1.5">
@@ -85,7 +84,7 @@ export default async function FundingPage() {
                     ))}
                   </ol>
                 </div>
-                <FundingActions campaignId={c.id} registered={c.vaultCampaignId !== null} vaultDeployed={vaultDeployed} defaultKind={kind} token={{ symbol: t.symbol, decimals: t.decimals }} />
+                <FundingActions campaignId={c.id} registered={c.vaultCampaignId !== null} vaultDeployed={vaultDeployed} token={{ symbol: t.symbol, decimals: t.decimals }} />
               </li>
             );
           })}
@@ -98,7 +97,7 @@ export default async function FundingPage() {
           <ul className="mt-3 divide-y divide-line text-[13px]">
             {orders.map((o) => (
               <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span>{o.createdAt.toLocaleDateString()} · {o.kind === "bonus" ? "Prize budget" : "Interest deposit"}</span>
+                <span>{o.createdAt.toLocaleDateString()} · {"Prize deposit"}</span>
                 <span className="tabular">{formatDisplay(o.receivedAmount ?? o.amount, t.decimals)} {t.symbol}</span>
                 <span className="text-ink-3">{o.state.toLowerCase().replace(/_/g, " ")}</span>
                 {o.nearTxHash && (

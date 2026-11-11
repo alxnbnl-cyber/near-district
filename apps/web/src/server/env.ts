@@ -17,13 +17,7 @@ const schema = z.object({
   ANSWER_ENCRYPTION_KEY: hex32,
   IP_HASH_SALT: z.string().min(16),
   UPLOAD_DIR: z.string().default("./.data/uploads"),
-  EMAIL_FROM: z.string().optional(),
-  RESEND_API_KEY: z.string().optional(),
-  ONE_CLICK_JWT: z.string().optional(),
-  /** Testnet only: account that receives cash-out (offramp) transfers. The fiat payout itself is simulated. */
-  OFFRAMP_ACCOUNT_ID: z.string().optional().transform((v) => (v ? v : undefined)),
   /** ISO country codes where random-draw rewards may be offered (comma separated). Empty = nowhere. */
-  RANDOM_DRAW_ALLOWED_COUNTRIES: z.string().default(""),
   /** Header carrying the visitor country from the CDN (e.g. cf-ipcountry). */
   COUNTRY_HEADER: z.string().default("cf-ipcountry"),
 });
@@ -45,7 +39,3 @@ export function env(): Env {
   return cached;
 }
 
-export function emailEnabled(): boolean {
-  const e = env();
-  return Boolean(e.RESEND_API_KEY && e.EMAIL_FROM) || e.NODE_ENV !== "production";
-}

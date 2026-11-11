@@ -1,4 +1,5 @@
 "use client";
+import { Logo } from "@/components/brand/Logo";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -7,7 +8,7 @@ import { ARTWORK_LOTS, type Atlas } from "@yielvy/core/world";
 import type { AtlasScene } from "@/world/atlas-scene";
 import type { WorldBuildingData } from "@/world/types";
 import { IconChevron } from "./icons";
-import { formatRate, LiveReward, rewardRate } from "./LiveReward";
+import { LiveReward } from "./LiveReward";
 import { Tutorial } from "./Tutorial";
 
 /**
@@ -147,7 +148,6 @@ export function WelcomeOverlay({
   const active = stop?.s;
   const tone = active?.kind === "mission" ? "#FF9138" : "#9fb3c8";
   const prize = active?.kind === "mission" ? (active.b.topPrize ?? active.b.featured!.prize) : null;
-  const rate = prize ? rewardRate(prize).perDay : null;
   const grid = active ? `${String(Math.round(active.x)).padStart(4, "0")} · ${String(Math.round(active.y)).padStart(4, "0")}` : "";
 
   return (
@@ -203,8 +203,8 @@ export function WelcomeOverlay({
                 {prize ? (
                   <div className="yv-row -mx-3.5 -mb-2.5 mt-2 border-t border-dashed border-[rgb(255_194_75/.4)] bg-[linear-gradient(90deg,rgb(255_194_75/.12),rgb(255_194_75/.02))] px-3.5 pb-2.5 pt-1.5" style={{ animationDelay: "1300ms" }}>
                     <div className="flex items-center justify-between text-[9.5px] font-bold uppercase tracking-[0.22em]">
-                      <span className="text-[rgb(255_194_75/.8)]">Reward</span>
-                      {rate ? <span className="text-mint-ink">{formatRate(rate, prize.symbol)}</span> : <span className="text-[rgb(214_219_225/.45)]">Fixed</span>}
+                      <span className="text-[rgb(255_194_75/.8)]">Reward pool</span>
+                      
                     </div>
                     <p className="mt-0.5 font-display text-[17px] font-bold text-reward">
                       <span className="mr-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[rgb(255_194_75/.75)]">Up to</span>
@@ -239,8 +239,7 @@ export function WelcomeOverlay({
       <div className="relative flex h-full flex-col justify-center overflow-y-auto px-6 py-10 sm:px-12 lg:px-20">
         <div className="max-w-[640px]">
           <div className="yv-rise" style={{ animationDelay: "60ms" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/brand/yielvy-logo.webp" alt="Yielvy" className="h-10 w-auto sm:h-12" />
+            <Logo height={44} />
           </div>
           <h1 id="welcome-title" className="yv-rise mt-8 text-[40px] font-bold leading-[0.98] tracking-[-0.035em] sm:text-[58px] xl:text-[72px]" style={{ animationDelay: "200ms" }}>
             Explore. Play.

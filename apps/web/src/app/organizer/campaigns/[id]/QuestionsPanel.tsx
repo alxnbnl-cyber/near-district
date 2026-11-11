@@ -28,9 +28,6 @@ const HINT_ACTIVITIES = [
   { type: "near_rhea_lending_supply", title: "Supply to RHEA Lending", body: "Player supplies a token to RHEA Lending." },
   { type: "near_stake", title: "Stake NEAR", body: "Player stakes NEAR with a validator." },
   { type: "meteor_wallet_signin", title: "Sign in with Meteor", body: "Player proves a wallet using Meteor Wallet." },
-  { type: "partner_api_event", title: "Do something in your app", body: "Your app confirms it (e.g. sign-up). Set up a key in Settings." },
-  { type: "evm_contract_interaction", title: "Use an EVM app", body: "Player sends a transaction to your contract (Ethereum, Base)." },
-  { type: "solana_program_interaction", title: "Use a Solana app", body: "Player sends a transaction that calls your program." },
   { type: "manual_review", title: "Share feedback or work", body: "Player submits something, your team approves it." },
 ] as const;
 

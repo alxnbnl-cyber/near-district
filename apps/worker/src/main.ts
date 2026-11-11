@@ -1,17 +1,17 @@
 /**
- * Yielvy background worker. Runs as its own process (Railway service / Docker container).
+ * NEAR District background worker. Runs as its own process (Railway service / Docker container).
  * Financial workflows NEVER depend on a browser tab or a web request staying alive.
  *
  *   DATABASE_URL, NEAR_NETWORK, NEAR_RPC_URLS              required
  *   VAULT_CONTRACT_ID                                      optional (vault jobs no-op without it)
  *   OPERATOR_ACCOUNT_ID, OPERATOR_PRIVATE_KEY              optional (on-chain steps pause without it)
- *   ONE_CLICK_JWT, WORKER_CONCURRENCY, HEALTH_PORT         optional
+ *   WORKER_CONCURRENCY, HEALTH_PORT         optional
  */
 import { createServer } from "node:http";
 import { hostname } from "node:os";
 import { createDb } from "@yielvy/db";
 import { getNetwork, primaryToken } from "@yielvy/core";
-import { NearRpc, OneClickClient, RheaClient, VaultClient } from "@yielvy/near";
+import { NearRpc, RheaClient, VaultClient } from "@yielvy/near";
 import { claim, complete, enqueue, fail, reschedule, RetryLater } from "./queue";
 import { HANDLERS, SCHEDULE, type JobCtx } from "./jobs";
 import { createOperatorSigner, OperatorNotConfigured } from "./operator";
@@ -32,7 +32,6 @@ const ctx: JobCtx = {
   rpc,
   vault: env.VAULT_CONTRACT_ID ? new VaultClient(rpc, env.VAULT_CONTRACT_ID) : null,
   rhea: new RheaClient(rpc, net.rheaLendingContract),
-  oneClick: new OneClickClient({ jwt: env.ONE_CLICK_JWT }),
   signer,
   token: primaryToken(net),
   network: net.networkId,

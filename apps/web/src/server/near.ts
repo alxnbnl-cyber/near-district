@@ -1,6 +1,6 @@
 import "server-only";
 import { getNetwork, primaryToken } from "@yielvy/core";
-import { NearRpc, RheaClient, VaultClient, OneClickClient } from "@yielvy/near";
+import { NearRpc, RheaClient, VaultClient } from "@yielvy/near";
 import { env } from "./env";
 
 let rpc: NearRpc | undefined;
@@ -27,6 +27,3 @@ export function vault(): VaultClient | null {
   return id ? new VaultClient(nearRpc(), id) : null;
 }
 
-export function oneClick(): OneClickClient {
-  return new OneClickClient({ jwt: env().ONE_CLICK_JWT });
-}

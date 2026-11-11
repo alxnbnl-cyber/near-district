@@ -3,9 +3,8 @@ import { eq, organizationMembers, users } from "@yielvy/db";
 import { getSessionUser } from "@/server/session";
 import { db } from "@/server/db";
 import { myOrganization } from "@/server/spaces";
-import { Badge, Card, SectionHeader } from "@/components/ui";
-import { env } from "@/server/env";
-import { AppKeysPanel } from "./AppKeysPanel";
+import { Badge, Card } from "@/components/ui";
+import { HostHeader, HostSection } from "../HostHeader";
 
 export const metadata = { title: "Settings" };
 
@@ -23,18 +22,14 @@ export default async function OrganizerSettings() {
   return (
     <div className="flex flex-col gap-8">
       <section>
-        <SectionHeader eyebrow="Settings" title={mine.org.name} />
+        <HostHeader eyebrow="Settings" title={mine.org.name} />
         <Card className="p-5 text-sm">
           <p><span className="text-ink-3">Payout & funding wallet:</span> <span className="font-mono">{user.payoutAccountId ?? "not linked"}</span></p>
           <p className="mt-2 text-ink-3">Funding actions require a fresh wallet signature in this session (every 12 hours), so a stolen session cookie alone can't move money.</p>
         </Card>
       </section>
       <section>
-        <SectionHeader title="App events" />
-        <AppKeysPanel appUrl={env().APP_URL} />
-      </section>
-      <section>
-        <SectionHeader title="Team" />
+        <HostSection title="Team" />
         <Card className="divide-y divide-line">
           {members.map((m) => (
             <div key={`${m.name}-${m.role}`} className="flex items-center gap-3 px-5 py-3 text-sm">

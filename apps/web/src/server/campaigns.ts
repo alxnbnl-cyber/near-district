@@ -43,12 +43,12 @@ export function defaultRules(template: "treasure_hunt" | "creative_contest"): Ru
     startsAt: start.toISOString(),
     endsAt: end.toISOString(),
     eligibility: { requireVerifiedPayout: true, blockedJurisdictions: [] },
-    // Quests are about rewards: new drafts start with a prize budget (organizer picks budget or interest).
+    // Every mission has a fixed prize deposited by the company.
     fundingSource: "direct",
     reward:
       template === "creative_contest"
         ? { mode: "organizer_selected", winnersCount: 3, minPayout: "0", tieBreak: "earliest_completion" }
-        : { mode: "equal", winnersCount: 1, minPayout: "0", tieBreak: "earliest_completion" },
+        : { mode: "equal", winnersCount: 10_000, minPayout: "0", tieBreak: "earliest_completion" },
     periods: 1,
     claimWindowDays: 30,
     judgingCriteria:
@@ -309,10 +309,8 @@ export async function checkPublishable(db: Db, c: typeof campaigns.$inferSelect)
     if (rules.fundingSource !== "none") {
       const rc = { ...rules.reward, perPersonCap: rules.reward.perPersonCap ? BigInt(rules.reward.perPersonCap) : undefined, minPayout: BigInt(rules.reward.minPayout) };
       problems.push(...validateRewardConfig(rc));
-      if (rules.reward.mode === "random_draw" && !env().RANDOM_DRAW_ALLOWED_COUNTRIES.trim()) {
-        problems.push("Random draws are disabled until a jurisdiction has been cleared for prize promotions.");
-      }
-      if (rules.reward.mode === "organizer_selected" && c.template === "treasure_hunt") problems.push("Treasure hunts use objective reward modes.");
+      const want = c.template === "treasure_hunt" ? "equal" : "organizer_selected";
+      if (rules.reward.mode !== want) problems.push(c.template === "treasure_hunt" ? "Treasure hunts split the prize equally among everyone correct." : "Creative challenges are judged by your team.");
     }
     if (c.template === "creative_contest") problems.push(...validateCriteria(rules.judgingCriteria ?? []));
   }
@@ -338,14 +336,10 @@ export async function checkPublishable(db: Db, c: typeof campaigns.$inferSelect)
       const onchain = await v.campaign(c.vaultCampaignId);
       if (!onchain) funding.detail = "The vault has no record of this campaign.";
       else {
-        const hasPrincipal = BigInt(onchain.principal_supplied) + BigInt(onchain.principal_idle) > 0n;
         const hasBonus = BigInt(onchain.bonus_available) + BigInt(onchain.reserved) > 0n;
-        const needPrincipal = rules.fundingSource === "yield" || rules.fundingSource === "both";
-        const needBonus = rules.fundingSource === "direct" || rules.fundingSource === "both";
         const planned = rules.plannedDirectBudget ? BigInt(rules.plannedDirectBudget) : 0n;
-        if (needPrincipal && !hasPrincipal) funding.detail = "No principal has been deposited yet.";
-        else if (needBonus && !hasBonus) funding.detail = "No direct reward budget has been deposited yet.";
-        else if (planned > 0n && BigInt(onchain.bonus_available) + BigInt(onchain.reserved) < planned) funding.detail = "The deposited reward budget is below the amount you planned.";
+        if (!hasBonus) funding.detail = "The prize hasn't been deposited yet.";
+        else if (planned > 0n && BigInt(onchain.bonus_available) + BigInt(onchain.reserved) < planned) funding.detail = "The deposited prize is below the amount you set.";
         else funding = { required: true, verified: true, detail: "Funding confirmed on-chain." };
       }
     }

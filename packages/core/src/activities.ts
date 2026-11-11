@@ -21,8 +21,7 @@ export type ActivityType =
   | "near_rhea_lending_supply"
   | "near_stake"
   | "meteor_wallet_signin"
-  | "evm_contract_interaction"
-  | "solana_program_interaction"
+
   | "near_liquidity_provision"
   | "near_asset_holding"
   | "near_nft_ownership"
@@ -52,13 +51,11 @@ export const ACTIVITY_CATALOGUE: readonly CatalogueEntry[] = [
   { type: "near_rhea_lending_supply", category: "onchain", label: "Supply to RHEA Lending", description: "A finalized supply to RHEA Lending (contract.main.burrow.near) from a verified wallet.", support: "automatic", financial: true },
   { type: "near_stake", category: "onchain", label: "Stake NEAR", description: "A finalized stake (deposit_and_stake) with a NEAR validator pool from a verified wallet.", support: "automatic", financial: true },
   { type: "meteor_wallet_signin", category: "partner_app", label: "Sign in with Meteor Wallet", description: "Prove a wallet with Meteor Wallet. Ownership is proven by signature; the wallet app is reported by the wallet itself.", support: "automatic", financial: false },
-  { type: "evm_contract_interaction", category: "onchain", label: "Use an EVM app", description: "A successful transaction from a proven EVM wallet to a contract (Ethereum, Base; Sepolia / Base Sepolia on testnet).", support: "automatic", financial: false },
-  { type: "solana_program_interaction", category: "onchain", label: "Use a Solana app", description: "A successful transaction signed by a proven Solana wallet that calls a program (devnet on testnet).", support: "automatic", financial: false },
   { type: "near_liquidity_provision", category: "onchain", label: "Provide liquidity", description: "Add liquidity to a pool.", support: "not_supported", unsupportedReason: "No verified adapter for pool-share accounting yet.", financial: true },
   { type: "near_asset_holding", category: "onchain", label: "Hold an asset", description: "Hold a token for a duration.", support: "not_supported", unsupportedReason: "Holding history needs an indexer; point-in-time balances can be borrowed.", financial: true },
   { type: "near_nft_ownership", category: "onchain", label: "Own an NFT", description: "Own an NFT from a collection.", support: "not_supported", unsupportedReason: "No collection registry has been reviewed yet.", financial: false },
   { type: "near_contract_interaction", category: "onchain", label: "Contract interaction", description: "Call an approved contract method.", support: "not_supported", unsupportedReason: "Arbitrary methods aren't accepted; each interaction needs a reviewed adapter.", financial: false },
-  { type: "partner_api_event", category: "partner_app", label: "Do something in our app", description: "A signed event from the company's own app or website, linked to the player with a one-time code they enter there.", support: "automatic", financial: false },
+  { type: "partner_api_event", category: "partner_app", label: "Verified partner app action", description: "A signed event from a partner app.", support: "not_supported", unsupportedReason: "Not offered: NEAR District focuses on on-chain NEAR activity.", financial: false },
   { type: "meteor_swap", category: "partner_app", label: "Swap using Meteor", description: "A swap made inside Meteor Wallet.", support: "not_supported", unsupportedReason: "Meteor routes through other exchanges and leaves no verifiable attribution. Use “Swap on RHEA” instead.", financial: true },
 ];
 
@@ -145,22 +142,6 @@ export type ActivityDef =
     }
   | { type: "meteor_wallet_signin" }
   | {
-      type: "partner_api_event";
-      /** Event name the company's backend sends, e.g. "signed_up" or "first_trade". */
-      eventType: string;
-      /** Shown to the player, e.g. "Create an account on Acme". */
-      instructions: string;
-    }
-  | {
-      type: "evm_contract_interaction";
-      chain: "sepolia" | "base-sepolia" | "ethereum" | "base";
-      /** Contract the transaction must be sent to (0x…). */
-      contract: string;
-      /** Minimum native value sent, in wei. */
-      minValueWei?: string;
-    }
-  | { type: "solana_program_interaction"; cluster: "devnet" | "mainnet-beta"; programId: string }
-  | {
       type: "near_rhea_lending_supply";
       network: ActivityNetwork;
       tokenId: string;
@@ -210,19 +191,6 @@ export function validateActivity(a: ActivityDef): string[] {
       if (!INT.test(a.minAmount) || BigInt(a.minAmount) === 0n) p.push("Set a minimum stake above zero.");
       break;
     case "meteor_wallet_signin":
-      break;
-    case "partner_api_event":
-      if (!/^[a-z0-9_.-]{2,40}$/.test(a.eventType)) p.push("Event name: 2–40 lowercase letters, digits, _ . -");
-      if (!a.instructions?.trim() || a.instructions.length > 200) p.push("Tell players what to do in your app (up to 200 characters).");
-      break;
-    case "evm_contract_interaction":
-      if (!["sepolia", "base-sepolia", "ethereum", "base"].includes(a.chain)) p.push("Pick a supported EVM chain.");
-      if (!/^0x[0-9a-fA-F]{40}$/.test(a.contract)) p.push("Enter the contract address (0x…).");
-      if (a.minValueWei !== undefined && !INT.test(a.minValueWei)) p.push("Minimum value must be a whole number of wei.");
-      break;
-    case "solana_program_interaction":
-      if (!["devnet", "mainnet-beta"].includes(a.cluster)) p.push("Pick a supported Solana cluster.");
-      if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a.programId)) p.push("Enter the program id.");
       break;
     case "near_rhea_lending_supply": {
       if (a.network !== "mainnet" && a.network !== "testnet") p.push("Unknown NEAR network.");
@@ -279,12 +247,6 @@ export function describeActivity(a: ActivityDef, names: { campaign?: (id: string
     }
     case "meteor_wallet_signin":
       return "Sign in with Meteor Wallet";
-    case "partner_api_event":
-      return a.instructions;
-    case "evm_contract_interaction":
-      return `Use the app at ${a.contract.slice(0, 6)}…${a.contract.slice(-4)} on ${a.chain}`;
-    case "solana_program_interaction":
-      return `Use the Solana app ${a.programId.slice(0, 4)}…${a.programId.slice(-4)} on ${a.cluster}`;
     case "near_rhea_lending_supply":
       return `Supply at least ${amt(a.tokenId, a.minAmount)} to RHEA Lending${a.minHoldSeconds ? ` and keep it for ${Math.round(a.minHoldSeconds / 3600)}h` : ""}`;
   }

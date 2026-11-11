@@ -69,7 +69,7 @@ export default async function ParticipantsPage() {
           </table>
         </Card>
       )}
-      <p className="mt-2 text-[12.5px] text-ink-3">All figures come from Yielvy's records; payouts are additionally verifiable on-chain.</p>
+      <p className="mt-2 text-[12.5px] text-ink-3">All figures come from NEAR District's records; payouts are additionally verifiable on-chain.</p>
     </div>
   );
 }

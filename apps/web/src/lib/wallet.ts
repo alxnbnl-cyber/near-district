@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * NEAR wallet integration (client only). Yielvy never creates, sees or stores private keys:
+ * NEAR wallet integration (client only). NEAR District never creates, sees or stores private keys:
  * every signature and transaction is approved inside the user's own wallet.
  */
 import type { WalletSelector, Wallet, WalletModuleFactory } from "@near-wallet-selector/core";

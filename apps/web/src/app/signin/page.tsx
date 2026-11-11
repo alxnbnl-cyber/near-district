@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/server/session";
-import { emailEnabled } from "@/server/env";
 import { frame } from "@/components/explore/frame";
 import { SignInForm } from "./SignInForm";
 import { CloseLink } from "./CloseLink";
@@ -61,7 +60,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
       </CloseLink>
 
       <div className="relative z-10 grid min-h-dvh place-items-center px-4 py-20">
-        <SignInForm next={safeNext} emailAvailable={emailEnabled()} closeHref={back.href} />
+        <SignInForm next={safeNext} closeHref={back.href} />
       </div>
 
       <style>{`

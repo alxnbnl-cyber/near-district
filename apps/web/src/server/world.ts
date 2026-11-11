@@ -51,11 +51,10 @@ export async function getWorldData(viewerId: string | null = null): Promise<Worl
   // Local demo mode only: sample prizes so the map can be judged with rewards on it.
   // Never enabled in production; every sample carries demo: true and is tagged DEMO in the UI.
   const demo = demoEnabled();
-  const kindOf = (rules: unknown): Prize["kind"] => ((rules as CampaignRules | null)?.fundingSource === "yield" ? "yield" : "budget");
   const prizeOf = (id: string, rules?: unknown): Prize | null => {
     const v = prizeRaw.get(id);
-    if (v && v > 0n) return { amount: formatDisplay(v, t.decimals, 0), symbol: t.symbol, kind: kindOf(rules) };
-    return demo ? demoPrize(id, t.symbol) : null;
+    if (v && v > 0n) return { amount: formatDisplay(v, t.decimals, 0), symbol: t.symbol };
+    return demo ? demoPrize(id, t.symbol, { raw: (rules as CampaignRules | null)?.plannedDirectBudget, decimals: t.decimals }) : null;
   };
 
   const now = Date.now();

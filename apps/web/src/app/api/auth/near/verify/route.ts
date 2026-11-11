@@ -62,7 +62,7 @@ export const POST = route(async (req, { user }) => {
   // link_wallet / step_up require the signed-in user
   const me = user!;
   if (existingIdentity && existingIdentity.userId !== me.userId) {
-    throw conflict("This NEAR account is already linked to a different Yielvy profile.", "wallet_taken");
+    throw conflict("This NEAR account is already linked to a different NEAR District profile.", "wallet_taken");
   }
   if (ch.purpose === "step_up" && me.payoutAccountId !== accountId) {
     throw forbidden("Please confirm with the wallet linked to your profile.");

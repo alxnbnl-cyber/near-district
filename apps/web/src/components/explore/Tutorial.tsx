@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { frame } from "./GameHud";
-import { FIXED_REWARDS_ENABLED } from "@/lib/features";
 import { buttonClass } from "@/components/ui";
 
 /** Shown once per browser on the first visit to the game. */
@@ -70,7 +69,7 @@ const STEPS: Record<Side, Step[]> = {
       icon: ICON.earn,
       tag: "Rewards",
       title: "How rewards work",
-      body: "Prize money sits in an on-chain vault, never with Yielvy. Rewards grow from interest:",
+      body: "Every prize is fixed and locked in an on-chain vault before the mission starts.",
       objectives: [],
       rewards: true,
     },
@@ -87,8 +86,8 @@ const STEPS: Record<Side, Step[]> = {
       icon: ICON.earn,
       tag: "Fund",
       title: "Fund the reward",
-      body: "Deposit USDC into the vault first. It is supplied to RHEA lending and only the interest becomes the prize, so your deposit stays yours.",
-      objectives: ["Deposit stays yours, withdraw it later", "Interest grows the prize every day", "Winners paid on-chain"],
+      body: "Deposit the prize (USDC) into the vault from your NEAR wallet. It is locked for the players and paid out at the deadline.",
+      objectives: ["Fixed prize, locked on-chain", "Paid automatically at the deadline", "Unpaid prize comes back to you"],
     },
     {
       icon: ICON.host,
@@ -234,23 +233,18 @@ export function Tutorial({ open, onClose, onStart, initialSide = "player" }: { o
               </ul>
             )}
             {step.rewards && (
-              <div className={`mt-4 grid gap-2.5 ${FIXED_REWARDS_ENABLED ? "sm:grid-cols-2" : ""}`}>
+              <div className="mt-4 grid gap-2.5">
                 <div className="yv-tut-row bg-[rgb(255_194_75/.05)] p-3" style={{ animationDelay: "300ms", ...frame(10, "rgb(255 194 75 / .35)") }}>
-                  <p className="text-[11.5px] font-bold uppercase tracking-[0.22em] text-reward">Growing reward</p>
+                  <p className="text-[11.5px] font-bold uppercase tracking-[0.22em] text-reward">Solve it, split it</p>
                   <p className="mt-1 font-sans text-[14.5px] leading-snug text-[rgb(214_219_225/.75)]">
-                    The project&apos;s deposit earns interest on RHEA lending. The interest is the prize, so the pool keeps growing every day.
+                    When the deadline hits, everyone who answered every clue correctly splits the prize equally.
                   </p>
-                  <p className="mt-2 text-[12.5px] font-bold text-mint-ink">e.g. up to $120.00 · +$0.03/day</p>
+                  <p className="mt-2 text-[12.5px] font-bold text-mint-ink">e.g. $100 prize, 4 correct players → $25 each</p>
                 </div>
-                {FIXED_REWARDS_ENABLED && (
                 <div className="yv-tut-row bg-[rgb(214_219_225/.03)] p-3" style={{ animationDelay: "420ms", ...frame(10, "rgb(214 219 225 / .18)") }}>
-                  <p className="text-[11.5px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.8)]">Fixed reward</p>
-                  <p className="mt-1 font-sans text-[14.5px] leading-snug text-[rgb(214_219_225/.75)]">
-                    A set amount of USDC the project puts in up front. What you see is what the winners share.
-                  </p>
-                  <p className="mt-2 text-[12.5px] font-bold text-[rgb(214_219_225/.6)]">Paid in USDC to your NEAR wallet</p>
+                  <p className="text-[11.5px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.8)]">Paid to your NEAR wallet</p>
+                  <p className="mt-1 font-sans text-[14.5px] leading-snug text-[rgb(214_219_225/.75)]">Winners are paid automatically, straight to the NEAR wallet they signed in with.</p>
                 </div>
-                )}
               </div>
             )}
           </div>

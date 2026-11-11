@@ -6,9 +6,8 @@ import { api, ApiError } from "@/lib/api";
 import { HuntPlayer } from "@/app/s/[slug]/c/[campaign]/HuntPlayer";
 import { ContestEntry } from "@/app/s/[slug]/c/[campaign]/ContestEntry";
 import { cutEdges, frame } from "./frame";
-import { LiveReward, formatRate, rewardRate } from "./LiveReward";
+import { LiveReward } from "./LiveReward";
 import { GameIcon } from "@/components/host/GameIcon";
-import { FIXED_REWARDS_ENABLED } from "@/lib/features";
 
 interface MissionData {
   campaign: { id: string; slug: string; title: string; summary: string | null; description: string | null; template: string; startsAt: string | null; endsAt: string | null };
@@ -116,9 +115,9 @@ function CompanyCard({ space, onOpen }: { space: MissionData["space"]; onOpen?(s
 
 
 /** The prize pool: big, live, and clear about where it comes from. */
-function PrizePool({ data, rate }: { data: MissionData; rate: number | null }) {
+function PrizePool({ data }: { data: MissionData }) {
   const funded = data.rules.funded && data.prize;
-  const growing = funded && rate !== null;
+  const hunt = data.campaign.template === "treasure_hunt";
   return (
     <section className="relative overflow-hidden bg-[linear-gradient(150deg,rgb(255_194_75/.16),rgb(8_11_16/.88)_55%)] p-5 font-mono md:p-6" style={frame(16, "rgb(255 194 75 / .55)", 1, { shadow: "0 0 40px rgb(255 194 75 / .14)" })}>
       <span aria-hidden className="yv-pp-rays pointer-events-none absolute -right-16 -top-16 size-64 rounded-full bg-[conic-gradient(from_0deg,transparent,rgb(255_194_75/.16),transparent_20%,rgb(255_145_56/.12),transparent_45%,rgb(255_194_75/.14),transparent_70%)]" />
@@ -127,19 +126,12 @@ function PrizePool({ data, rate }: { data: MissionData; rate: number | null }) {
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-[0.28em] text-reward">
             Prize pool
-            {funded && (growing || FIXED_REWARDS_ENABLED) && (
-              <span className={`px-2 py-0.5 text-[9.5px] tracking-[0.18em] ${growing ? "bg-[rgb(52_211_153/.14)] text-mint-ink" : "bg-[rgb(255_255_255/.06)] text-[rgb(214_219_225/.75)]"}`}>
-                {growing ? "▲ Growing · yield funded" : "Fixed reward"}
-              </span>
-            )}
           </p>
           {funded ? (
             <>
-              <LiveReward prize={data.prize!} className="mt-1 block font-display text-[40px] font-bold leading-none text-reward md:text-[48px]" tailClassName="text-[22px] opacity-50" />
+              <LiveReward prize={data.prize!} className="mt-1 block font-display text-[40px] font-bold leading-none text-reward md:text-[48px]" />
               <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[rgb(214_219_225/.7)]">
-                {growing ? <span className="text-mint-ink">{formatRate(rate!, data.prize!.symbol)} · </span> : null}
-                🏆 {data.rules.winnersCount} winner{data.rules.winnersCount === 1 ? "" : "s"}
-                {data.rules.equalShare ? " · equal share" : ""} · 👥 {data.participants} playing
+                🏆 {hunt ? "Split equally by everyone who solves it" : `${data.rules.winnersCount} winner${data.rules.winnersCount === 1 ? "" : "s"} picked by ${data.space.name}`} · 👥 {data.participants} playing
               </p>
             </>
           ) : (
@@ -150,11 +142,6 @@ function PrizePool({ data, rate }: { data: MissionData; rate: number | null }) {
           )}
         </div>
       </div>
-      {growing && (
-        <p className="relative mt-4 border-t border-dashed border-[rgb(255_194_75/.25)] pt-3 font-sans text-[13px] text-[rgb(214_219_225/.7)]">
-          {data.space.name} deposited funds that earn interest on RHEA Lending. Every second, that interest grows this pool; their deposit stays theirs.
-        </p>
-      )}
       <style>{`@keyframes yv-pp-rot { to { transform: rotate(360deg) } } .yv-pp-rays { animation: yv-pp-rot 22s linear infinite } @media (prefers-reduced-motion: reduce) { .yv-pp-rays { animation: none } }`}</style>
     </section>
   );
@@ -220,7 +207,6 @@ export function MissionModal({ slug, campaign, onClose, onOpen }: { slug: string
 
   const hunt = data?.campaign.template === "treasure_hunt";
   const returnTo = `/explore?m=${encodeURIComponent(`${slug}/${campaign}`)}`;
-  const rate = data?.prize ? rewardRate(data.prize).perDay : null;
 
   return (
     <div className="fixed inset-0 z-[65]" role="dialog" aria-modal="true" aria-label={data?.campaign.title ?? "Mission"}>
@@ -288,7 +274,7 @@ export function MissionModal({ slug, campaign, onClose, onOpen }: { slug: string
 
                 {tab === "mission" ? (
                   <div className="mt-6 flex flex-col gap-5">
-                    <PrizePool data={data} rate={rate} />
+                    <PrizePool data={data} />
                     <MissionTimeline startsAt={data.campaign.startsAt} endsAt={data.campaign.endsAt} claimDays={data.rules.claimWindowDays} funded={data.rules.funded} />
                     <section>
                       {hunt ? (

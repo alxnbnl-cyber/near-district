@@ -1,6 +1,8 @@
-# yielvy.
+# NEAR District
 
-**Curiosity pays off.** An explorable town of projects and communities, where hunts and creative challenges are funded by sustainable, on-chain rewards.
+**Explore, play and win on NEAR.** A map of NEAR ecosystem projects, where treasure hunts and creative challenges carry fixed prizes held in an on-chain vault and paid to players' NEAR wallets.
+
+> The workspace packages are still named `@yielvy/*` internally; only the product name changed.
 
 > Status: functional pre-release. Exploration, Spaces, Treasure Hunts, Creative Contests, admin and the background worker run locally. The vault contract is tested but **not deployed**; real-money funding is off until audit and your approval. See [`docs/status.md`](docs/status.md).
 
@@ -8,11 +10,11 @@
 
 ```
 apps/web          Next.js 16 app: world (PixiJS), explorer, organizer & admin portals, API
-apps/worker       Durable Postgres job queue: reward periods, reconciliation, 1Click tracking
-packages/core     Pure domain logic: money (bigint), answers, rewards, randomness, merkle, economics, state machines, world layout
+apps/worker       Durable Postgres job queue: reward periods, sealed-hunt scoring, payouts, reconciliation
+packages/core     Pure domain logic: money (bigint), answers, equal-split rewards, merkle, state machines, world layout
 packages/db       Drizzle schema, migrations (append-only triggers), PGlite test DB
-packages/near     NEAR RPC, RHEA reader, 1Click client, NEP-413 verification, vault events
-contracts/vault   NEAR smart contract (Rust): per-campaign accounting over one RHEA supply position
+packages/near     NEAR RPC, NEAR activity checks, NEP-413 verification, vault events
+contracts/vault   NEAR smart contract (Rust): per-campaign prize escrow (legacy yield code kept, unused)
 docs/             Architecture, security, operations, deployment, compliance, assets, status
 ```
 

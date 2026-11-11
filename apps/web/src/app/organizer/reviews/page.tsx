@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { SectionHeader } from "@/components/ui";
+import { HostHeader } from "../HostHeader";
 import { db } from "@/server/db";
 import { getSessionUser } from "@/server/session";
 import { myOrganization } from "@/server/spaces";
@@ -15,7 +15,7 @@ export default async function ReviewsPage() {
   if (!mine?.space) redirect("/organizer");
   return (
     <div>
-      <SectionHeader eyebrow="Hint activities" title="Reviews" />
+      <HostHeader eyebrow="Hint activities" title="Reviews" />
       <ReviewsPanel />
     </div>
   );

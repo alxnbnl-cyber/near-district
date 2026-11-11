@@ -396,12 +396,6 @@ export function ActivityConfig({ type, options, onPick }: { type: string; option
         }
         case "meteor_wallet_signin":
           return onPick({ type });
-        case "partner_api_event":
-          return onPick({ type, eventType: tokenA.trim(), instructions: text.trim() });
-        case "evm_contract_interaction":
-          return onPick({ type, chain: (tokenA || (options.network === "testnet" ? "base-sepolia" : "base")) as "base", contract: text.trim() });
-        case "solana_program_interaction":
-          return onPick({ type, cluster: options.network === "testnet" ? "devnet" : "mainnet-beta", programId: text.trim() });
       }
     } catch (e) {
       setError((e as Error).message);
@@ -482,25 +476,6 @@ export function ActivityConfig({ type, options, onPick }: { type: string; option
           <input id="act-stake" inputMode="decimal" className={inputClass} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="1" />
         </Field>
       )}
-      {type === "evm_contract_interaction" && (
-        <>
-          <Field label="Chain" htmlFor="act-chain">
-            <select id="act-chain" className={inputClass} value={tokenA || (options.network === "testnet" ? "base-sepolia" : "base")} onChange={(e) => setTokenA(e.target.value)}>
-              {(options.network === "testnet" ? [["base-sepolia", "Base Sepolia"], ["sepolia", "Ethereum Sepolia"]] : [["base", "Base"], ["ethereum", "Ethereum"]]).map(([v, l]) => (
-                <option key={v} value={v}>{l}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Contract address" htmlFor="act-contract" hint="The player's transaction must be sent to this contract.">
-            <input id="act-contract" className={inputClass} value={text} onChange={(e) => setText(e.target.value)} placeholder="0x…" />
-          </Field>
-        </>
-      )}
-      {type === "solana_program_interaction" && (
-        <Field label="Program id" htmlFor="act-program" hint={options.network === "testnet" ? "Checked on Solana devnet." : "Checked on Solana mainnet."}>
-          <input id="act-program" className={inputClass} value={text} onChange={(e) => setText(e.target.value)} placeholder="Program address" />
-        </Field>
-      )}
       {type === "partner_api_event" && (
         <>
           <Field label="What should players do?" htmlFor="act-instr">
@@ -518,7 +493,7 @@ export function ActivityConfig({ type, options, onPick }: { type: string; option
         <details className="rounded-md bg-paper px-3 py-2 text-[12.5px] text-ink-2">
           <summary className="cursor-pointer font-medium">How verification works</summary>
           <p className="mt-1.5">
-            Players paste their transaction hash. Yielvy fetches the final transaction from NEAR itself and checks that it was signed by a wallet the
+            Players paste their transaction hash. NEAR District fetches the final transaction from NEAR itself and checks that it was signed by a wallet the
             player proved they own, that the RHEA receipt succeeded, the exact token contracts, the amount and that it happened while your mission was open.
             A transaction can unlock only one requirement per mission. USD thresholds and Meteor-specific swaps aren&apos;t supported.
           </p>

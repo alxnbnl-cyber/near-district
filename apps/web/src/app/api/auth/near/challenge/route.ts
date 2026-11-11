@@ -20,10 +20,10 @@ export const POST = route(async (req, { user }) => {
   const recipient = new URL(env().APP_URL).host;
   const message =
     purpose === "near_login"
-      ? "Sign in to Yielvy"
+      ? "Sign in to NEAR District"
       : purpose === "link_wallet"
-        ? "Link this NEAR account to my Yielvy profile"
-        : "Confirm it's me for a Yielvy funding action";
+        ? "Link this NEAR account to my NEAR District profile"
+        : "Confirm it's me for a NEAR District funding action";
   await database.insert(authChallenges).values({
     nonce: nonce.toString("base64"),
     purpose,

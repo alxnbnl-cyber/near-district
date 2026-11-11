@@ -4,7 +4,6 @@ import {
   campaignVersions,
   chainTransactions,
   eq,
-  fundingOrders,
   inArray,
   isNotNull,
   ledgerEntries,
@@ -19,8 +18,8 @@ import {
   type Db,
   finalizeSealedHunt,
 } from "@yielvy/db";
-import { campaignMachine, fundingMachine, type CampaignRules, type CampaignState, type FundingState } from "@yielvy/core";
-import { ledgerMovesForEvent, mapIntentsStatus, sharesToTokens, type NearRpc, type OneClickClient, type RheaClient, type VaultClient, type VaultEvent } from "@yielvy/near";
+import { campaignMachine, type CampaignRules, type CampaignState } from "@yielvy/core";
+import { ledgerMovesForEvent, sharesToTokens, type NearRpc, type RheaClient, type VaultClient, type VaultEvent } from "@yielvy/near";
 import type { AllowedToken } from "@yielvy/core";
 import { duePendingVerifications, processVerification, type EngineDeps } from "@yielvy/db";
 import { NearActivityVerifier, dispatchOnchain } from "@yielvy/near";
@@ -33,7 +32,6 @@ export interface JobCtx {
   rpc: NearRpc;
   vault: VaultClient | null;
   rhea: RheaClient;
-  oneClick: OneClickClient;
   signer: OperatorSigner | null;
   token: AllowedToken;
   network: string;
@@ -78,68 +76,6 @@ export async function campaignTick(ctx: JobCtx): Promise<string> {
 
 export async function rewardsPeriod(ctx: JobCtx, payload: { periodId: string }): Promise<string> {
   return processPeriod({ db: ctx.db, vault: ctx.vault, signer: ctx.signer, network: ctx.network, rulesFor: (c) => rulesFor(ctx.db, c) }, payload.periodId);
-}
-
-/**
- * Tracks 1Click deposits. SUCCESS is only accepted after the organizer's NEAR balance of the
- * allowlisted token is at least the reported amountOut; the vault deposit itself is a separate,
- * signed, on-chain-verified step.
- */
-export async function intentsPoll(ctx: JobCtx): Promise<string> {
-  const open = await ctx.db
-    .select()
-    .from(fundingOrders)
-    .where(and(eq(fundingOrders.route, "intents"), inArray(fundingOrders.state, ["QUOTED", "AWAITING_PAYMENT", "DETECTED", "SETTLING", "INCOMPLETE"]), isNotNull(fundingOrders.intentsDepositAddress)));
-  let updated = 0;
-  for (const o of open) {
-    let st;
-    try {
-      st = await ctx.oneClick.status(o.intentsDepositAddress!);
-    } catch (e) {
-      continue; // transient; next poll
-    }
-    const t = mapIntentsStatus(st);
-    const from = o.state as FundingState;
-    let next: FundingState | null = null;
-    let reason: string | null = null;
-    if (!t) continue;
-    if (t.to === "BRIDGED") {
-      const bal = BigInt(await ctx.rpc.view<string>(ctx.token.contractId, "ft_balance_of", { account_id: o.sponsorAccountId }));
-      if (bal < t.amountOut) {
-        next = "REQUIRES_REVIEW";
-        reason = "1Click reported success but the organizer's balance is lower than the delivered amount";
-      } else {
-        next = "RECEIVED";
-      }
-    } else if (t.to !== from) {
-      next = t.to;
-      reason = t.reason ?? null;
-    }
-    if (from === "QUOTED" && next === "AWAITING_PAYMENT") next = "AWAITING_PAYMENT";
-    if (!next || next === from) {
-      if (o.expiresAt && o.expiresAt < new Date() && (from === "QUOTED" || from === "AWAITING_PAYMENT")) next = "EXPIRED";
-      else continue;
-    }
-    if (!fundingMachine.can(from, next)) next = fundingMachine.can(from, "REQUIRES_REVIEW") ? "REQUIRES_REVIEW" : null;
-    if (!next) continue;
-    await ctx.db
-      .update(fundingOrders)
-      .set({ state: next, intentsStatus: st.status, failureReason: reason, originTxHash: st.swapDetails?.originChainTxHashes?.[0]?.hash ?? o.originTxHash, updatedAt: new Date() })
-      .where(eq(fundingOrders.id, o.id));
-    await ctx.db
-      .insert(notifications)
-      .values({
-        userId: o.organizerUserId,
-        kind: "funding",
-        title: next === "RECEIVED" ? "Bridged funds arrived" : `Cross-chain funding: ${next.toLowerCase().replace("_", " ")}`,
-        body: next === "RECEIVED" ? "USDC landed in your NEAR wallet. Deposit it into your campaign to finish funding." : (reason ?? "Status changed."),
-        link: "/organizer/funding",
-        dedupeKey: `funding:${o.id}:${next}`,
-      })
-      .onConflictDoNothing();
-    updated++;
-  }
-  return `${open.length} open, ${updated} updated`;
 }
 
 /** Compares the vault's books against the token contract and RHEA, and records the result. */
@@ -314,7 +250,6 @@ export async function hintsReconcile(ctx: JobCtx): Promise<string> {
 export const HANDLERS: Record<string, (ctx: JobCtx, payload: Record<string, unknown>) => Promise<string>> = {
   "campaign.tick": (c) => campaignTick(c),
   "rewards.period": (c, p) => rewardsPeriod(c, p as { periodId: string }),
-  "intents.poll": (c) => intentsPoll(c),
   "vault.reconcile": (c) => vaultReconcile(c),
   "vault.snapshot": (c) => vaultSnapshot(c),
   "ledger.index": (c) => indexLedger(c),
@@ -326,7 +261,6 @@ export const HANDLERS: Record<string, (ctx: JobCtx, payload: Record<string, unkn
 /** Recurring schedule: [job, every N seconds]. Idempotency keys per time bucket prevent duplicates across replicas. */
 export const SCHEDULE: [string, number][] = [
   ["campaign.tick", 60],
-  ["intents.poll", 20],
   ["claims.reconcile", 120],
   ["ledger.index", 120],
   ["vault.reconcile", 600],

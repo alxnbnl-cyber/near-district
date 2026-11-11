@@ -248,11 +248,7 @@ export interface HintRequirementView {
   label: string;
   type: string;
   category: string;
-  verification: "automatic" | "onchain" | "manual" | "app";
-  /** For app events: the company whose app sends the event (player requests a link code for it). */
-  appOrgId?: string | null;
-  /** For on-chain checks: what kind of hash to paste. */
-  chainFamily?: "near" | "evm" | "solana" | null;
+  verification: "automatic" | "onchain" | "manual";
   provider: { orgName: string; spaceSlug: string | null; spaceName: string | null };
   target: { spaceSlug: string; campaignSlug: string; title: string } | null;
   status: "TODO" | "PENDING_VERIFICATION" | "UNDER_REVIEW" | "VERIFIED" | "FAILED";
@@ -340,9 +336,7 @@ export async function hintCards(db: Db, userId: string, questionId: string): Pro
           label: describeActivity(l.activity, { campaign: (id) => targets.find((x) => x.id === id)?.title }),
           type: l.activity.type,
           category: entry?.category ?? "internal",
-          verification: l.activity.type === "partner_api_event" ? "app" : entry?.category === "onchain" ? "onchain" : entry?.support === "manual" ? "manual" : "automatic",
-          appOrgId: l.activity.type === "partner_api_event" ? l.ownerOrgId : null,
-          chainFamily: l.activity.type === "evm_contract_interaction" ? "evm" : l.activity.type === "solana_program_interaction" ? "solana" : entry?.category === "onchain" ? "near" : null,
+          verification: entry?.category === "onchain" ? "onchain" : entry?.support === "manual" ? "manual" : "automatic",
           provider: { orgName: o?.name ?? "Unknown", spaceSlug: o?.spaceSlug ?? null, spaceName: o?.spaceName ?? null },
           target: t ? { spaceSlug: t.spaceSlug, campaignSlug: t.slug, title: t.title } : null,
           status: done ? "VERIFIED" : last?.status === "pending" ? "PENDING_VERIFICATION" : last?.status === "under_review" ? "UNDER_REVIEW" : last?.status === "failed" ? "FAILED" : "TODO",

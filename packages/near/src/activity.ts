@@ -24,7 +24,7 @@ export type OnchainVerdict =
   | { status: "failed"; reason: string };
 
 export type OnchainEvidence = {
-  provider: "near-rpc" | "evm-rpc" | "solana-rpc";
+  provider: "near-rpc";
   network: string;
   txHash: string;
   receiptId: string;
@@ -298,4 +298,16 @@ export class NearActivityVerifier {
     const sum = (xs?: { token_id: string; balance: string }[]) => (xs ?? []).filter((x) => x.token_id === tokenId).reduce((s, x) => s + BigInt(x.balance), 0n);
     return sum(acc.supplied) + sum(acc.collateral);
   }
+}
+
+/** Routes each on-chain (NEAR) activity type to its verifier; shared by the web app and the worker. */
+export function dispatchOnchain(v: NearActivityVerifier) {
+  return (def: ActivityDef, input: VerifyInput): Promise<OnchainVerdict> =>
+    def.type === "near_rhea_swap"
+      ? v.verifySwap(def, input)
+      : def.type === "near_rhea_lending_supply"
+        ? v.verifyLendingSupply(def, input)
+        : def.type === "near_stake"
+          ? v.verifyStake(def, input)
+          : Promise.resolve({ status: "failed", reason: "unsupported_activity" });
 }

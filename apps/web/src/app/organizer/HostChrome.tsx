@@ -102,15 +102,15 @@ export function OwnerNav({ hasSpace, approved }: { hasSpace: boolean; approved: 
         })}
       </ul>
       {extra.length > 0 && (
-        <ul className="mt-4 hidden gap-0.5 border-t border-[rgb(255_255_255/.08)] pt-3 md:flex md:flex-col">
+        <ul className="mt-3 hidden gap-1.5 border-t border-[rgb(255_255_255/.08)] pt-3 md:flex md:flex-col">
           {extra.map((it) => (
             <li key={it.label}>
               {it.locked ? (
-                <span className="block px-3.5 py-1.5 text-[13px] text-[rgb(214_219_225/.3)]">{it.label}</span>
+                <span className="block px-3.5 py-2.5 text-[14.5px] font-medium text-[rgb(214_219_225/.35)]">{it.label}</span>
               ) : (
                 <Link
                   href={it.href}
-                  className={`block px-3.5 py-1.5 text-[13px] transition-colors ${path.startsWith(it.href) ? "text-orange" : "text-[rgb(214_219_225/.5)] hover:text-white"}`}
+                  className={`block px-3.5 py-2.5 text-[14.5px] font-medium transition-colors ${path.startsWith(it.href) ? "bg-[rgb(255_145_56/.12)] text-orange" : "text-[rgb(214_219_225/.75)] hover:bg-[rgb(255_255_255/.04)] hover:text-white"}`}
                 >
                   {it.label}
                 </Link>

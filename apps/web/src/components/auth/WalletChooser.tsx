@@ -60,7 +60,7 @@ export function WalletChooser({
       {error && <Notice tone="danger">{error}</Notice>}
       {!hideNote && (
         <p className="text-[12px] leading-relaxed text-ink-3">
-          You'll be asked to sign a short message. Signing is free, sends no transaction and does not give Yielvy access to your funds.
+          You'll be asked to sign a short message. Signing is free, sends no transaction and does not give NEAR District access to your funds.
         </p>
       )}
     </div>

@@ -1,5 +1,5 @@
 /**
- * Yielvy relational schema.
+ * NEAR District relational schema.
  *
  * The database is an operational index. It is NOT the authority for on-chain asset
  * ownership: vault balances live in the vault contract, and every financial row here is
@@ -129,8 +129,6 @@ export const users = pgTable("users", {
   status: userStatus("status").notNull().default("active"),
   suspendedReason: text("suspended_reason"),
   countryCode: text("country_code"),
-  /** Where prizes should go: NEAR wallet (default), an EVM chain via NEAR Intents, or Solana via NEAR Intents. */
-  payoutDestination: jsonb("payout_destination").$type<{ kind: "near" } | { kind: "evm"; chain: "ethereum" | "base" | "arbitrum"; address: string } | { kind: "solana"; address: string }>(),
   createdAt: createdAt(),
 }, (t) => [uniqueIndex("users_email_uq").on(sql`lower(${t.email})`)]);
 
@@ -142,48 +140,6 @@ export const userIdentities = pgTable("user_identities", {
   verifiedAt: ts("verified_at").notNull(),
   createdAt: createdAt(),
 }, (t) => [uniqueIndex("user_identities_provider_subject_uq").on(t.provider, t.subject), index("user_identities_user_idx").on(t.userId)]);
-
-/** Keys a company uses to sign app events it sends to Yielvy (secret stored AES-GCM encrypted). */
-export const partnerAppKeys = pgTable("partner_app_keys", {
-  id: id(),
-  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
-  keyId: text("key_id").notNull(),
-  secretCipher: text("secret_cipher").notNull(),
-  label: text("label").notNull().default(""),
-  createdBy: uuid("created_by").references(() => users.id),
-  createdAt: createdAt(),
-  revokedAt: ts("revoked_at"),
-}, (t) => [uniqueIndex("partner_app_keys_key_uq").on(t.keyId)]);
-
-/** One-time codes a player types into a partner app to link that app's events to their Yielvy profile (consent). */
-export const partnerLinkCodes = pgTable("partner_link_codes", {
-  code: text("code").primaryKey(),
-  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
-  expiresAt: ts("expires_at").notNull(),
-  createdAt: createdAt(),
-});
-
-/** Signed events received from partner apps, attributed to a player through a link code. */
-export const partnerEvents = pgTable("partner_events", {
-  id: id(),
-  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
-  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  eventType: text("event_type").notNull(),
-  eventId: text("event_id").notNull(),
-  createdAt: createdAt(),
-}, (t) => [uniqueIndex("partner_events_uq").on(t.organizationId, t.eventId), index("partner_events_user_idx").on(t.userId, t.organizationId, t.eventType)]);
-
-/** EVM and Solana addresses whose ownership was proven by signing a server challenge (payout destinations, activity checks). */
-export const externalWallets = pgTable("external_wallets", {
-  id: id(),
-  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  chain: text("chain").notNull(), // evm | solana
-  address: text("address").notNull(),
-  walletApp: text("wallet_app"),
-  verifiedAt: ts("verified_at").notNull(),
-  createdAt: createdAt(),
-}, (t) => [uniqueIndex("external_wallets_uq").on(t.chain, t.address), index("external_wallets_user_idx").on(t.userId)]);
 
 /** NEAR accounts whose ownership was proven with a signed NEP-413 challenge. */
 export const walletConnections = pgTable("wallet_connections", {
@@ -213,15 +169,6 @@ export const authChallenges = pgTable("auth_challenges", {
   consumedAt: ts("consumed_at"),
   createdAt: createdAt(),
 }, (t) => [uniqueIndex("auth_challenges_nonce_uq").on(t.nonce)]);
-
-export const emailLoginTokens = pgTable("email_login_tokens", {
-  id: id(),
-  tokenHash: text("token_hash").notNull(),
-  email: text("email").notNull(),
-  expiresAt: ts("expires_at").notNull(),
-  consumedAt: ts("consumed_at"),
-  createdAt: createdAt(),
-}, (t) => [uniqueIndex("email_login_tokens_hash_uq").on(t.tokenHash), index("email_login_tokens_email_idx").on(t.email)]);
 
 export const sessions = pgTable("sessions", {
   id: id(),
@@ -919,11 +866,10 @@ export const platformSettings = pgTable("platform_settings", {
   updatedAt: updatedAt(),
 });
 
-/** Launch gates per jurisdiction. Random draws are disabled unless explicitly allowed. */
+/** Launch gates per jurisdiction. */
 export const jurisdictionRules = pgTable("jurisdiction_rules", {
   countryCode: text("country_code").primaryKey(),
   participationAllowed: boolean("participation_allowed").notNull().default(true),
-  randomDrawAllowed: boolean("random_draw_allowed").notNull().default(false),
   fundingAllowed: boolean("funding_allowed").notNull().default(false),
   notes: text("notes"),
   updatedBy: uuid("updated_by").references(() => users.id),

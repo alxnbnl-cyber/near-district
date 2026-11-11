@@ -184,7 +184,7 @@ describe("partner hints: end-to-end acceptance", () => {
     await expectHttp(revealHint(h.db, users_.player!, huntA, hint2), 409);
   });
 
-  it("12–16: player completes B's challenge, Yielvy verifies it, Hint 2 unlocks", async () => {
+  it("12–16: player completes B's challenge, NEAR District verifies it, Hint 2 unlocks", async () => {
     await finishHunt(users_.player!, quizB, ["tokens"]);
     const r = await verifyHintActivity(h.db, users_.player!, huntA, hint2, { leafId: "rhea-quiz" });
     expect(r.outcome).toMatchObject({ status: "verified", unlocked: true });

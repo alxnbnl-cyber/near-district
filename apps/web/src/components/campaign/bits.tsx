@@ -29,10 +29,8 @@ export function StatusBadge({ status }: { status: CampaignState }) {
 }
 
 const MODE_COPY: Record<string, (r: CampaignRules) => string> = {
-  equal: () => "Every qualified participant gets an equal share of the finalized reward pool.",
-  top_scorers: (r) => `The top ${r.reward.winnersCount} by score share the pool${r.reward.rankSharesBps ? " by rank" : " equally"}. Ties: ${r.reward.tieBreak === "split" ? "tied places split their prize" : "earliest finisher wins"}.`,
-  organizer_selected: (r) => `The organizer picks up to ${r.reward.winnersCount} winner(s) using the published judging criteria.`,
-  random_draw: (r) => `${r.reward.winnersCount} winner(s) drawn from qualified participants using an on-chain random seed recorded after eligibility is frozen.`,
+  equal: () => "When the deadline ends, everyone who answered every clue correctly splits the prize equally.",
+  organizer_selected: (r) => `The company picks up to ${r.reward.winnersCount} winner(s) using the published judging criteria. Winners split the prize equally.`,
 };
 
 export function RewardExplainer({ rules, decimals, symbol }: { rules: CampaignRules; decimals: number; symbol: string }) {
@@ -44,11 +42,7 @@ export function RewardExplainer({ rules, decimals, symbol }: { rules: CampaignRu
       </div>
     );
   }
-  const source = {
-    yield: "Funded only by lending interest the organizer's deposit actually earns. The amount is variable and not guaranteed until it is collected and reserved.",
-    direct: "Funded by a reward budget the organizer deposited in advance.",
-    both: "Funded by a deposited reward budget plus any lending interest actually collected. Interest is variable.",
-  }[rules.fundingSource];
+  const source = "A fixed prize the company deposited in the vault before the mission started.";
   return (
     <div className="space-y-2 rounded-lg border border-line bg-paper px-4 py-3 text-sm">
       <p className="font-semibold">How rewards work</p>

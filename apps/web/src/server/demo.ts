@@ -1,23 +1,23 @@
 import "server-only";
 import type { Prize } from "@/world/types";
-import { FIXED_REWARDS_ENABLED } from "@/lib/features";
 
 /** Local demo mode only (DEMO_REWARDS=1, never in production). Every sample is flagged demo. */
 export function demoEnabled(): boolean {
   return process.env.DEMO_REWARDS === "1" && process.env.NODE_ENV !== "production";
 }
 
-/** Deterministic sample prize for a campaign id, so the map and the mission page agree. */
-export function demoPrize(campaignId: string, symbol: string): Prize {
+/**
+ * Sample prize for a campaign: its planned fixed prize when set, otherwise a deterministic
+ * amount from the id, so the map and the mission page agree.
+ */
+export function demoPrize(campaignId: string, symbol: string, planned?: { raw?: string; decimals: number }): Prize {
   let h = 0;
   for (const ch of campaignId) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const yieldPrize = FIXED_REWARDS_ENABLED ? h % 2 === 0 : true; // fixed rewards are hidden for now
+  const plannedWhole = planned?.raw ? Number(BigInt(planned.raw) / 10n ** BigInt(planned.decimals)) : 0;
   return {
-    amount: (20 + (h % 19) * 10).toLocaleString("en"), // $20 – $200
+    amount: (plannedWhole > 0 ? plannedWhole : 20 + (h % 19) * 10).toLocaleString("en"), // planned, or $20 – $200
     symbol,
-    kind: yieldPrize ? "yield" : "budget",
     demo: true,
-    apy: yieldPrize ? `${(6 + (h % 50) / 10).toFixed(1)}%` : undefined,
   };
 }
 

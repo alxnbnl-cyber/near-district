@@ -4,7 +4,6 @@ import bs58 from "bs58";
 import {
   harvestableYield,
   ledgerMovesForEvent,
-  mapIntentsStatus,
   nep413Hash,
   parseVaultEvents,
   sharesToTokens,
@@ -44,7 +43,7 @@ describe("RHEA math (mirrors the vault contract)", () => {
 describe("NEP-413", () => {
   const priv = ed25519.utils.randomSecretKey();
   const pub = `ed25519:${bs58.encode(ed25519.getPublicKey(priv))}`;
-  const payload = { message: "Sign in to Yielvy", nonce: new Uint8Array(32).fill(9), recipient: "yielvy.app" };
+  const payload = { message: "Sign in to NEAR District", nonce: new Uint8Array(32).fill(9), recipient: "yielvy.app" };
   const sig = Buffer.from(ed25519.sign(nep413Hash(payload), priv)).toString("base64");
 
   it("verifies a correctly signed payload", () => {
@@ -84,19 +83,5 @@ describe("vault events -> ledger", () => {
       { bucket: "reserved", delta: -200n },
       { bucket: "bonus_available", delta: 200n },
     ]);
-  });
-});
-
-describe("1Click status mapping", () => {
-  it("never treats unknown or malformed success as funded", () => {
-    expect(mapIntentsStatus({ status: "SOMETHING_NEW" })?.to).toBe("REQUIRES_REVIEW");
-    expect(mapIntentsStatus({ status: "SUCCESS", swapDetails: {} })?.to).toBe("REQUIRES_REVIEW");
-    expect(mapIntentsStatus({ status: "SUCCESS", swapDetails: { amountOut: "4999001" } })).toEqual({
-      to: "BRIDGED",
-      amountOut: 4_999_001n,
-      destinationTx: undefined,
-    });
-    expect(mapIntentsStatus({ status: "INCOMPLETE_DEPOSIT" })?.to).toBe("INCOMPLETE");
-    expect(mapIntentsStatus({ status: "REFUNDED" })?.to).toBe("REFUNDED");
   });
 });

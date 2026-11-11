@@ -22,7 +22,7 @@ export function SignInModal({ next, onClose }: { next: string; onClose(): void }
     <div {...(closing ? { "data-closing": "1" } : {})} className="fixed inset-0 z-[75] grid place-items-center p-4" role="dialog" aria-modal="true" aria-label="Sign in">
       <div className="yv-sim-bg absolute inset-0 bg-[rgb(3_5_8/.62)] backdrop-blur-[3px]" onClick={close} />
       <div className="relative w-full max-w-[440px]">
-        <SignInForm next={next} emailAvailable onClose={close} />
+        <SignInForm next={next} onClose={close} />
       </div>
       <style>{`
         @keyframes yv-sim-bg-in { from { opacity: 0 } to { opacity: 1 } }

@@ -7,18 +7,16 @@ import { formatUnits, parseUnits } from "@yielvy/core";
 import { Button, Field, Notice, buttonClass, inputClass, textareaClass } from "@/components/ui";
 import { StatusBadge } from "@/components/campaign/bits";
 import { GameIcon } from "@/components/host/GameIcon";
-import { FIXED_REWARDS_ENABLED } from "@/lib/features";
 import { CooperationPanel } from "../../cooperation/CooperationPanel";
 import { api, ApiError } from "@/lib/api";
 import { QuestionsPanel, type QuestionRow } from "./QuestionsPanel";
 import { SubmissionsPanel, type SubmissionRow } from "./SubmissionsPanel";
-import { EconomicsPanel } from "./EconomicsPanel";
 
 interface Rules {
   startsAt: string;
   endsAt: string;
   eligibility: { requireVerifiedPayout: boolean; maxParticipants?: number; blockedJurisdictions: string[] };
-  fundingSource: "none" | "yield" | "direct" | "both";
+  fundingSource: "none" | "direct";
   reward: { mode: string; winnersCount: number; minPayout: string; tieBreak: string; perPersonCap?: string; rankSharesBps?: number[] };
   periods: number;
   claimWindowDays: number;
@@ -43,6 +41,9 @@ const toLocal = (iso: string) => {
 };
 const fromLocal = (v: string) => new Date(v).toISOString();
 
+/** Winners cap for hunts: effectively "everyone who got every clue right". */
+const MAX_SPLIT = 10_000;
+
 export function CampaignEditor({ initial }: { initial: Initial }) {
   const router = useRouter();
   const { campaign: c, token } = initial;
@@ -51,7 +52,8 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
   const canEdit = ["owner", "admin", "editor"].includes(initial.role);
   const [step, setStep] = useState(0);
   const [details, setDetails] = useState({ title: c.title, summary: c.summary, description: c.description });
-  const [rules, setRules] = useState<Rules>({ ...initial.rules, fundingSource: initial.rules.fundingSource === "yield" ? "yield" : initial.rules.fundingSource === "none" ? "none" : "direct" });
+  // NEAR District: every mission has a fixed prize
+  const [rules, setRules] = useState<Rules>({ ...initial.rules, fundingSource: "direct" });
   const [budget, setBudget] = useState(initial.rules.plannedDirectBudget ? formatUnits(BigInt(initial.rules.plannedDirectBudget), token.decimals) : "");
   const [notice, setNotice] = useState("");
   const [msg, setMsg] = useState<{ tone: "ok" | "danger" | "warn"; text: string } | null>(null);
@@ -77,13 +79,15 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
       async () => {
         let pb: bigint | undefined;
         try {
-          pb = rules.fundingSource === "direct" && budget ? parseUnits(budget, token.decimals) : undefined;
+          pb = budget ? parseUnits(budget, token.decimals) : undefined;
         } catch {
           throw new ApiError(`Enter the budget in ${token.symbol}, e.g. 250 or 99.5.`, 400);
         }
         const next: Rules = {
           ...rules,
-          reward: { ...rules.reward, mode: hunt ? "equal" : "organizer_selected", minPayout: "0" },
+          // hunts: everyone with every clue correct splits the prize equally; contests: the company picks the winners
+          reward: { ...rules.reward, mode: hunt ? "equal" : "organizer_selected", winnersCount: hunt ? MAX_SPLIT : rules.reward.winnersCount, minPayout: "0" },
+          fundingSource: "direct",
           plannedDirectBudget: pb?.toString(),
           eligibility: { requireVerifiedPayout: true, blockedJurisdictions: [] },
         };
@@ -234,39 +238,17 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
           {step === 3 && (
             <div className="flex flex-col gap-4">
               <StepTitle art={<GameIcon name="earn" size={70} />} title="Set the prize" body="This is what gets explorers excited." />
-              <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Prize type">
-                {(
-                  [
-                    ["direct", "Prize budget", "You put up a fixed prize. Simple and exciting.", <GameIcon key="c" name="earn" size={64} />],
-                    ["yield", "Interest prize", "Deposit funds; the interest they earn becomes the prize. You keep your deposit.", <GameIcon key="s" name="earn" size={60} />],
-                  ] as const
-                ).filter(([v]) => FIXED_REWARDS_ENABLED || v !== "direct").map(([v, label, help, art]) => (
-                  <button
-                    key={v}
-                    type="button"
-                    role="radio"
-                    aria-checked={rules.fundingSource === v}
-                    disabled={!canEdit}
-                    onClick={() => setRules({ ...rules, fundingSource: v })}
-                    className={`flex flex-col items-start rounded-[18px] border p-4 text-left transition-all hover:-translate-y-0.5 ${rules.fundingSource === v ? "card-reward" : "border-line bg-paper hover:border-line-strong"}`}
-                  >
-                    {art}
-                    <span className="mt-2 font-display text-[16px] font-bold">{label}</span>
-                    <span className="mt-0.5 text-[13px] text-ink-2">{help}</span>
-                  </button>
-                ))}
-              </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                {rules.fundingSource === "direct" && (
-                  <Field label={`Prize amount (${token.symbol})`} htmlFor="budget">
-                    <input id="budget" inputMode="decimal" className={`${inputClass} h-12 text-[18px] font-semibold`} disabled={!canEdit} value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="250" />
+                <Field label={`Prize (${token.symbol})`} htmlFor="budget">
+                  <input id="budget" inputMode="decimal" className={`${inputClass} h-12 text-[18px] font-semibold`} disabled={!canEdit} value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="100" />
+                </Field>
+                {!hunt && (
+                  <Field label="Number of winners" htmlFor="winners" hint="Your team picks them; they share the prize equally.">
+                    <input id="winners" type="number" min={1} max={1000} className={`${inputClass} h-12 text-[18px] font-semibold`} disabled={!canEdit} value={rules.reward.winnersCount} onChange={(e) => setRules({ ...rules, reward: { ...rules.reward, winnersCount: Math.max(1, Number(e.target.value) || 1) } })} />
                   </Field>
                 )}
-                <Field label="Number of winners" htmlFor="winners" hint={hunt ? "They share the prize equally." : "Your team picks them."}>
-                  <input id="winners" type="number" min={1} max={1000} className={`${inputClass} h-12 text-[18px] font-semibold`} disabled={!canEdit} value={rules.reward.winnersCount} onChange={(e) => setRules({ ...rules, reward: { ...rules.reward, winnersCount: Math.max(1, Number(e.target.value) || 1) } })} />
-                </Field>
               </div>
-              {rules.fundingSource === "yield" && <EconomicsPanel periods={1} winners={rules.reward.winnersCount} minPayout="0" budget="" token={token} />}
+              {hunt && <p className="rounded-[14px] border border-line bg-paper p-4 text-[14px] text-ink-2">At the deadline, <strong className="text-ink">everyone who answered every clue correctly splits this prize equally</strong>, paid straight to their NEAR wallet.</p>}
               <p className="text-[12.5px] text-ink-3">You&apos;ll deposit the prize under Prize funding. Players only see a prize amount once it&apos;s confirmed on-chain.</p>
               <Nav onBack={() => setStep(2)} onNext={() => save(4)} busy={busy} />
             </div>
@@ -343,14 +325,14 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
             <div className="mt-4">
               {funded ? (
                 <span className="yv-shine inline-flex items-center gap-1.5 rounded-full bg-reward px-3 py-1 font-display text-[14px] font-bold text-[#2a1600]">
-                  🏆 {rules.fundingSource === "direct" ? (budget ? `${budget} ${token.symbol}` : "Prize budget") : "Interest prize"}
+                  🏆 {budget ? `${budget} ${token.symbol}` : "Prize"}
                 </span>
               ) : (
                 <span className="rounded-full bg-paper-2 px-2.5 py-1 text-[12px] text-ink-3">Just for fun</span>
               )}
             </div>
             <p className="mt-3 text-[12px] text-ink-3">
-              {hunt ? `${initial.questions.length} clue${initial.questions.length === 1 ? "" : "s"}` : `${(rules.judgingCriteria ?? []).length} criteria`} · {rules.reward.winnersCount} winner{rules.reward.winnersCount === 1 ? "" : "s"}
+              {hunt ? `${initial.questions.length} clue${initial.questions.length === 1 ? "" : "s"}` : `${(rules.judgingCriteria ?? []).length} criteria`} · {hunt ? "split by everyone correct" : `${rules.reward.winnersCount} winner${rules.reward.winnersCount === 1 ? "" : "s"}`}
             </p>
           </div>
         </aside>

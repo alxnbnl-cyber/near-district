@@ -6,7 +6,7 @@ const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-grotesk", 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "Yielvy — There's a world worth exploring", template: "%s · Yielvy" },
+  title: { default: "NEAR District — explore, play and win on NEAR", template: "%s · NEAR District" },
   description: "Discover projects, take on challenges, and uncover real rewards — all in one interactive world.",
 };
 

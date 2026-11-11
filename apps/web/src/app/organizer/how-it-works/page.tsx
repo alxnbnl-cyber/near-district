@@ -16,8 +16,8 @@ const STEPS: { icon: GameIconName; title: string; body: string; points: string[]
   {
     icon: "earn",
     title: "Fund the reward",
-    body: "Deposit USDC into the vault. It earns interest on RHEA lending and only the interest becomes the prize.",
-    points: ["Your deposit stays yours", "Prize grows every day"],
+    body: "Deposit a fixed prize (USDC) into the vault from your NEAR wallet. It is locked for the players until the deadline.",
+    points: ["Fixed prize", "Locked on-chain", "Unpaid prize comes back to you"],
   },
   {
     icon: "host",
@@ -81,39 +81,32 @@ export default function HowItWorksPage() {
   );
 }
 
-/** Deposit → vault → RHEA lending → interest = prize, deposit back. */
+/** Deposit → vault → deadline → correct answers split it → NEAR wallets. */
 function RewardFlow() {
   const box = "flex flex-col items-center gap-1 bg-[rgb(255_255_255/.04)] px-3 py-2.5 text-center";
   const arrow = <span aria-hidden className="self-center text-[16px] text-orange">→</span>;
+  const steps: [string, string, string][] = [
+    ["🏢", "Your prize", "e.g. 100 USDC"],
+    ["🔐", "Vault", "locked on-chain"],
+    ["⏱", "Deadline", "answers revealed"],
+    ["🏆", "Split equally", "everyone correct"],
+  ];
   return (
     <div className="mt-4 bg-[rgb(0_0_0/.25)] p-4" style={frame(10, "rgb(255 194 75 / .25)")}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-reward">Where the prize comes from</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-reward">How the prize is paid</p>
       <div className="mt-3 flex flex-wrap items-stretch gap-2">
-        <div className={box}>
-          <span className="text-[18px]">🏢</span>
-          <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-white">Your deposit</span>
-          <span className="text-[10px] text-[rgb(214_219_225/.5)]">e.g. 10,000 USDC</span>
-        </div>
-        {arrow}
-        <div className={box}>
-          <span className="text-[18px]">🔐</span>
-          <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-white">Vault</span>
-          <span className="text-[10px] text-[rgb(214_219_225/.5)]">on-chain</span>
-        </div>
-        {arrow}
-        <div className={box}>
-          <span className="text-[18px]">📈</span>
-          <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-white">RHEA lending</span>
-          <span className="text-[10px] text-[rgb(214_219_225/.5)]">earns interest</span>
-        </div>
-        {arrow}
-        <div className={`${box} shadow-[inset_0_0_0_1px_rgb(255_194_75/.4)]`}>
-          <span className="text-[18px]">🏆</span>
-          <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-reward">Interest = prize</span>
-          <span className="text-[10px] text-[rgb(214_219_225/.5)]">paid to winners</span>
-        </div>
+        {steps.map(([icon, title, sub], i) => (
+          <div key={title} className="contents">
+            {i > 0 && arrow}
+            <div className={box}>
+              <span className="text-[18px]">{icon}</span>
+              <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-white">{title}</span>
+              <span className="text-[10px] text-[rgb(214_219_225/.5)]">{sub}</span>
+            </div>
+          </div>
+        ))}
       </div>
-      <p className="mt-3 font-sans text-[13px] text-[rgb(214_219_225/.65)]">When the mission ends, you withdraw your deposit. Only the interest it earned was given away.</p>
+      <p className="mt-3 font-sans text-[13px] text-[rgb(214_219_225/.65)]">Winners are paid straight to their NEAR wallets. If nobody solves it, you withdraw the prize.</p>
     </div>
   );
 }

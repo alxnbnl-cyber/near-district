@@ -78,6 +78,13 @@
       "when": 1794410994340,
       "tag": "0010_near_auth_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794426017758,
+      "tag": "0011_near_district_cleanup",
+      "breakpoints": true
     }
   ]
 }

@@ -7,8 +7,6 @@ import { api, ApiError } from "@/lib/api";
 import { ClaimButton } from "@/app/me/rewards/ClaimButton";
 import { GameIcon } from "@/components/host/GameIcon";
 import { frame, plate } from "./frame";
-import { WalletCard } from "./CashOut";
-import { PayoutCard } from "./PayoutCard";
 
 const INK = "rgb(214 219 225";
 
@@ -31,13 +29,6 @@ interface Adventure {
   campaignStatus: string;
   progress: string;
   badge: string;
-}
-interface Delivery {
-  via: string;
-  fromAsset: string;
-  toAsset: string;
-  address: string;
-  simulated: boolean;
 }
 interface Reward {
   id: string;
@@ -66,7 +57,7 @@ function Section({ title, count, children }: { title: string; count?: number; ch
 /** The player's card: rank, rewards to claim, and missions in progress. */
 export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { viewer: ViewerStats | null; signedIn: boolean; onFocusSpace(spaceId: string): void; onPlay(slug: string, campaign: string): void }) {
   const [items, setItems] = useState<Adventure[] | null>(null);
-  const [rewards, setRewards] = useState<{ items: Reward[]; symbol: string; hasWallet: boolean; delivery?: Delivery | null } | null>(null);
+  const [rewards, setRewards] = useState<{ items: Reward[]; symbol: string; hasWallet: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,7 +65,7 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
     api<{ items: Adventure[] }>("/api/me/adventures")
       .then((r) => setItems(r.items))
       .catch((e) => setError(e instanceof ApiError ? e.message : "Could not load your missions."));
-    api<{ items: Reward[]; symbol: string; hasWallet: boolean; delivery?: Delivery | null }>("/api/me/rewards")
+    api<{ items: Reward[]; symbol: string; hasWallet: boolean }>("/api/me/rewards")
       .then(setRewards)
       .catch(() => setRewards({ items: [], symbol: viewer?.symbol ?? "USDC", hasWallet: false }));
   }, [signedIn, viewer?.symbol]);
@@ -131,13 +122,9 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
         </div>
       </div>
 
-      {/* wallet + cash out (testnet demo) */}
-      <WalletCard />
-      <PayoutCard network={(process.env.NEXT_PUBLIC_NEAR_NETWORK as "mainnet" | "testnet") ?? "testnet"} />
 
       {/* rewards */}
       <Section title="My rewards" count={rewards?.items.length}>
-        {rewards?.delivery && <IntentsRoute d={rewards.delivery} />}
         {!rewards ? (
           <p className="px-1 text-[11px] uppercase tracking-[0.2em] text-[rgb(214_219_225/.45)]">Opening the vault…</p>
         ) : rewards.items.length === 0 ? (
@@ -171,7 +158,7 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
                 <div className="mt-2 flex items-center justify-between gap-2">
                   {r.state === "claimed" ? (
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-mint-ink">
-                      ✓ {rewards.delivery ? `Delivered as ${rewards.delivery.toAsset}${rewards.delivery.simulated ? " (simulated)" : ""}` : "Claimed"}
+                      ✓ Paid to your wallet
                     </span>
                   ) : r.state === "expired" ? (
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-danger">Expired</span>
@@ -250,25 +237,3 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
   );
 }
 
-const shortAddr = (a: string) => (a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
-
-/** How an EVM / Solana player's prize travels: vault on NEAR → NEAR Intents → their wallet on their chain. */
-function IntentsRoute({ d }: { d: Delivery }) {
-  const step = "flex-1 bg-[rgb(255_255_255/.04)] px-2 py-1.5 text-center";
-  return (
-    <div className="mb-2.5 bg-[rgb(10_13_18/.6)] p-3" style={frame(10, "rgb(86 200 255 / .3)")}>
-      <p className="flex items-center justify-between text-[9.5px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.55)]">
-        Prize route
-        {d.simulated && <span className="bg-[rgb(255_194_75/.12)] px-1.5 py-0.5 text-gold">Simulated on testnet</span>}
-      </p>
-      <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white">
-        <span className={step}>{d.fromAsset}</span>
-        <span className="text-sky">→</span>
-        <span className={`${step} text-sky`}>{d.via}</span>
-        <span className="text-sky">→</span>
-        <span className={step}>{d.toAsset}</span>
-      </div>
-      <p className="mt-1.5 font-sans text-[11.5px] text-[rgb(214_219_225/.55)]">To {shortAddr(d.address)}</p>
-    </div>
-  );
-}

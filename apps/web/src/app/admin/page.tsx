@@ -61,7 +61,7 @@ export default async function AdminPage() {
         <section>
           <SectionHeader title="Vault & money" />
           {!v ? (
-            <Notice tone="info">No vault contract is configured (VAULT_CONTRACT_ID unset). No funds are held by Yielvy on this deployment.</Notice>
+            <Notice tone="info">No vault contract is configured (VAULT_CONTRACT_ID unset). No funds are held by NEAR District on this deployment.</Notice>
           ) : vaultError ? (
             <Notice tone="danger" title="Vault unreachable">{vaultError}</Notice>
           ) : (

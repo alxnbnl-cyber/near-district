@@ -49,7 +49,7 @@ export async function getPublicCampaign(spaceSlug: string, campaignSlug: string)
     const v = snap ? snap.bonusAvailable + snap.yieldAvailable + snap.reserved : 0n;
     if (v > 0n) prize = { amount: formatDisplay(v, t.decimals, 0), symbol: t.symbol };
   }
-  if (!prize && demoEnabled()) prize = demoPrize(row.c.id, token().symbol);
+  if (!prize && demoEnabled()) prize = demoPrize(row.c.id, token().symbol, { raw: rules.plannedDirectBudget, decimals: token().decimals });
   return { campaign: row.c, space: row.space, rules, participants: n, status: effectiveStatus(row.c as never), prize };
 }
 

@@ -8,11 +8,11 @@
     "build": "next build",
     "start": "next start --port 3000",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev --port 3000",
+    "seed:demo": "tsx --conditions=react-server scripts/seed-demo.ts"
   },
   "dependencies": {
-    "@fast-auth-near/browser-sdk": "1.4.2",
-    "@fast-auth-near/javascript-provider": "1.4.1",
     "@near-wallet-selector/core": "10.1.4",
     "@near-wallet-selector/meteor-wallet": "10.1.4",
     "@near-wallet-selector/modal-ui": "10.1.4",
@@ -30,14 +30,13 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@noble/curves": "2.4.0",
-    "@noble/hashes": "2.4.0",
     "@tailwindcss/postcss": "4.3.5",
     "@types/node": "24",
     "@types/react": "19",
     "@types/react-dom": "19",
     "@types/sanitize-html": "2",
     "tailwindcss": "4.3.5",
+    "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "5.1.0"
   }

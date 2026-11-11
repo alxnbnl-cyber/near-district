@@ -1,5 +1,5 @@
 /**
- * Exact integer money arithmetic. Every amount in Yielvy is a bigint of the
+ * Exact integer money arithmetic. Every amount in NEAR District is a bigint of the
  * token's smallest unit. Floating point is never used for money.
  */
 

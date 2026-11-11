@@ -5,7 +5,7 @@
  *  SCHEDULED ──(period over)──▶ ELIGIBILITY_FROZEN   snapshot frozen + commit_period on-chain
  *  ELIGIBILITY_FROZEN ────────▶ YIELD_SETTLEMENT_PENDING  harvest_yield (yield-funded only)
  *  YIELD_SETTLEMENT_PENDING ──▶ FUNDS_RESERVED       reconcile_pending, then reserve_for_period
- *  FUNDS_RESERVED ────────────▶ WINNERS_FINALIZED    (record_seed for draws) allocations + finalize_period
+ *  FUNDS_RESERVED ────────────▶ WINNERS_FINALIZED    allocations + finalize_period
  *  WINNERS_FINALIZED ─────────▶ CLAIMABLE            after the on-chain dispute window
  *  CLAIMABLE ─────────────────▶ COMPLETED            close_period after the claim deadline
  */
@@ -140,24 +140,9 @@ export async function processPeriod(ctx: RewardsCtx, periodId: string): Promise<
     }
 
     case "ELIGIBILITY_FROZEN": {
-      if (rules.fundingSource === "direct") {
-        await setState(db, p, "YIELD_SETTLEMENT_PENDING");
-        return "no harvest needed";
-      }
-      const totals = await vault.totals();
-      if (totals.pending_op) throw new RetryLater(60, "another vault operation is in flight");
-      await runOnce(
-        db,
-        ctx.signer,
-        `period:${p.id}:harvest`,
-        "harvest_yield",
-        c.id,
-        vault.contractId,
-        { methodName: "harvest_yield", args: { campaign_id: vid.toString(), min_amount: "0" }, gasTgas: 300 },
-        async () => false,
-      );
+      // Fixed prizes only: nothing to harvest, go straight to reserving the prize.
       await setState(db, p, "YIELD_SETTLEMENT_PENDING");
-      return "harvest requested";
+      return "no harvest needed";
     }
 
     case "YIELD_SETTLEMENT_PENDING": {
@@ -173,13 +158,13 @@ export async function processPeriod(ctx: RewardsCtx, periodId: string): Promise<
       const alreadyReserved = BigInt(onP?.reserved_yield ?? "0") + BigInt(onP?.reserved_bonus ?? "0");
       if (alreadyReserved === 0n) {
         const budgetPerPeriod = rules.plannedDirectBudget ? BigInt(rules.plannedDirectBudget) / BigInt(rules.periods) : BigInt(camp.bonus_available);
-        const fromYield = rules.fundingSource === "direct" ? 0n : BigInt(camp.yield_available);
-        const fromBonus = rules.fundingSource === "yield" ? 0n : minBig(BigInt(camp.bonus_available), budgetPerPeriod);
+        const fromYield = 0n; // fixed prizes only
+        const fromBonus = minBig(BigInt(camp.bonus_available), budgetPerPeriod);
         const cap = BigInt(camp.max_operator_reserve_per_period);
         let y = minBig(fromYield, cap);
         let b = minBig(fromBonus, cap - y);
         if (y + b === 0n) {
-          await setState(db, p, "REQUIRES_REVIEW", { blockedReason: cap === 0n ? "Sponsor must reserve funds (operator cap is 0)" : "No realized yield or budget available to reserve" });
+          await setState(db, p, "REQUIRES_REVIEW", { blockedReason: cap === 0n ? "Sponsor must reserve funds (operator cap is 0)" : "No prize available to reserve" });
           await notifySponsor(db, c, "Reward period needs funds", "There are no collected funds available to reserve for this reward period yet.");
           return "nothing to reserve";
         }
@@ -207,12 +192,6 @@ export async function processPeriod(ctx: RewardsCtx, periodId: string): Promise<
     case "FUNDS_RESERVED": {
       const onP = await onchain();
       if (!onP) throw new Error("on-chain period missing");
-      let seed = onP.seed;
-      if (rules.reward.mode === "random_draw" && !seed) {
-        await runOnce(db, ctx.signer, `period:${p.id}:seed`, "record_seed", c.id, vault.contractId, { methodName: "record_seed", args: { campaign_id: vid.toString(), period_id: p.periodNumber }, gasTgas: 20 }, async () => Boolean((await onchain())?.seed));
-        seed = (await onchain())?.seed ?? null;
-        if (!seed) throw new RetryLater(10, "seed not visible yet");
-      }
       const [snap] = await db.select().from(eligibilitySnapshots).where(eq(eligibilitySnapshots.rewardPeriodId, p.id)).limit(1);
       const pool = BigInt(onP.reserved_yield) + BigInt(onP.reserved_bonus);
       const candidates: Candidate[] = snap!.participants.map((x) => ({ accountId: x.accountId, score: BigInt(x.score), completedAt: Date.parse(x.completedAt) }));
@@ -222,7 +201,7 @@ export async function processPeriod(ctx: RewardsCtx, periodId: string): Promise<
         pool,
         candidates,
         { ...rules.reward, perPersonCap: rules.reward.perPersonCap ? BigInt(rules.reward.perPersonCap) : undefined, minPayout: BigInt(rules.reward.minPayout) },
-        { randomSeedHex: seed ?? undefined, selectedAccountIds: winnersByAccount },
+        { selectedAccountIds: winnersByAccount },
       );
       if (result.allocations.length === 0) {
         await setState(db, p, "REQUIRES_REVIEW", { blockedReason: result.blockedReason ?? "No allocations" });
@@ -236,12 +215,12 @@ export async function processPeriod(ctx: RewardsCtx, periodId: string): Promise<
           for (const a of result.allocations) {
             const [row] = await tx
               .insert(rewardAllocations)
-              .values({ rewardPeriodId: p.id, userId: byAccount.get(a.accountId)!, accountId: a.accountId, amount: a.amount, rank: a.rank ?? null, proof: tree.proofs.get(a.accountId)! })
+              .values({ rewardPeriodId: p.id, userId: byAccount.get(a.accountId)!, accountId: a.accountId, amount: a.amount, rank: null, proof: tree.proofs.get(a.accountId)! })
               .returning();
             await tx.insert(rewardClaims).values({ allocationId: row!.id, state: "AVAILABLE" });
           }
         }
-        await tx.update(rewardPeriods).set({ allocationRoot: tree.root, allocatedTotal: result.allocatedTotal, seed }).where(eq(rewardPeriods.id, p.id));
+        await tx.update(rewardPeriods).set({ allocationRoot: tree.root, allocatedTotal: result.allocatedTotal }).where(eq(rewardPeriods.id, p.id));
       });
       if (c.vaultCampaignId !== null) {
         const camp = await vault.campaign(vid);

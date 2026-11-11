@@ -35,7 +35,7 @@ export const slug = z
   .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, "Use lowercase letters, numbers and dashes")
   .refine((s) => !RESERVED_SLUGS.has(s), "That name is reserved");
 
-const RESERVED_SLUGS = new Set(["admin", "api", "yielvy", "organizer", "host", "signin", "me", "help", "support", "official", "team", "staff"]);
+const RESERVED_SLUGS = new Set(["admin", "api", "yielvy", "neardistrict", "near-district", "organizer", "host", "signin", "me", "help", "support", "official", "team", "staff"]);
 
 export const BUILDING_STYLE_IDS = ["workshop", "tower", "market", "atelier", "observatory", "pavilion"] as const;
 

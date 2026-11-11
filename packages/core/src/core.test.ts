@@ -8,8 +8,6 @@ import {
   checkAnswer,
   DISTRICTS,
   eligibilityCommitment,
-  estimateCampaignEconomics,
-  estimateGrossYield,
   evaluateRuleChange,
   formatDisplay,
   formatUnits,
@@ -20,7 +18,6 @@ import {
   plotPosition,
   PLOT_TILES,
   quadrantPlot,
-  selectRandomWinners,
   verifyProof,
   weightedScore,
   withdrawalMachine,
@@ -117,30 +114,6 @@ describe("merkle", () => {
   });
 });
 
-describe("randomness", () => {
-  const seed = "ab".repeat(32);
-  const ids = Array.from({ length: 50 }, (_, i) => `user${i}.near`);
-  it("is deterministic given seed + snapshot and order-independent", () => {
-    const a = selectRandomWinners(seed, ids, 5);
-    expect(selectRandomWinners(seed, [...ids].reverse(), 5)).toEqual(a);
-    expect(new Set(a).size).toBe(5);
-    expect(selectRandomWinners("cd".repeat(32), ids, 5)).not.toEqual(a);
-  });
-  it("returns everyone when fewer participants than winners", () => {
-    expect(selectRandomWinners(seed, ["x", "y"], 5).sort()).toEqual(["x", "y"]);
-  });
-  it("is approximately uniform", () => {
-    const counts = new Map<string, number>();
-    const small = ["a", "b", "c", "d"];
-    for (let i = 0; i < 4000; i++) {
-      const s = i.toString(16).padStart(64, "0");
-      const [w] = selectRandomWinners(s, small, 1);
-      counts.set(w!, (counts.get(w!) ?? 0) + 1);
-    }
-    for (const id of small) expect(Math.abs((counts.get(id) ?? 0) - 1000)).toBeLessThan(150);
-  });
-});
-
 describe("reward allocation", () => {
   const cands: Candidate[] = [
     { accountId: "a", score: 90n, completedAt: 3 },
@@ -166,87 +139,19 @@ describe("reward allocation", () => {
     expect(r.allocatedTotal).toBe(400n);
     expect(r.remainder).toBe(600n);
   });
-  it("ranks top scorers with earliest-completion tie-break", () => {
-    const r = allocateRewards(1000n, cands, {
-      ...base,
-      mode: "top_scorers",
-      winnersCount: 2,
-      rankSharesBps: [6000, 4000],
-    });
-    expect(r.allocations).toEqual([
-      { accountId: "b", amount: 600n, rank: 1 },
-      { accountId: "c", amount: 400n, rank: 2 },
-    ]);
-  });
-  it("splits tied boundary ranks when configured", () => {
-    const r = allocateRewards(1000n, cands, { ...base, mode: "top_scorers", winnersCount: 2, rankSharesBps: [6000, 4000], tieBreak: "split" });
-    expect(r.allocations.find((x) => x.accountId === "b")!.amount).toBe(600n);
-    expect(r.allocations.find((x) => x.accountId === "a")!.amount).toBe(200n);
-    expect(r.allocations.find((x) => x.accountId === "c")!.amount).toBe(200n);
-    expect(r.allocatedTotal).toBeLessThanOrEqual(1000n);
-  });
   it("rejects organizer-selected winners who are not eligible", () => {
     expect(() =>
       allocateRewards(100n, cands, { ...base, mode: "organizer_selected", winnersCount: 2 }, { selectedAccountIds: ["zed"] }),
     ).toThrow(/not eligible/);
     const ok = allocateRewards(100n, cands, { ...base, mode: "organizer_selected", winnersCount: 2 }, { selectedAccountIds: ["d", "a"] });
-    expect(ok.allocations.map((x) => x.accountId)).toEqual(["d", "a"]);
-  });
-  it("random draw requires an on-chain seed", () => {
-    expect(() => allocateRewards(100n, cands, { ...base, mode: "random_draw", winnersCount: 2 })).toThrow(/seed/);
-    const r = allocateRewards(100n, cands, { ...base, mode: "random_draw", winnersCount: 2 }, { randomSeedHex: "11".repeat(32) });
-    expect(r.allocations).toHaveLength(2);
-    expect(r.allocatedTotal).toBe(100n);
+    expect(ok.allocations).toEqual([
+      { accountId: "a", amount: 50n },
+      { accountId: "d", amount: 50n },
+    ]);
   });
   it("limits to max qualified by completion order", () => {
     const r = allocateRewards(30n, cands, { ...base, maxQualified: 3 });
     expect(r.allocations.map((x) => x.accountId).sort()).toEqual(["a", "b", "c"]);
-  });
-});
-
-describe("economics", () => {
-  it("matches the $1,000 at 5% sanity check (~$0.137/day)", () => {
-    const perDay = estimateGrossYield(1_000_000_000n, "0.05", 86_400n);
-    expect(perDay).toBe(136_986n); // 0.136986 USDC
-  });
-  it("warns when settlement costs exceed yield", () => {
-    const r = estimateCampaignEconomics({
-      principal: 100_000_000n, // 100 USDC
-      tokenDecimals: 6,
-      observedSupplyApr: "0.05",
-      durationSeconds: 7n * 86_400n,
-      periods: 7,
-      platformFeeBps: 0,
-      safetyBufferBps: 50,
-      settlementCostPerPeriod: 20_000n, // 0.02 USDC per settlement
-      crossChainFee: 0n,
-      directRewardBudget: 0n,
-      minPayout: 100_000n,
-      winnersPerPeriod: 1,
-    });
-    expect(r.viable).toBe(false);
-    expect(r.warnings.join(" ")).toMatch(/does not cover/);
-    expect(r.breakEvenSeconds).not.toBeNull();
-  });
-  it("direct budget makes small campaigns viable without calling it yield", () => {
-    const r = estimateCampaignEconomics({
-      principal: 0n,
-      tokenDecimals: 6,
-      observedSupplyApr: "0.05",
-      durationSeconds: 86_400n,
-      periods: 1,
-      platformFeeBps: 0,
-      safetyBufferBps: 0,
-      settlementCostPerPeriod: 0n,
-      crossChainFee: 0n,
-      directRewardBudget: 50_000_000n,
-      minPayout: 1_000_000n,
-      winnersPerPeriod: 5,
-    });
-    expect(r.grossYield).toBe(0n);
-    expect(r.directBudgetPerPeriod).toBe(50_000_000n);
-    expect(r.rewardPerWinnerPerPeriod).toBe(10_000_000n);
-    expect(r.viable).toBe(true);
   });
 });
 
@@ -275,7 +180,7 @@ describe("campaign rule versioning", () => {
     expect(d).toMatchObject({ allowed: true, requiresNotice: true });
   });
   it("blocks material changes after participants joined", () => {
-    const d = evaluateRuleChange(rules, { ...rules, reward: { ...rules.reward, mode: "random_draw" } }, 1, false);
+    const d = evaluateRuleChange(rules, { ...rules, reward: { ...rules.reward, mode: "organizer_selected" } }, 1, false);
     expect(d.allowed).toBe(false);
   });
   it("blocks every rule change after the deadline", () => {

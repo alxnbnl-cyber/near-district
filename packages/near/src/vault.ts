@@ -1,4 +1,4 @@
-/** Typed reads of the Yielvy vault contract and NEP-297 event parsing. */
+/** Typed reads of the NEAR District vault contract and NEP-297 event parsing. */
 import type { NearRpc } from "./rpc";
 
 export interface VaultCampaign {

@@ -22,7 +22,7 @@ export interface CampaignRules {
   };
   reward: Omit<RewardConfig, "perPersonCap" | "minPayout"> & { perPersonCap?: string; minPayout: string };
   /** "none" = no token rewards (clearly labelled); otherwise funded through the vault. */
-  fundingSource: "none" | "yield" | "direct" | "both";
+  fundingSource: "none" | "direct";
   periods: number;
   judgingCriteria?: JudgingCriterion[];
   questionCount?: number;
@@ -54,7 +54,6 @@ export function diffRules(prev: CampaignRules, next: CampaignRules): RuleChange[
   if (r0.winnersCount !== r1.winnersCount) {
     add("reward.winnersCount", r1.winnersCount > r0.winnersCount ? "beneficial" : "material", "Number of winners changed");
   }
-  if (JSON.stringify(r0.rankSharesBps ?? null) !== JSON.stringify(r1.rankSharesBps ?? null)) add("reward.rankSharesBps", "material", "Prize split changed");
   if (r0.tieBreak !== r1.tieBreak) add("reward.tieBreak", "material", "Tie-break rule changed");
   if (r0.perPersonCap !== r1.perPersonCap) add("reward.perPersonCap", "material", "Per-person cap changed");
   if (r0.minPayout !== r1.minPayout) add("reward.minPayout", "material", "Minimum payout changed");

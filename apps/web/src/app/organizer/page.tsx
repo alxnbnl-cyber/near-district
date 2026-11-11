@@ -58,7 +58,7 @@ export default async function OwnerHome() {
       waiting: !approved,
     },
     { icon: "host", title: "Create a mission", body: "Clues, partners and dates", done: camps.length > 0, locked, action: { href: "/organizer/campaigns/new", label: "Create mission" } },
-    { icon: "earn", title: "Fund the reward", body: "Your deposit stays yours", done: funded, locked, action: { href: "/organizer/funding", label: "Fund reward" } },
+    { icon: "earn", title: "Fund the reward", body: "Locked in the vault for players", done: funded, locked, action: { href: "/organizer/funding", label: "Fund reward" } },
     { icon: "explore", title: "Go live", body: "Your pin lights up", done: onMap > 0, locked, action: { href: "/organizer/campaigns", label: "Publish" } },
   ];
   const current = steps.findIndex((x) => !x.done && !x.optional);

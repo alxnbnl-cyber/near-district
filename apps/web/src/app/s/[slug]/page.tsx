@@ -84,7 +84,7 @@ export default async function SpacePage({ params }: { params: Promise<{ slug: st
                   ))}
                   {!space.websiteUrl && socials.length === 0 && <li className="text-ink-3">No links shared.</li>}
                 </ul>
-                <p className="mt-3 text-[12px] text-ink-3">External links are provided by the organizer. Yielvy doesn't vouch for them.</p>
+                <p className="mt-3 text-[12px] text-ink-3">External links are provided by the organizer. NEAR District doesn't vouch for them.</p>
               </Card>
             </aside>
           </div>

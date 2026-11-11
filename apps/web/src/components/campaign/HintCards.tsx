@@ -12,9 +12,7 @@ export interface HintRequirement {
   label: string;
   type: string;
   category: string;
-  verification: "automatic" | "onchain" | "manual" | "app";
-  appOrgId?: string | null;
-  chainFamily?: "near" | "evm" | "solana" | null;
+  verification: "automatic" | "onchain" | "manual";
   provider: { orgName: string; spaceSlug: string | null; spaceName: string | null };
   target: { spaceSlug: string; campaignSlug: string; title: string } | null;
   status: "TODO" | "PENDING_VERIFICATION" | "UNDER_REVIEW" | "VERIFIED" | "FAILED";
@@ -55,7 +53,7 @@ const REQ_STATUS: Record<HintRequirement["status"], { label: string; cls: string
   FAILED: { label: "Not verified", cls: "text-danger" },
 };
 
-const VERIFY_LABEL = { automatic: "Checked instantly", onchain: "Checked on chain", manual: "Approved by the project team", app: "Confirmed by their app" };
+const VERIFY_LABEL = { automatic: "Checked instantly", onchain: "Checked on NEAR", manual: "Approved by the project team" };
 
 function LockIcon({ open }: { open: boolean }) {
   return (
@@ -212,13 +210,12 @@ function Requirement({ r, busy, returnTo, onVerify }: { r: HintRequirement; busy
           {r.verification === "onchain" && (
             <div className="flex flex-col gap-2 sm:flex-row">
               <label className="sr-only" htmlFor={`tx-${r.id}`}>Transaction hash</label>
-              <input id={`tx-${r.id}`} className={`${inputClass} font-mono text-[12.5px]`} placeholder={r.chainFamily === "evm" ? "EVM transaction hash (0x…)" : r.chainFamily === "solana" ? "Solana transaction signature" : "NEAR transaction hash"} value={tx} maxLength={100} onChange={(e) => setTx(e.target.value.trim())} />
+              <input id={`tx-${r.id}`} className={`${inputClass} font-mono text-[12.5px]`} placeholder="NEAR transaction hash" value={tx} maxLength={64} onChange={(e) => setTx(e.target.value.trim())} />
               <Button size="md" disabled={busy !== null || tx.length < 43} onClick={() => onVerify({ txHash: tx })}>
                 {busy === r.id ? "Checking chain…" : "Verify activity"}
               </Button>
             </div>
           )}
-          {r.verification === "app" && r.appOrgId && <AppEventStep orgId={r.appOrgId} orgName={r.provider.spaceName ?? r.provider.orgName} busy={busy === r.id} onCheck={() => onVerify({})} />}
           {r.verification === "manual" && r.status !== "UNDER_REVIEW" && (
             <>
               {r.instructions && r.instructions !== r.label && <p className="text-[13px] text-ink-2">{r.instructions}</p>}
@@ -253,39 +250,3 @@ function Requirement({ r, busy, returnTo, onVerify }: { r: HintRequirement; busy
   );
 }
 
-/** Partner app event: get a one-time code, enter it in the company's app, then check. */
-function AppEventStep({ orgId, orgName, busy, onCheck }: { orgId: string; orgName: string; busy: boolean; onCheck(): void }) {
-  const [code, setCode] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  return (
-    <div className="flex flex-col gap-2">
-      {code ? (
-        <p className="text-[13px] text-ink-2">
-          Enter <span className="select-all rounded bg-paper-2 px-2 py-0.5 font-mono text-[14px] font-bold tracking-[0.12em] text-ink">{code}</span> in {orgName}&apos;s app, then check.
-        </p>
-      ) : (
-        <Button
-          size="sm"
-          variant="secondary"
-          className="self-start"
-          onClick={async () => {
-            setErr(null);
-            try {
-              setCode((await api<{ code: string }>("/api/partner/link-code", { method: "POST", body: { organizationId: orgId } })).code);
-            } catch (e) {
-              setErr(e instanceof ApiError ? e.message : "Couldn't get a code.");
-            }
-          }}
-        >
-          Get my code
-        </Button>
-      )}
-      {code && (
-        <Button size="sm" className="self-start" disabled={busy} onClick={onCheck}>
-          {busy ? "Checking…" : "Check"}
-        </Button>
-      )}
-      {err && <p className="text-[12.5px] text-danger">{err}</p>}
-    </div>
-  );
-}

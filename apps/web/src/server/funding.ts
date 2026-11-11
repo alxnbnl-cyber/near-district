@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { and, campaigns, chainTransactions, eq, fundingOrders, withdrawalRequests, type Db } from "@yielvy/db";
 import { fundingMachine, parseUnits, type FundingState } from "@yielvy/core";
-import { allLogs, parseVaultEvents, supportedOrigins, txSucceeded, type NearRpc, type OneClickClient, type VaultEvent } from "@yielvy/near";
+import { allLogs, parseVaultEvents, txSucceeded, type NearRpc, type VaultEvent } from "@yielvy/near";
 import { audit } from "./audit";
 import { badRequest, conflict, forbidden, HttpError } from "./http";
 import type { SessionUser } from "./session";
@@ -161,60 +161,6 @@ export async function confirmDeposit(db: Db, rpc: NearRpc, network: string, vaul
 }
 
 // ------------------------------------------------------------------ cross-chain (NEAR Intents 1Click)
-
-export async function crossChainOrigins(oc: OneClickClient, destinationAssetId: string) {
-  return supportedOrigins(await oc.tokens(), destinationAssetId);
-}
-
-/**
- * Real 1Click quote delivering USDC to the ORGANIZER's own NEAR account (never straight into the
- * vault, which only accepts attributed ft_transfer_call deposits). `dry` quotes move nothing.
- */
-export async function quoteCrossChain(
-  db: Db,
-  oc: OneClickClient,
-  user: SessionUser,
-  campaign: typeof campaigns.$inferSelect,
-  input: { originAssetId: string; amount: bigint; refundTo: string; destinationAssetId: string; tokenId: string; dry: boolean },
-) {
-  const sponsor = requireSponsor(user);
-  const origins = await crossChainOrigins(oc, input.destinationAssetId);
-  if (!origins.some((o) => o.assetId === input.originAssetId)) throw badRequest("That source asset isn't a supported route right now.");
-  const q = await oc.quote({
-    dry: input.dry,
-    originAsset: input.originAssetId,
-    destinationAsset: input.destinationAssetId,
-    amount: input.amount,
-    refundTo: input.refundTo,
-    recipient: sponsor,
-    slippageBps: 50,
-    deadline: new Date(Date.now() + 30 * 60_000),
-  });
-  if (input.dry) return { dry: true as const, quote: q.quote, signature: q.signature };
-  if (!q.quote.depositAddress) throw new HttpError(502, "1Click did not return a deposit address.");
-  const [order] = await db
-    .insert(fundingOrders)
-    .values({
-      campaignId: campaign.id,
-      organizerUserId: user.userId,
-      kind: "bonus",
-      route: "intents",
-      state: "QUOTED",
-      tokenId: input.tokenId,
-      amount: BigInt(q.quote.minAmountOut),
-      sponsorAccountId: sponsor,
-      intentsQuote: q,
-      intentsDepositAddress: q.quote.depositAddress,
-      intentsOriginAsset: input.originAssetId,
-      expiresAt: q.quote.deadline ? new Date(q.quote.deadline) : new Date(Date.now() + 30 * 60_000),
-      idempotencyKey: randomUUID(),
-    })
-    .returning();
-  await audit(db, { actorUserId: user.userId, action: "funding.intents_quoted", targetType: "funding_order", targetId: order!.id, metadata: { depositAddress: q.quote.depositAddress, signature: q.signature } });
-  return { dry: false as const, orderId: order!.id, quote: q.quote, signature: q.signature };
-}
-
-// ------------------------------------------------------------------ sponsor exit
 
 export function planExit(user: SessionUser, vaultId: string, campaign: typeof campaigns.$inferSelect, step: "wind_down" | "redeem" | "withdraw", amounts: { principal: bigint; yield: bigint; bonus: bigint }): TxPlan {
   const sponsor = requireSponsor(user);

@@ -1,5 +1,5 @@
 /**
- * Yielvy City v3 — one fixed, original, fictional city in a game-map style:
+ * NEAR District city v3 — one fixed, original, fictional city in a game-map style:
  * organic street network, filled city blocks with building footprints, parks, a branching
  * river, a coastline with piers and islands. No districts and no central hub: Spaces are
  * scattered across the whole city.

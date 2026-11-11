@@ -7,7 +7,6 @@
 import { getNetwork, primaryToken, formatDisplay } from "@yielvy/core";
 import { NearRpc } from "./rpc";
 import { RheaClient, utilizationBps, withdrawableLiquidity } from "./rhea";
-import { OneClickClient, supportedOrigins } from "./intents";
 
 const networkId = process.argv.includes("--network") ? process.argv[process.argv.indexOf("--network") + 1] : "mainnet";
 const net = getNetwork(networkId);
@@ -42,28 +41,6 @@ const bounds = await rpc.view<{ min: string }>(net.rheaLendingContract, "storage
 console.log(`INFO  RHEA storage min ${bounds.min} yocto`);
 const ftBounds = await rpc.view<{ min: string }>(token.contractId, "storage_balance_bounds");
 check(BigInt(ftBounds.min) === token.storageDepositYocto, "token storage deposit matches allowlist", ftBounds.min);
-
-if (networkId === "mainnet") {
-  const oc = new OneClickClient({ jwt: process.env.ONE_CLICK_JWT });
-  const tokens = await oc.tokens();
-  check(tokens.some((t) => t.assetId === token.intentsAssetId), "1Click lists the NEAR destination asset");
-  const origins = supportedOrigins(tokens, token.intentsAssetId);
-  console.log(`INFO  1Click USDC origin chains: ${origins.map((o) => o.blockchain).join(", ")}`);
-  const base = origins.find((o) => o.blockchain === "base");
-  if (base) {
-    const q = await oc.quote({
-      dry: true,
-      originAsset: base.assetId,
-      destinationAsset: token.intentsAssetId,
-      amount: 5_000_000n,
-      refundTo: "0x1111111111111111111111111111111111111111",
-      recipient: net.rheaLendingContract, // any valid NEAR account; dry quote moves nothing
-      slippageBps: 50,
-      deadline: new Date(Date.now() + 30 * 60_000),
-    });
-    check(BigInt(q.quote.amountOut) > 0n, "1Click dry quote base USDC -> NEAR USDC", `${q.quote.amountIn} -> ${q.quote.amountOut}`);
-  }
-}
 
 if (failures.length) {
   console.error(`\n${failures.length} check(s) failed`);

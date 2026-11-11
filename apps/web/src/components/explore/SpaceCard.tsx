@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import type { WorldBuildingData } from "@/world/types";
 import { frame, plate } from "./frame";
-import { LiveReward, formatRate, rewardRate } from "./LiveReward";
+import { LiveReward } from "./LiveReward";
 import { IconClose } from "./icons";
 
 const INK = "rgb(214 219 225";
@@ -17,7 +17,6 @@ export function SpaceCard({ b, onClose, onPlay, className = "" }: { b: WorldBuil
   const f = b.featured;
   const hunt = f?.template === "treasure_hunt";
   const prize = b.topPrize ?? f?.prize ?? null;
-  const rate = prize ? rewardRate(prize).perDay : null;
   return (
     <aside aria-label={b.name} className={`yv-pop overflow-hidden bg-[rgb(5_7_10/.88)] font-mono backdrop-blur-xl ${className}`} style={frame(14, `${INK} / .16)`)}>
       <div className="flex items-stretch">
@@ -52,7 +51,6 @@ export function SpaceCard({ b, onClose, onPlay, className = "" }: { b: WorldBuil
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-reward">Treasure · up to</p>
                 <LiveReward prize={prize} className="font-display text-[24px] font-bold leading-tight text-reward" tailClassName="text-[14px] opacity-50" />
               </div>
-              <span className="pb-1 text-[10.5px] font-bold text-mint-ink">{rate !== null ? formatRate(rate, prize.symbol) : ""}</span>
             </div>
           )}
           <div className="flex items-center gap-2 p-3">

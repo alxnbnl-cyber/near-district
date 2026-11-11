@@ -11,9 +11,8 @@ export const TEMPLATES = {
 const intStr = z.string().regex(/^\d+$/, "Whole token units only");
 
 export const rewardConfigInput = z.object({
-  mode: z.enum(["equal", "top_scorers", "organizer_selected", "random_draw"]),
+  mode: z.enum(["equal", "organizer_selected"]),
   winnersCount: z.number().int().min(1).max(10_000),
-  rankSharesBps: z.array(z.number().int().min(0).max(10_000)).max(50).optional(),
   perPersonCap: intStr.optional(),
   minPayout: intStr.default("0"),
   tieBreak: z.enum(["earliest_completion", "split"]).default("earliest_completion"),
@@ -34,7 +33,7 @@ export const rulesInput = z.object({
     maxParticipants: z.number().int().min(1).max(1_000_000).optional(),
     blockedJurisdictions: z.array(z.string().length(2).toUpperCase()).max(250).default([]),
   }),
-  fundingSource: z.enum(["none", "yield", "direct", "both"]),
+  fundingSource: z.enum(["none", "direct"]),
   reward: rewardConfigInput,
   periods: z.number().int().min(1).max(365).default(1),
   judgingCriteria: z.array(criterionInput).max(8).optional(),

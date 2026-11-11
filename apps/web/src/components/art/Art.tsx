@@ -1,5 +1,5 @@
 /**
- * Yielvy illustration set — flat, gradient-lit, navy outlines, brand palette only
+ * NEAR District illustration set — flat, gradient-lit, navy outlines, brand palette only
  * (orange #FF9138, gold #FFC24B, cyan #32C8EF, violet for creative). Pure SVG, so it scales and
  * themes cleanly. Replace with commissioned art later (prompts in docs/assets/illustration-prompts.md).
  */

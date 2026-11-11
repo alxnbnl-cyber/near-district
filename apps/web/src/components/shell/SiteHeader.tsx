@@ -10,7 +10,7 @@ export async function SiteHeader({ mobileRow = true }: { mobileRow?: boolean }) 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-[#090b10f2] backdrop-blur">
       <div className="mx-auto flex h-[60px] max-w-[1600px] items-center gap-3 px-3 sm:px-5">
-        <Link href="/explore" className="shrink-0 rounded-md px-1" aria-label="Yielvy — explore">
+        <Link href="/explore" className="shrink-0 rounded-md px-1" aria-label="NEAR District — explore">
           <Logo size={20} />
         </Link>
         <NavLinks />

@@ -26,8 +26,6 @@ import {
   treasureHints,
   treasureQuestions,
   walletConnections,
-  externalWallets,
-  partnerEvents,
 } from "./schema";
 
 export class HintEngineError extends Error {
@@ -54,8 +52,7 @@ export interface EngineDeps {
 }
 
 export const MAX_PENDING_ATTEMPTS = 60;
-const ONCHAIN_TYPES = new Set(["near_rhea_swap", "near_rhea_lending_supply", "near_stake", "evm_contract_interaction", "solana_program_interaction"]);
-const familyOf = (t: string) => (t === "evm_contract_interaction" ? "evm" : t === "solana_program_interaction" ? "solana" : "near");
+const ONCHAIN_TYPES = new Set(["near_rhea_swap", "near_rhea_lending_supply", "near_stake"]);
 
 type HintRow = typeof treasureHints.$inferSelect;
 type CampaignRow = typeof campaigns.$inferSelect;
@@ -118,17 +115,7 @@ async function liveTarget(db: Db | Tx, campaignId: string): Promise<CampaignRow 
 }
 
 /** InternalCampaignVerifier / InternalQuizVerifier / question sequence / contest entry. */
-export async function verifyInternal(db: Db | Tx, userId: string, a: ActivityDef, ownerOrgId?: string): Promise<InternalResult> {
-  if (a.type === "partner_api_event") {
-    if (!ownerOrgId) return { ok: false, reason: "no_event_yet" };
-    const [ev] = await db
-      .select({ id: partnerEvents.id, at: partnerEvents.createdAt })
-      .from(partnerEvents)
-      .where(and(eq(partnerEvents.userId, userId), eq(partnerEvents.organizationId, ownerOrgId), eq(partnerEvents.eventType, a.eventType)))
-      .limit(1);
-    if (!ev) return { ok: false, reason: "no_event_yet" };
-    return { ok: true, evidenceRef: `partner-event:${ev.id}`, evidence: { eventType: a.eventType, organizationId: ownerOrgId }, at: ev.at };
-  }
+export async function verifyInternal(db: Db | Tx, userId: string, a: ActivityDef): Promise<InternalResult> {
   if (a.type === "meteor_wallet_signin") {
     const [w] = await db
       .select({ id: walletConnections.id, at: walletConnections.verifiedAt, account: walletConnections.accountId })
@@ -320,7 +307,7 @@ export async function requestVerification(db: Db, deps: EngineDeps, req: VerifyR
   }
 
   // Internal activities: checked against our own tables.
-  const r = await verifyInternal(db, req.userId, a, leaf.ownerOrgId);
+  const r = await verifyInternal(db, req.userId, a);
   const [row] = await db
     .insert(activityVerifications)
     .values({ ...base, status: r.ok ? "verified" : "failed", reasonCode: r.ok ? null : r.reason, attempts: 1 })
@@ -350,16 +337,10 @@ export async function processVerification(db: Db, deps: EngineDeps, verification
     return { status: "failed" as const, reason, unlocked: false };
   };
   if (!leaf || !ONCHAIN_TYPES.has(leaf.activity.type)) return fail("requirement_changed");
-  const family = familyOf(leaf.activity.type);
-  if (family === "near") {
-    const actNet = (leaf.activity as { network?: string }).network ?? "mainnet";
-    if (deps.walletNetwork !== actNet) return fail("network_mismatch");
-  }
+  const actNet = (leaf.activity as { network?: string }).network ?? "mainnet";
+  if (deps.walletNetwork !== actNet) return fail("network_mismatch");
   if (!deps.onchain) return fail("onchain_verifier_unavailable");
-  const wallets =
-    family === "near"
-      ? (await db.select({ a: walletConnections.accountId }).from(walletConnections).where(and(eq(walletConnections.userId, v.userId), eq(walletConnections.network, deps.walletNetwork)))).map((w) => w.a)
-      : (await db.select({ a: externalWallets.address }).from(externalWallets).where(and(eq(externalWallets.userId, v.userId), eq(externalWallets.chain, family)))).map((w) => w.a);
+  const wallets = (await db.select({ a: walletConnections.accountId }).from(walletConnections).where(and(eq(walletConnections.userId, v.userId), eq(walletConnections.network, deps.walletNetwork)))).map((w) => w.a);
   if (!wallets.length) return fail("no_verified_wallet");
   const [c] = await db.select().from(campaigns).where(eq(campaigns.id, v.campaignId)).limit(1);
   if (!c) return fail("campaign_missing");
@@ -390,8 +371,8 @@ export async function processVerification(db: Db, deps: EngineDeps, verification
         leafId: leaf.id,
         verificationId: v.id,
         provider: ev.provider,
-        evidenceRef: `${family}:${ev.network}:${ev.txHash}:${ev.receiptId}`,
-        exclusiveRef: `${family}:${ev.network}:${ev.txHash}`,
+        evidenceRef: `near:${ev.network}:${ev.txHash}:${ev.receiptId}`,
+        exclusiveRef: `near:${ev.network}:${ev.txHash}`,
         evidence: ev,
         amount: BigInt(ev.amount),
         now,
