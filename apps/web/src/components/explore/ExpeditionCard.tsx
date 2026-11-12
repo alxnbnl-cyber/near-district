@@ -48,7 +48,7 @@ export function ExpeditionCard({ route, onClose, onChapter }: { route: WorldRout
                 </span>
               </button>
               {c.unlocked && !c.completed && (
-                <Link href={`/s/${c.spaceSlug}/c/${c.campaignSlug}`} className={buttonClass(c === next ? "primary" : "dark", "sm")}>
+                <Link href={`/explore?m=${c.spaceSlug}%2F${c.campaignSlug}`} className={buttonClass(c === next ? "primary" : "dark", "sm")}>
                   Open
                 </Link>
               )}

@@ -110,7 +110,7 @@ export function Onboarding({ hasWallet, walletAccount }: { hasWallet: boolean; w
             <Field label="Company name" htmlFor="name" error={errors.name ?? errors.organizationName}>
               <input id="name" className={`${inputClass} h-12 text-[16px]`} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Lantern Labs" />
             </Field>
-            <Field label="Link" htmlFor="slug" error={errors.slug} hint={`neardistrict.app/s/${form.slug || "your-company"}`}>
+            <Field label="Link" htmlFor="slug" error={errors.slug} hint={`neardistrict.app/explore?space=${form.slug || "your-company"}`}>
               <input
                 id="slug"
                 className={inputClass}

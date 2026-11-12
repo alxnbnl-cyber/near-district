@@ -1,0 +1,1 @@
+ALTER TABLE "participant_entries" ADD COLUMN "demo_ended_at" timestamp with time zone;

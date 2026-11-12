@@ -23,7 +23,7 @@ export default async function MyVaultPage() {
           <h1 className="mt-1 text-[30px] font-bold tracking-[-0.02em]">How explorers see you</h1>
         </div>
         {s.moderation === "approved" && (
-          <Link href={`/s/${s.slug}`} className={buttonClass("secondary", "sm")}>
+          <Link href={`/explore?space=${s.slug}`} className={buttonClass("secondary", "sm")}>
             View on the map
           </Link>
         )}

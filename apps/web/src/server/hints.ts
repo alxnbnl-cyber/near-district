@@ -131,10 +131,10 @@ export async function saveHint(db: Db, user: SessionUser, c: CampaignRow, input:
   const [q] = await db.select({ id: treasureQuestions.id, position: treasureQuestions.position }).from(treasureQuestions).where(and(eq(treasureQuestions.id, input.questionId), eq(treasureQuestions.campaignId, c.id))).limit(1);
   if (!q) throw notFound("Question not found.");
   const unlock = input.unlock ? await normalizeRule(db, c, input.unlock) : null;
-  // partners are linked on the second secret only
+  // partners are linked on the second and third secrets only
   if (unlock && leaves(unlock).some((l) => "partner" in l.activity && l.activity.partner)) {
     const earlier = await db.select({ id: treasureQuestions.id }).from(treasureQuestions).where(and(eq(treasureQuestions.campaignId, c.id), lt(treasureQuestions.position, q.position)));
-    if (earlier.length !== 1) throw badRequest("A partner can only be linked on the second secret.");
+    if (earlier.length !== 1 && earlier.length !== 2) throw badRequest("A partner can only be linked on the second or third secret.");
   }
   const availableFrom = input.availableFrom ? new Date(input.availableFrom) : null;
   const availableUntil = input.availableUntil ? new Date(input.availableUntil) : null;

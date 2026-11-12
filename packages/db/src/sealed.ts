@@ -15,6 +15,27 @@ export async function finalizeSealedHunt(db: Db, campaignId: string, now = new D
   const questions = await db.select({ id: treasureQuestions.id, difficulty: treasureQuestions.difficulty }).from(treasureQuestions).where(eq(treasureQuestions.campaignId, c.id));
   if (!questions.length) return { scored: 0, qualified: 0 };
   const entries = await db.select().from(participantEntries).where(and(eq(participantEntries.campaignId, c.id), eq(participantEntries.status, "in_progress")));
+  return scoreEntries(db, c.id, questions, entries, now);
+}
+
+/**
+ * Local demo only: scores ONE player's sealed answers now, as if the deadline had passed for them.
+ * The mission stays live for everyone else.
+ */
+export async function finalizeSealedEntry(db: Db, campaignId: string, entryId: string, now = new Date()): Promise<{ scored: number; qualified: number }> {
+  const questions = await db.select({ id: treasureQuestions.id, difficulty: treasureQuestions.difficulty }).from(treasureQuestions).where(eq(treasureQuestions.campaignId, campaignId));
+  if (!questions.length) return { scored: 0, qualified: 0 };
+  const entries = await db.select().from(participantEntries).where(and(eq(participantEntries.id, entryId), eq(participantEntries.campaignId, campaignId), eq(participantEntries.status, "in_progress")));
+  return scoreEntries(db, campaignId, questions, entries, now);
+}
+
+async function scoreEntries(
+  db: Db,
+  campaignId: string,
+  questions: { id: string; difficulty: number }[],
+  entries: (typeof participantEntries.$inferSelect)[],
+  now: Date,
+): Promise<{ scored: number; qualified: number }> {
   if (!entries.length) return { scored: 0, qualified: 0 };
   const answers = await db
     .select({ entryId: sealedAnswers.entryId, questionId: sealedAnswers.questionId, correct: sealedAnswers.correct, updatedAt: sealedAnswers.updatedAt })
@@ -34,7 +55,7 @@ export async function finalizeSealedHunt(db: Db, campaignId: string, now = new D
         .set({ score, progress: mine.length, ...(perfect ? { status: "completed" as const, completedAt: lastSaved ?? now } : {}) })
         .where(and(eq(participantEntries.id, e.id), eq(participantEntries.status, "in_progress")));
       if (perfect) {
-        await tx.insert(qualifications).values({ campaignId: c.id, userId: e.userId, score, status: "qualified", qualifiedAt: now }).onConflictDoNothing();
+        await tx.insert(qualifications).values({ campaignId, userId: e.userId, score, status: "qualified", qualifiedAt: now }).onConflictDoNothing();
       }
     });
     if (perfect) qualified++;

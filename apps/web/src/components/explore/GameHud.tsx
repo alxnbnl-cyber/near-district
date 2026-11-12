@@ -24,7 +24,7 @@ export function StatusBar({ viewer, live }: { viewer: ViewerStats | null; live: 
         <IconTrophy size={18} className="text-gold" />
         <div>
           <p className={label} style={{ color: `${INK} / .5)` }}>Rewards earned</p>
-          <p className="font-display text-[16px] font-bold leading-tight text-reward">{viewer ? `${viewer.rewardsClaimed} ${viewer.symbol}` : "—"}</p>
+          <p className="font-display text-[16px] font-bold leading-tight text-reward">{viewer ? `${viewer.rewardsClaimed} USD` : "—"}</p>
         </div>
       </div>
       <div className={chip} style={frame(9, `${INK} / .18)`)}>
@@ -34,7 +34,7 @@ export function StatusBar({ viewer, live }: { viewer: ViewerStats | null; live: 
         </svg>
         <div>
           <p className={label} style={{ color: `${INK} / .5)` }}>Missions done</p>
-          <p className="font-display text-[16px] font-bold leading-tight text-ink">{viewer ? `${viewer.missionsCompleted} / ${viewer.missionsStarted}` : "—"}</p>
+          <p className="font-display text-[16px] font-bold leading-tight text-ink">{viewer ? `${viewer.missionsCompleted}` : "—"}</p>
         </div>
       </div>
       <div className={chip} style={frame(9, `${INK} / .18)`)}>

@@ -230,7 +230,7 @@ function Requirement({ r, busy, returnTo, onVerify }: { r: HintRequirement; busy
           )}
           <div className="flex flex-wrap gap-2">
             {r.target && (
-              <Link href={`/s/${r.target.spaceSlug}/c/${r.target.campaignSlug}`} className={buttonClass("secondary", "sm")}>
+              <Link href={`/explore?m=${r.target.spaceSlug}%2F${r.target.campaignSlug}`} className={buttonClass("secondary", "sm")}>
                 Open “{r.target.title}”
               </Link>
             )}

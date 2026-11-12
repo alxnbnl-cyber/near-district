@@ -93,7 +93,7 @@ const STEPS: Record<Side, Step[]> = {
       icon: ICON.host,
       tag: "Mission",
       title: "Design a mission",
-      body: "Pick a format (a treasure hunt or a creative challenge), write the brief and set the dates. Hide secrets, add a hint players unlock with an on-chain activity, and optionally link a partner on the second secret.",
+      body: "Pick a format (a treasure hunt or a creative challenge), write the brief and set the dates. Hide secrets, add a hint players unlock with an on-chain activity, and optionally link partners on the second and third secrets.",
       objectives: ["Choose hunt or challenge", "Hide secrets and hints", "Schedule start and end"],
     },
     {

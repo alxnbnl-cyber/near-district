@@ -1,5 +1,6 @@
 import "server-only";
-import { and, campaigns, campaignVersions, count, desc, eq, inArray, organizations, participantEntries, rewardAllocations, rewardClaims, spaces, vaultPositions, worldBuildings } from "@yielvy/db";
+import { and, campaigns, campaignVersions, count, desc, eq, inArray, organizations, participantEntries, rewardAllocations, rewardClaims, spaces, treasureHints, vaultPositions, worldBuildings } from "@yielvy/db";
+import { leaves, type RuleNode } from "@yielvy/core";
 import { formatDisplay } from "@yielvy/core";
 import { token } from "./near";
 import { demoEnabled, demoLogo, demoPrize } from "./demo";
@@ -8,7 +9,7 @@ import type { CampaignRules } from "@yielvy/core";
 import { db } from "./db";
 import { effectiveStatus } from "./campaigns";
 import { publicExpeditions } from "./expeditions";
-import type { ActivityFlag, FeaturedCampaign, MarkerKind, Prize, WorldBuildingData, WorldData, WorldExperience } from "@/world/types";
+import type { ActivityFlag, FeaturedCampaign, MarkerKind, Prize, WorldBuildingData, WorldData, WorldExperience, WorldLink } from "@/world/types";
 
 const NEW_WINDOW_MS = 14 * 86_400_000;
 const ENDING_WINDOW_MS = 72 * 3_600_000;
@@ -24,6 +25,7 @@ export async function getWorldData(viewerId: string | null = null): Promise<Worl
       tagline: spaces.tagline,
       category: spaces.category,
       logoUploadId: spaces.logoUploadId,
+      websiteUrl: spaces.websiteUrl,
       createdAt: spaces.createdAt,
       districtId: worldBuildings.districtId,
       plotIndex: worldBuildings.plotIndex,
@@ -138,6 +140,33 @@ export async function getWorldData(viewerId: string | null = null): Promise<Worl
   const playable = buildings.filter((b) => b.liveCampaigns + b.upcomingCampaigns > 0);
   const visible = new Set(playable.map((b) => b.spaceId));
   const routes = (await publicExpeditions(database, viewerId)).filter((r) => r.chapters.every((c) => visible.has(c.spaceId)));
+  // Cooperation lines: a live mission whose hint links a partner that is also on the map.
+  const hostOf = (u: string | null | undefined) => {
+    try {
+      return u ? new URL(u).hostname.replace(/^(www|app|wallet)\./, "") : null;
+    } catch {
+      return null;
+    }
+  };
+  const liveIds = experiences.filter((e) => visible.has(e.spaceId)).map((e) => e.id);
+  const hintRows = liveIds.length ? await database.select({ campaignId: treasureHints.campaignId, unlock: treasureHints.unlock }).from(treasureHints).where(inArray(treasureHints.campaignId, liveIds)) : [];
+  const ownerOf = new Map(experiences.map((e) => [e.id, e.spaceId]));
+  const seen = new Set<string>();
+  const links: WorldLink[] = [];
+  for (const hr of hintRows) {
+    if (!hr.unlock) continue;
+    for (const l of leaves(hr.unlock as RuleNode)) {
+      const p = (l.activity as { partner?: { name: string; url: string } }).partner;
+      if (!p) continue;
+      const target = rows.find((r) => visible.has(r.spaceId) && (r.name.toLowerCase() === p.name.toLowerCase() || (hostOf(r.websiteUrl) && hostOf(r.websiteUrl) === hostOf(p.url))));
+      const from = ownerOf.get(hr.campaignId);
+      if (!target || !from || target.spaceId === from) continue;
+      const key = [from, target.spaceId].sort().join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      links.push({ from, to: target.spaceId });
+    }
+  }
   // The player's real progress for the game HUD.
   let viewer: WorldData["viewer"] = null;
   if (viewerId) {
@@ -151,5 +180,5 @@ export async function getWorldData(viewerId: string | null = null): Promise<Worl
     const total = claimed.reduce((s, r) => s + r.amount, 0n);
     viewer = { missionsCompleted: done?.n ?? 0, missionsStarted: started?.n ?? 0, rewardsClaimed: formatDisplay(total, t.decimals, 2), symbol: t.symbol };
   }
-  return { buildings: playable, experiences, routes, viewer, demo, generatedAt: new Date().toISOString() };
+  return { buildings: playable, experiences, routes, links, viewer, demo, generatedAt: new Date().toISOString() };
 }

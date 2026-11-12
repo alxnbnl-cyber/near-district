@@ -1,4 +1,5 @@
 import { and, campaigns, count, desc, eq, inArray, ne, organizations, participantEntries, spaces } from "@yielvy/db";
+
 import { notFound, route } from "@/server/http";
 import { db } from "@/server/db";
 import { getPublicCampaign } from "@/server/public";
@@ -28,6 +29,7 @@ export const GET = route<{ params: Promise<{ slug: string; campaign: string }> }
     .from(participantEntries)
     .innerJoin(campaigns, eq(campaigns.id, participantEntries.campaignId))
     .where(eq(campaigns.spaceId, s.id));
+  const [myEntry] = user ? await database.select({ demoEndedAt: participantEntries.demoEndedAt }).from(participantEntries).where(and(eq(participantEntries.campaignId, c.id), eq(participantEntries.userId, user.userId))).limit(1) : [];
   const [org] = await database.select({ status: organizations.status }).from(organizations).innerJoin(spaces, eq(spaces.organizationId, organizations.id)).where(eq(spaces.id, s.id)).limit(1);
   return {
     campaign: { id: c.id, slug: c.slug, title: c.title, summary: c.summary, description: c.description, template: c.template, startsAt: c.startsAt, endsAt: c.endsAt },
@@ -57,5 +59,9 @@ export const GET = route<{ params: Promise<{ slug: string; campaign: string }> }
     prize: d.prize,
     symbol: token().symbol,
     signedIn: Boolean(user),
+    /** Local demo mode: shows the simulate buttons. */
+    demo: demoEnabled(),
+    /** Demo: whether this player joined, and fast-forwarded to the deadline for themselves. */
+    me: { joined: Boolean(myEntry), demoEnded: Boolean(myEntry?.demoEndedAt) },
   };
 });

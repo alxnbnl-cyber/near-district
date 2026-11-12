@@ -93,10 +93,17 @@ export interface WorldExperience {
   spaceName: string;
 }
 
+/** Two companies cooperating in a live mission (a partner hint links them). Space ids. */
+export interface WorldLink {
+  from: string;
+  to: string;
+}
+
 export interface WorldData {
   buildings: WorldBuildingData[];
   experiences: WorldExperience[];
   routes: WorldRoute[];
+  links: WorldLink[];
   viewer: ViewerStats | null;
   /** True when sample prizes are shown (local demo mode). */
   demo: boolean;

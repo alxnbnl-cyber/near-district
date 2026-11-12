@@ -48,4 +48,4 @@ export function getDb(): Promise<Db> {
 }
 export { assignBuildingPlot } from "./world";
 export * from "./hint-engine";
-export { finalizeSealedHunt, sealedPoints } from "./sealed";
+export { finalizeSealedEntry, finalizeSealedHunt, sealedPoints } from "./sealed";

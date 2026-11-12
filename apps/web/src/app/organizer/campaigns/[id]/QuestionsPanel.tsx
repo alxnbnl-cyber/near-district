@@ -24,13 +24,11 @@ export interface QuestionRow {
 
 type ContractCall = Extract<ActivityDef, { type: "near_contract_call" }>;
 const INK = "rgb(214 219 225";
-/** Shown as "coming soon" so organizers know more is on the way. */
-const SOON = ["Swap on RHEA", "Stake NEAR", "Hold a token", "Own an NFT", "Provide liquidity"];
 const pad = (n: number) => String(n).padStart(2, "0");
 
 const leafOf = (h?: HintRow) => (h?.unlock ? (h.unlock.kind === "group" ? (h.unlock.children[0] as Extract<RuleNode, { kind: "activity" }>) : (h.unlock as Extract<RuleNode, { kind: "activity" }>)) : undefined);
 
-const label = "block font-mono text-[10.5px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.6)]";
+const label = "block text-[13.5px] font-semibold text-[rgb(214_219_225/.85)]";
 const help = "mt-1 block text-[12px] text-ink-3";
 
 /** Secrets: each is one question with one answer, plus an optional hint unlocked by an on-chain activity. */
@@ -49,16 +47,16 @@ export function QuestionsPanel({ campaignId, questions, editable }: { campaignId
   return (
     <div className="flex flex-col gap-3">
       {/* how it works, in one line */}
-      <ol className="grid gap-2 font-mono sm:grid-cols-3">
+      <ol className="grid gap-2 sm:grid-cols-3">
         {[
           ["1", "Write a secret", "A question with one answer."],
           ["2", "Set the answer", "Kept private. Players see it after the deadline."],
           ["3", "Add a hint (optional)", "Players unlock it by doing an on-chain activity."],
         ].map(([n, t, b]) => (
           <li key={n} className="flex items-start gap-3 bg-[rgb(255_255_255/.025)] px-3 py-2.5" style={frame(8, `${INK} / .1)`)}>
-            <span className="grid size-6 shrink-0 place-items-center bg-orange text-[11px] font-black text-[#140c05]">{n}</span>
+            <span className="grid size-6 shrink-0 place-items-center bg-orange text-[12px] font-bold text-[#140c05]">{n}</span>
             <span>
-              <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-white">{t}</span>
+              <span className="block text-[14px] font-semibold text-white">{t}</span>
               <span className="block font-sans text-[12px] text-[rgb(214_219_225/.55)]">{b}</span>
             </span>
           </li>
@@ -81,18 +79,18 @@ export function QuestionsPanel({ campaignId, questions, editable }: { campaignId
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[15px] font-semibold text-white">{q.prompt}</p>
-                    <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em]">
-                      <span className="text-[rgb(214_219_225/.45)]">🔒 Answer saved privately</span>
+                    <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px]">
+                      <span className="text-[rgb(214_219_225/.5)]">Answer saved privately</span>
                       {leaf ? (
-                        <span className="text-gold">💡 Hint · {act ? `${act.methodName} on ${act.contractId}` : "activity"}</span>
+                        <span className="text-gold">Hint: {act ? `${act.methodName} on ${act.contractId}` : "activity"}</span>
                       ) : (
                         <span className="text-[rgb(214_219_225/.35)]">No hint</span>
                       )}
-                      {act?.partner && <span className="text-violet-ink">🤝 {act.partner.name}</span>}
+                      {act?.partner && <span className="text-violet-ink">Partner: {act.partner.name}</span>}
                     </p>
                   </div>
                   {editable && (
-                    <div className="flex shrink-0 gap-1 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em]">
+                    <div className="flex shrink-0 gap-1 text-[13px] font-semibold">
                       <button type="button" className="px-3 py-2 text-[rgb(214_219_225/.7)] hover:text-white" onClick={() => setEditing(q.id)}>
                         Edit
                       </button>
@@ -127,7 +125,7 @@ export function QuestionsPanel({ campaignId, questions, editable }: { campaignId
           <button
             type="button"
             onClick={() => setEditing("new")}
-            className="flex h-14 items-center justify-center gap-2 font-mono text-[12px] font-bold uppercase tracking-[0.18em] text-[rgb(214_219_225/.7)] transition-colors hover:bg-[rgb(255_145_56/.06)] hover:text-orange"
+            className="flex h-14 items-center justify-center gap-2 text-[14px] font-semibold text-[rgb(214_219_225/.75)] transition-colors hover:bg-[rgb(255_145_56/.06)] hover:text-orange"
             style={frame(10, `${INK} / .22)`)}
           >
             + Add secret {pad(questions.length + 1)}
@@ -156,7 +154,7 @@ function SecretForm({
 }) {
   const leaf = leafOf(hint);
   const prev = leaf?.activity.type === "near_contract_call" ? (leaf.activity as ContractCall) : null;
-  const partnerAllowed = index === 1;
+  const partnerAllowed = index === 1 || index === 2;
   const [prompt, setPrompt] = useState(existing?.prompt ?? "");
   const [answers, setAnswers] = useState("");
   const [reveal, setReveal] = useState(existing?.revealText ?? "");
@@ -225,7 +223,7 @@ function SecretForm({
     <div className="yv-pop bg-[linear-gradient(180deg,rgb(255_145_56/.07),rgb(10_13_18/.75)_40%)]" style={frame(12, "rgb(255 145 56 / .5)")}>
       <div className="flex items-center gap-3 border-b border-[rgb(255_255_255/.07)] px-5 py-3">
         <span className="grid size-8 place-items-center bg-orange font-mono text-[12px] font-black text-[#140c05]">{pad(index + 1)}</span>
-        <p className="font-mono text-[12px] font-bold uppercase tracking-[0.2em] text-orange">{existing ? "Edit secret" : "New secret"}</p>
+        <p className="text-[15px] font-semibold text-orange">{existing ? "Edit secret" : "New secret"}</p>
       </div>
 
       <div className="grid gap-5 px-5 py-5 lg:grid-cols-2">
@@ -252,7 +250,7 @@ function SecretForm({
             <span className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${withHint ? "left-[22px]" : "left-0.5"}`} />
           </span>
           <span>
-            <span className="block text-[14px] font-semibold text-white">💡 Add a hint</span>
+            <span className="block text-[14px] font-semibold text-white">Add a hint</span>
             <span className="block text-[12.5px] text-ink-3">Stuck players unlock it by calling a smart contract function on NEAR.</span>
           </span>
         </button>
@@ -268,15 +266,14 @@ function SecretForm({
             <div className="lg:col-span-2">
               <span className={label}>Activity that unlocks it</span>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-2 bg-[rgb(255_194_75/.12)] px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-gold" style={frame(7, "rgb(255 194 75 / .5)")}>
-                  ✓ Call a smart contract function
+                <span className="inline-flex h-11 items-center gap-2 bg-[rgb(255_194_75/.12)] px-4 text-[13.5px] font-semibold text-gold" style={frame(8, "rgb(255 194 75 / .55)")}>
+                  <span className="grid size-4 place-items-center rounded-full bg-gold text-[10px] font-bold text-[#2a1600]">✓</span>
+                  Call a smart contract function
                 </span>
-                <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Coming soon:</span>
-                {SOON.map((s) => (
-                  <span key={s} className="cursor-not-allowed bg-[rgb(255_255_255/.03)] px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[rgb(214_219_225/.4)]" style={frame(6, `${INK} / .14)`)}>
-                    {s}
-                  </span>
-                ))}
+                <span aria-disabled className="inline-flex h-11 cursor-not-allowed items-center gap-2 px-4 text-[13.5px] text-[rgb(214_219_225/.4)]" style={frame(8, `${INK} / .14)`)}>
+                  <span className="size-4 rounded-full border border-[rgb(214_219_225/.3)]" />
+                  More coming soon
+                </span>
               </div>
             </div>
 
@@ -305,7 +302,7 @@ function SecretForm({
               <div className="lg:col-span-2">
                 <label className="flex cursor-pointer items-center gap-2.5 text-[14px] font-semibold text-white">
                   <input type="checkbox" checked={withPartner} onChange={(e) => setWithPartner(e.target.checked)} className="size-4 accent-[var(--color-orange)]" />
-                  🤝 This activity belongs to a partner (optional)
+                  This activity belongs to a partner (optional)
                 </label>
                 {withPartner && (
                   <div className="mt-3 grid gap-5 lg:grid-cols-2">
@@ -322,7 +319,7 @@ function SecretForm({
                 )}
               </div>
             ) : (
-              <p className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-[rgb(214_219_225/.35)] lg:col-span-2">Partners can be linked on secret 02</p>
+              <p className="text-[12.5px] text-[rgb(214_219_225/.45)] lg:col-span-2">Partners can be linked on secrets 02 and 03.</p>
             )}
           </div>
         )}
@@ -338,13 +335,13 @@ function SecretForm({
           type="button"
           onClick={save}
           disabled={busy}
-          className="h-11 bg-orange px-6 font-mono text-[12px] font-black uppercase tracking-[0.16em] text-[#140c05] transition-colors hover:bg-[#ffa458] disabled:opacity-50"
+          className="h-11 bg-orange px-6 text-[14px] font-bold text-[#140c05] transition-colors hover:bg-[#ffa458] disabled:opacity-50"
           style={frame(9, "rgb(255 145 56)")}
         >
           {busy ? "Saving…" : existing ? "Save secret" : "Add secret"}
         </button>
         {onCancel && (
-          <button type="button" onClick={onCancel} className="h-11 px-5 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[rgb(214_219_225/.6)] hover:text-white">
+          <button type="button" onClick={onCancel} className="h-11 px-5 text-[14px] font-semibold text-[rgb(214_219_225/.6)] hover:text-white">
             Cancel
           </button>
         )}

@@ -75,13 +75,28 @@ function Panel({ children, tone = `${INK} / .14)`, className = "" }: { children:
   );
 }
 
-export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaignId: string; status: string; signedIn: boolean; returnTo: string }) {
+/**
+ * `onPartnerJump`: called when the player moves to a secret whose hint belongs to a different
+ * company (a partner, or back to the host). Names are partner names; null means the mission's host.
+ */
+export function HuntPlayer({ campaignId, status, signedIn, returnTo, onPartnerJump }: { campaignId: string; status: string; signedIn: boolean; returnTo: string; onPartnerJump?: (from: string | null, to: string | null) => void }) {
   const [state, setState] = useState<PlayState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [burst, setBurst] = useState(0);
   const now = useNow();
-  const [active, setActive] = useActiveLock(state && state.joined ? state.questions : null);
+  const [active, setActiveRaw] = useActiveLock(state && state.joined ? state.questions : null);
+  const partnerOf = (i: number) => {
+    if (!state || !state.joined) return null;
+    const req = state.questions[i]?.hints.flatMap((h) => h.requirements).find((r) => r.contract?.partner);
+    return req?.contract?.partner?.name ?? null;
+  };
+  const setActive = (i: number) => {
+    if (i === active) return;
+    const from = partnerOf(active), to = partnerOf(i);
+    if (from !== to) onPartnerJump?.(from, to);
+    setActiveRaw(i);
+  };
 
   const load = useCallback(async () => {
     try {
@@ -211,19 +226,21 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
       {styles}
       <Burst trigger={burst} />
 
-      {/* decryption grid: one sphere per secret */}
-      <Panel className="py-4 md:py-5" tone={t.closed ? (state.qualification === "qualified" ? "rgb(52 211 153 / .6)" : `${INK} / .2)`) : allSealed ? "rgb(255 194 75 / .5)" : "rgb(69 227 255 / .35)"}>
-        <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[10.5px] font-bold uppercase tracking-[0.22em]">
-          <span className="text-[#45e3ff]">Decryption grid <span className="text-[rgb(214_219_225/.5)]">· {t.closed ? "results" : `${state.answered} / ${state.total} sealed`}</span></span>
-          {t.closed ? <span className="text-[rgb(214_219_225/.7)]">Ended {when(t.endsAt)}</span> : <span className="text-orange">⏱ Locks reveal in {lockIn ?? "—"}</span>}
+      {/* world map trace: one lock per secret, scattered across the map */}
+      <div className="relative font-mono">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-1 text-[11px] font-bold uppercase tracking-[0.12em]">
+          <span className="flex items-center gap-1.5 text-white">{Array.from({ length: state.total }, (_, i) => <span key={i} className={`size-2.5 rounded-full ${state.questions[i]?.saved ? "bg-gold" : "bg-[rgb(214_219_225/.2)]"}`} />)} <span className="ml-1 text-[rgb(214_219_225/.6)]">{t.closed ? "Results are in!" : `${state.answered}/${state.total} locked in`}</span></span>
+<span className="rounded-full bg-[rgb(255_145_56/.14)] px-3 py-1 text-[10.5px] font-bold uppercase tracking-[0.12em] text-orange">{t.closed ? `Ended ${when(t.endsAt)}` : `${lockIn ?? "—"} left`}</span>
         </div>
-        <LockGrid questions={state.questions} total={state.total} closed={t.closed} active={active} onPick={setActive} />
+        <div className="px-2 pb-6 pt-1">
+          <LockGrid questions={state.questions} total={state.total} closed={t.closed} active={active} onPick={setActive} />
+        </div>
         {!t.closed && (
-          <p className="text-center font-sans text-[13px] text-[rgb(214_219_225/.6)]">
-            {allSealed ? "Every lock is sealed. You can still change any answer until the deadline." : "Pick a lock, find the answer and seal it. Nobody sees right or wrong until the deadline."}
+          <p className="px-4 pb-3 text-center font-sans text-[13px] text-[rgb(214_219_225/.6)]">
+            {allSealed ? "All locks are in! You can still change answers until the deadline." : "Find each answer and lock it in. Results are revealed at the deadline."}
           </p>
         )}
-      </Panel>
+      </div>
 
       {/* the outcome, once revealed */}
       {t.closed && (

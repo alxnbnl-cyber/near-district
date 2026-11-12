@@ -325,11 +325,11 @@ describe("contract-call activity: player just presses Verify", () => {
   };
   const mint = (id: string, partner = false) => ({ kind: "activity" as const, id, ownerOrgId: orgs.A!.orgId, activity: { type: "near_contract_call" as const, network: "mainnet" as const, contractId: "nft.district.near", methodName: "nft_mint", title: "Mint the district badge", ...(partner ? { partner: { name: "Badge Labs", url: "https://badges.example" } } : {}) } });
 
-  it("accepts contract-call hints; a partner link only on the second secret", async () => {
+  it("accepts contract-call hints; a partner link only on the second or third secret", async () => {
     hunt = await mkHunt(users_.ownerA!, "A", "Badge Trail", [["first", "one"], ["second", "two"]]);
     const c = await campaign(hunt);
     const [q1, q2] = (await listQuestions(h.db, hunt)).map((q) => q.id);
-    await expectHttp(saveHint(h.db, users_.ownerA!, c, { questionId: q1!, title: "Hint", teaser: "", content: "look up", unlock: { kind: "group", op: "ANY", children: [mint("mint", true)] }, withdrawalPolicy: "disable" }), 400, /second secret/);
+    await expectHttp(saveHint(h.db, users_.ownerA!, c, { questionId: q1!, title: "Hint", teaser: "", content: "look up", unlock: { kind: "group", op: "ANY", children: [mint("mint", true)] }, withdrawalPolicy: "disable" }), 400, /second or third secret/);
     hintMint = (await saveHint(h.db, users_.ownerA!, c, { questionId: q1!, title: "Hint", teaser: "", content: "look up", unlock: { kind: "group", op: "ANY", children: [mint("mint")] }, withdrawalPolicy: "disable" })).id;
     hintMint2 = (await saveHint(h.db, users_.ownerA!, c, { questionId: q2!, title: "Hint", teaser: "", content: "look down", unlock: { kind: "group", op: "ANY", children: [mint("mint2", true)] }, withdrawalPolicy: "disable" })).id;
     await publishCampaign(h.db, users_.ownerA!, await campaign(hunt));

@@ -55,7 +55,7 @@ export default async function MyAdventures() {
           <ul className="mt-8 flex flex-col gap-3">
             {hunts.map(({ e, c, space, q }) => (
               <li key={e.id}>
-                <Link href={`/s/${space.slug}/c/${c.slug}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-card p-4 shadow-lift hover:border-line-strong">
+                <Link href={`/explore?m=${space.slug}%2F${c.slug}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-card p-4 shadow-lift hover:border-line-strong">
                   <div className="min-w-0 flex-1">
                     <p className="text-[12px] text-ink-3">{TEMPLATE_LABEL[c.template]} · {space.name}</p>
                     <p className="font-semibold">{c.title}</p>
@@ -68,7 +68,7 @@ export default async function MyAdventures() {
             ))}
             {entries.map(({ s, c, space }) => (
               <li key={s.id}>
-                <Link href={`/s/${space.slug}/c/${c.slug}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-card p-4 shadow-lift hover:border-line-strong">
+                <Link href={`/explore?m=${space.slug}%2F${c.slug}`} className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-card p-4 shadow-lift hover:border-line-strong">
                   <div className="min-w-0 flex-1">
                     <p className="text-[12px] text-ink-3">Creative Contest · {space.name}</p>
                     <p className="font-semibold">{c.title}</p>

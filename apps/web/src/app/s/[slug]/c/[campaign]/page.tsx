@@ -1,12 +1,7 @@
-import { notFound, redirect } from "next/navigation";
-import { getPublicCampaign } from "@/server/public";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-/** Missions are played in a modal over the map; old links land there. */
+/** Old mission page: missions now open over the map, so send visitors there. */
 export default async function QuestPage({ params }: { params: Promise<{ slug: string; campaign: string }> }) {
   const p = await params;
-  const d = await getPublicCampaign(p.slug, p.campaign);
-  if (!d) notFound();
-  redirect(`/explore?m=${encodeURIComponent(`${d.space.slug}/${d.campaign.slug}`)}`);
+  redirect(`/explore?m=${encodeURIComponent(`${p.slug}/${p.campaign}`)}`);
 }

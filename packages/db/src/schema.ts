@@ -343,6 +343,8 @@ export const participantEntries = pgTable("participant_entries", {
   rulesVersion: integer("rules_version").notNull(),
   startedAt: createdAt(),
   completedAt: ts("completed_at"),
+  /** Local demo only: this player fast-forwarded to the deadline (their answers are scored and locked). */
+  demoEndedAt: ts("demo_ended_at"),
 }, (t) => [uniqueIndex("participant_entries_uq").on(t.campaignId, t.userId), index("participant_entries_campaign_idx").on(t.campaignId, t.status)]);
 
 export const questionAttempts = pgTable("question_attempts", {

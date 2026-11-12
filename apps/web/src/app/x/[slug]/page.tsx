@@ -65,7 +65,7 @@ export default async function ExpeditionPage({ params }: { params: Promise<{ slu
                     {c.spaceName} · {c.template === "treasure_hunt" ? "Mission" : "Creative Challenge"} · {c.completed ? "Completed" : c.unlocked ? "Open" : "Unlocks after the previous stop"}
                   </p>
                 </div>
-                <Link href={`/s/${c.spaceSlug}/c/${c.campaignSlug}`} className={buttonClass(c.unlocked && !c.completed ? "primary" : "dark", "sm")}>
+                <Link href={`/explore?m=${c.spaceSlug}%2F${c.campaignSlug}`} className={buttonClass(c.unlocked && !c.completed ? "primary" : "dark", "sm")}>
                   {c.completed ? "Review" : "Open"}
                 </Link>
               </li>

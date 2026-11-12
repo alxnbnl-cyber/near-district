@@ -92,9 +92,11 @@ function isClosed(c: { endsAt: Date | null }, status: string) {
 
 export async function getPlayState(db: Db, user: SessionUser, campaignId: string) {
   const { c, status } = await loadLive(db, campaignId);
-  const closed = isClosed(c, status);
-  if (closed) await finalizeSealedHunt(db, c.id);
+  const missionClosed = isClosed(c, status);
+  if (missionClosed) await finalizeSealedHunt(db, c.id);
   const [entry] = await db.select().from(participantEntries).where(and(eq(participantEntries.campaignId, c.id), eq(participantEntries.userId, user.userId))).limit(1);
+  // local demo: a player can fast-forward to the deadline just for themselves
+  const closed = missionClosed || Boolean(entry?.demoEndedAt);
   const questions = await db.select().from(treasureQuestions).where(eq(treasureQuestions.campaignId, c.id)).orderBy(treasureQuestions.position);
   const timeline = { startsAt: c.startsAt?.toISOString() ?? null, endsAt: c.endsAt?.toISOString() ?? null, closed };
   if (!entry) return { status, joined: false as const, total: questions.length, timeline };
@@ -165,7 +167,7 @@ export async function submitAnswer(db: Db, user: SessionUser, campaignId: string
       .for("update")
       .limit(1);
     if (!entry) throw badRequest("Start the mission first.");
-    if (entry.status !== "in_progress") throw conflict("This mission is already scored.");
+    if (entry.status !== "in_progress" || entry.demoEndedAt) throw conflict("This mission is already scored.");
     const [q] = await tx.select().from(treasureQuestions).where(and(eq(treasureQuestions.id, questionId), eq(treasureQuestions.campaignId, c.id))).limit(1);
     if (!q) throw notFound("Secret not found.");
     if (q.type === "multiple_choice" && !(q.options ?? []).some((o) => o.id === answer)) throw badRequest("Pick one of the options.");

@@ -31,6 +31,8 @@ interface MissionData {
   prize: Prize | null;
   symbol: string;
   signedIn: boolean;
+  demo?: boolean;
+  me?: { joined: boolean; demoEnded: boolean };
 }
 
 const INK = "rgb(214 219 225";
@@ -230,7 +232,18 @@ function PrizePool({ data }: { data: MissionData }) {
 }
 
 /** Starts → answers lock → results → rewards paid, with the current stage lit. */
-function MissionTimeline({ startsAt, endsAt, claimDays, funded }: { startsAt: string | null; endsAt: string | null; claimDays: number; funded: boolean }) {
+function MissionTimeline({ startsAt, endsAt, claimDays, funded, demo, campaignId, signedIn, me }: { startsAt: string | null; endsAt: string | null; claimDays: number; funded: boolean; demo?: boolean; campaignId?: string; signedIn?: boolean; me?: { joined: boolean; demoEnded: boolean } }) {
+  const [sim, setSim] = useState<{ busy: string | null; msg: string | null }>({ busy: null, msg: null });
+  const simulate = async (action: "deadline" | "reward") => {
+    setSim({ busy: action, msg: null });
+    try {
+      const r = await api<{ message?: string; paid?: number; qualified?: number }>("/api/demo/simulate", { method: "POST", body: { campaignId, action } });
+      if (r.message) setSim({ busy: null, msg: r.message });
+      else window.location.reload();
+    } catch (e) {
+      setSim({ busy: null, msg: e instanceof ApiError ? e.message : "Simulation failed." });
+    }
+  };
   const now = Date.now();
   const end = endsAt ? Date.parse(endsAt) : null;
   const fmt = (t: number | null) => (t ? new Date(t).toLocaleDateString("en", { month: "short", day: "numeric" }) : "—");
@@ -246,25 +259,51 @@ function MissionTimeline({ startsAt, endsAt, claimDays, funded }: { startsAt: st
       <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[rgb(214_219_225/.5)]">
         Timeline {end && end > now ? <span className="text-orange">· deadline in {timeLeft(endsAt)}</span> : null}
       </p>
-      <ol className="mt-3 grid gap-3" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
+      <ol className="relative mt-3 flex flex-col gap-3">
+        <span aria-hidden className="absolute bottom-2 left-[5px] top-2 w-px bg-[rgb(214_219_225/.15)]" />
         {steps.map((st, i) => {
           const done = current === -1 || i < current;
           const now_ = i === current;
           return (
-            <li key={st.label} className="relative">
-              <span className={`block h-1 ${done ? "bg-orange" : now_ ? "bg-[linear-gradient(90deg,#FF9138,rgb(214_219_225/.15))]" : "bg-[rgb(214_219_225/.12)]"}`} />
-              <span className={`mt-2 block text-[10.5px] font-bold uppercase tracking-[0.14em] ${done || now_ ? "text-white" : "text-[rgb(214_219_225/.45)]"}`}>{st.label}</span>
-              <span className="block text-[10px] uppercase tracking-[0.12em] text-[rgb(214_219_225/.5)]">{fmt(st.at)}{"note" in st && st.note ? ` · ${st.note}` : ""}</span>
+            <li key={st.label} className="relative flex items-start gap-3">
+              <span className={`relative mt-0.5 size-[11px] shrink-0 rounded-full border-2 ${done ? "border-orange bg-orange" : now_ ? "border-orange bg-[#0a0d12] shadow-[0_0_10px_rgb(255_145_56/.7)]" : "border-[rgb(214_219_225/.3)] bg-[#0a0d12]"}`} />
+              <span className="min-w-0 flex-1">
+                <span className={`block text-[10.5px] font-bold uppercase tracking-[0.14em] ${done || now_ ? "text-white" : "text-[rgb(214_219_225/.45)]"}`}>{st.label}</span>
+                <span className="block text-[10px] uppercase tracking-[0.12em] text-[rgb(214_219_225/.5)]">{fmt(st.at)}{"note" in st && st.note ? ` · ${st.note}` : ""}</span>
+              </span>
             </li>
           );
         })}
       </ol>
+      {demo && campaignId && signedIn && (
+        <div className="mt-4 border-t border-dashed border-[rgb(214_219_225/.15)] pt-3">
+          <p className="text-[9.5px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.4)]">Demo · only for you</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {([
+              ["deadline", "Simulate deadline reached", !me?.joined || Boolean(me?.demoEnded) || Boolean(end && end <= now)],
+              ["reward", "Simulate reward received", !(me?.demoEnded || (end && end <= now))],
+            ] as const).map(([action, label, disabled]) => (
+              <button
+                key={action}
+                type="button"
+                disabled={disabled || sim.busy !== null}
+                onClick={() => simulate(action)}
+                className="h-8 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[rgb(214_219_225/.75)] transition-colors hover:text-white disabled:opacity-30"
+                style={frame(7, `${INK} / .22)`)}
+              >
+                {sim.busy === action ? "Working…" : label}
+              </button>
+            ))}
+          </div>
+          {sim.msg && <p className="mt-2 font-sans text-[12px] text-[rgb(214_219_225/.6)]">{sim.msg}</p>}
+        </div>
+      )}
     </section>
   );
 }
 
 /** A mission, played right on top of the map. */
-export function MissionModal({ slug, campaign, onClose, onOpen }: { slug: string; campaign: string; onClose(): void; onOpen?(slug: string, campaign: string): void }) {
+export function MissionModal({ slug, campaign, onClose, onOpen, onPartnerJump, away = false }: { slug: string; campaign: string; onClose(): void; onOpen?(slug: string, campaign: string): void; onPartnerJump?: (from: string | null, to: string | null) => void; /** Partner jump in progress: step aside so the map shows. */ away?: boolean }) {
   const [data, setData] = useState<MissionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"mission" | "company">("mission");
@@ -291,7 +330,22 @@ export function MissionModal({ slug, campaign, onClose, onOpen }: { slug: string
   const returnTo = `/explore?m=${encodeURIComponent(`${slug}/${campaign}`)}`;
 
   return (
-    <div className="fixed inset-0 z-[65]" role="dialog" aria-modal="true" aria-label={data?.campaign.title ?? "Mission"}>
+    <div
+      className="fixed inset-0 z-[65]"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden={away || undefined}
+      aria-label={data?.campaign.title ?? "Mission"}
+      style={{
+        opacity: away ? 0 : 1,
+        transform: away ? "scale(.965)" : "none",
+        filter: away ? "blur(6px)" : "none",
+        pointerEvents: away ? "none" : undefined,
+        transition: away
+          ? "opacity 380ms cubic-bezier(.4,0,.2,1), transform 460ms cubic-bezier(.4,0,.2,1), filter 380ms ease"
+          : "opacity 520ms cubic-bezier(.2,.8,.2,1), transform 620ms cubic-bezier(.2,.8,.2,1), filter 520ms ease",
+      }}
+    >
       <div className="yv-mm-fade absolute inset-0 bg-[rgb(0_0_0/.45)] backdrop-blur-[2px]" onClick={onClose} />
       <div
         className="yv-mm absolute inset-2 overflow-hidden bg-[rgb(5_7_10/.9)] backdrop-blur-xl sm:inset-5 md:inset-8"
@@ -356,21 +410,21 @@ export function MissionModal({ slug, campaign, onClose, onOpen }: { slug: string
 
                 {tab === "mission" ? (
                   <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-                    {/* main: timeline, play */}
+                    {/* main: play */}
                     <div className="flex min-w-0 flex-col gap-5">
-                      <MissionTimeline startsAt={data.campaign.startsAt} endsAt={data.campaign.endsAt} claimDays={data.rules.claimWindowDays} funded={data.rules.funded} />
                       <section>
                         {hunt ? (
-                          <HuntPlayer campaignId={data.campaign.id} status={data.status} signedIn={data.signedIn} returnTo={returnTo} />
+                          <HuntPlayer campaignId={data.campaign.id} status={data.status} signedIn={data.signedIn} returnTo={returnTo} onPartnerJump={onPartnerJump} />
                         ) : (
                           <ContestEntry campaignId={data.campaign.id} status={data.status} signedIn={data.signedIn} returnTo={returnTo} />
                         )}
                       </section>
                     </div>
 
-                    {/* side: prize, story, rules */}
+                    {/* side: prize, timeline, story, rules */}
                     <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
                       <PrizePool data={data} />
+                      <MissionTimeline startsAt={data.campaign.startsAt} endsAt={data.campaign.endsAt} claimDays={data.rules.claimWindowDays} funded={data.rules.funded} demo={data.demo} campaignId={data.campaign.id} signedIn={data.signedIn} me={data.me} />
                       {data.campaign.description && (
                         <section className="bg-[rgb(10_13_18/.6)] px-4 py-4 font-mono" style={frame(12, `${INK} / .12)`)}>
                           <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange">The story</p>

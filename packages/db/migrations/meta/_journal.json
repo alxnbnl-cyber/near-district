@@ -85,6 +85,13 @@
       "when": 1794426017758,
       "tag": "0011_near_district_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794482964450,
+      "tag": "0012_demo_player_deadline",
+      "breakpoints": true
     }
   ]
 }

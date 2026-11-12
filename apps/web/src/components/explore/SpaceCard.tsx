@@ -63,7 +63,7 @@ export function SpaceCard({ b, onClose, onPlay, className = "" }: { b: WorldBuil
               {f.status === "LIVE" ? (hunt ? "Start the hunt" : "Take the challenge") : "See the mission"}
               <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
             </button>
-            <Link href={`/s/${b.slug}`} className="flex h-12 items-center px-4 text-[11px] font-bold uppercase tracking-[0.16em] text-[rgb(214_219_225/.7)] hover:text-white" style={frame(10, `${INK} / .2)`)}>
+            <Link href={`/explore?space=${b.slug}`} className="flex h-12 items-center px-4 text-[11px] font-bold uppercase tracking-[0.16em] text-[rgb(214_219_225/.7)] hover:text-white" style={frame(10, `${INK} / .2)`)}>
               Project
             </Link>
           </div>

@@ -113,11 +113,11 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
         <div className="mt-4 grid grid-cols-2 gap-2">
           <div className="bg-[rgb(255_194_75/.07)] px-3 py-2.5" style={frame(8, "rgb(255 194 75 / .3)")}>
             <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[rgb(255_194_75/.75)]">Treasure claimed</p>
-            <p className="mt-0.5 font-display text-[18px] font-bold text-reward">{viewer ? `${viewer.rewardsClaimed} ${viewer.symbol}` : "—"}</p>
+            <p className="mt-0.5 font-display text-[18px] font-bold text-reward">{viewer ? `${viewer.rewardsClaimed} USD` : "—"}</p>
           </div>
           <div className="px-3 py-2.5" style={frame(8, `${INK} / .18)`)}>
             <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.55)]">Missions done</p>
-            <p className="mt-0.5 font-display text-[18px] font-bold text-white">{viewer ? `${viewer.missionsCompleted} / ${viewer.missionsStarted}` : "—"}</p>
+            <p className="mt-0.5 font-display text-[18px] font-bold text-white">{viewer ? `${viewer.missionsCompleted}` : "—"}</p>
           </div>
         </div>
       </div>

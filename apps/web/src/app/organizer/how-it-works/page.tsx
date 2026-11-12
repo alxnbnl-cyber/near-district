@@ -28,7 +28,7 @@ const STEPS: { icon: GameIconName; title: string; body: string; points: string[]
   {
     icon: "play",
     title: "Link a partner (optional)",
-    body: "On your second secret, add a partner name and link. Players call the partner's smart contract function to unlock the hint. No approval needed.",
+    body: "On your second and third secrets, add a partner name and link. Players call the partner's smart contract function to unlock the hint. No approval needed.",
     points: ["One activity: a contract function call", "Partner link shown to players", "Checked on NEAR automatically"],
   },
   {

@@ -191,7 +191,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
       <Header c={c} spaceSlug={initial.spaceSlug} />
 
       {/* stepper: one row */}
-      <ol className="flex items-stretch gap-0 overflow-x-auto font-mono" aria-label="Steps">
+      <ol className="flex items-stretch gap-0 overflow-x-auto" aria-label="Steps">
         {STEPS.map((st, i) => {
           const now = step === i, done = i < step;
           return (
@@ -204,7 +204,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
                 style={frame(10, now ? "rgb(255 145 56 / .7)" : done ? "rgb(255 145 56 / .3)" : "rgb(214 219 225 / .12)")}
               >
                 <span className={`grid size-7 shrink-0 place-items-center text-[11px] font-black ${done || now ? "bg-orange text-[#140c05]" : "border border-[rgb(214_219_225/.3)] text-[rgb(214_219_225/.5)]"}`}>{done ? "✓" : i + 1}</span>
-                <span className={`truncate text-[11.5px] font-bold uppercase tracking-[0.16em] ${now ? "text-orange" : done ? "text-white" : "text-[rgb(214_219_225/.55)]"}`}>{st.label}</span>
+                <span className={`truncate text-[14px] font-semibold ${now ? "text-orange" : done ? "text-white" : "text-[rgb(214_219_225/.55)]"}`}>{st.label}</span>
               </button>
               {i < last && <span aria-hidden className={`mx-1.5 h-px w-4 shrink-0 ${done ? "bg-orange" : "bg-[rgb(214_219_225/.2)]"}`} />}
             </li>
@@ -281,14 +281,14 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
               <Field label="Deadline" htmlFor="end">
                 <input id="end" type="datetime-local" className={`${inputClass} h-12`} disabled={!canEdit} value={toLocal(rules.endsAt)} onChange={(e) => setRules({ ...rules, endsAt: fromLocal(e.target.value) })} />
               </Field>
-              <div className="flex gap-1.5 font-mono">
+              <div className="flex gap-1.5">
                 {[3, 7, 14, 30].map((d) => (
                   <button
                     key={d}
                     type="button"
                     disabled={!canEdit}
                     onClick={() => setDuration(d)}
-                    className={`h-12 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors ${days === d ? "bg-[rgb(255_145_56/.15)] text-orange" : "text-[rgb(214_219_225/.65)] hover:text-white"}`}
+                    className={`h-12 px-3 text-[13.5px] font-semibold transition-colors ${days === d ? "bg-[rgb(255_145_56/.15)] text-orange" : "text-[rgb(214_219_225/.65)] hover:text-white"}`}
                     style={frame(8, days === d ? "rgb(255 145 56 / .6)" : "rgb(214 219 225 / .18)")}
                   >
                     {d}d
@@ -297,7 +297,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
               </div>
             </div>
 
-            <div className="bg-[rgb(255_255_255/.025)] px-5 py-5 font-mono" style={frame(12, "rgb(214 219 225 / .1)")}>
+            <div className="bg-[rgb(255_255_255/.025)] px-5 py-5" style={frame(12, "rgb(214 219 225 / .1)")}>
               <div className="relative grid grid-cols-3 gap-2">
                 <span aria-hidden className="absolute left-[8px] right-[8px] top-[7px] h-[2px] bg-[linear-gradient(90deg,#FF9138,#FFC24B,#34d399)]" />
                 {[
@@ -307,13 +307,13 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
                 ].map(([k, v, color, note], i) => (
                   <div key={k} className={`relative flex flex-col ${i === 1 ? "items-center text-center" : i === 2 ? "items-end text-right" : ""}`}>
                     <span className="size-4 rounded-full border-2 border-[#0a0d12]" style={{ background: color }} />
-                    <span className="mt-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.5)]">{k}</span>
-                    <span className="mt-1 text-[13px] font-bold text-white">{v}</span>
+                    <span className="mt-3 text-[12.5px] font-semibold text-[rgb(214_219_225/.6)]">{k}</span>
+                    <span className="mt-1 text-[14px] font-semibold text-white">{v}</span>
                     <span className="mt-0.5 font-sans text-[12px] text-[rgb(214_219_225/.5)]">{note}</span>
                   </div>
                 ))}
               </div>
-              <p className="mt-4 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-orange">{days > 0 ? `Runs for ${days} day${days === 1 ? "" : "s"}` : endMs > startMs ? "Runs for less than a day" : "The deadline must be after the opening"}</p>
+              <p className="mt-4 text-center text-[14px] font-semibold text-orange">{days > 0 ? `Runs for ${days} day${days === 1 ? "" : "s"}` : endMs > startMs ? "Runs for less than a day" : "The deadline must be after the opening"}</p>
             </div>
 
             {canEdit && (
@@ -327,7 +327,7 @@ export function CampaignEditor({ initial }: { initial: Initial }) {
             {/* launch checklist */}
             <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
               <div>
-                <p className="font-mono text-[10.5px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.55)]">Launch checklist</p>
+                <p className="text-[15px] font-semibold text-white">Launch checklist</p>
                 <ul className="mt-3 grid gap-2 sm:grid-cols-2">
                   {checks.map((k) => (
                     <li key={k.label}>
@@ -389,7 +389,7 @@ function Header({ c, spaceSlug }: { c: Initial["campaign"]; spaceSlug: string })
         <h1 className="mt-2 text-[28px] font-bold tracking-[-0.02em]">{c.title}</h1>
       </div>
       {!draft && (
-        <Link href={`/s/${spaceSlug}/c/${c.slug}`} className={buttonClass("secondary", "sm")}>
+        <Link href={`/explore?m=${spaceSlug}%2F${c.slug}`} className={buttonClass("secondary", "sm")}>
           View as player
         </Link>
       )}

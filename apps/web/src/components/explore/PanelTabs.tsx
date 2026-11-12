@@ -100,7 +100,7 @@ export function ExperiencesTab({
               </button>
               <div className="mt-2.5 flex items-center justify-between gap-2">
                 <PrizeChip prize={e.prize} rewards={e.rewards} />
-                <Link href={`/s/${e.spaceSlug}/c/${e.slug}`} className={buttonClass("primary", "sm")}>
+                <Link href={`/explore?m=${e.spaceSlug}%2F${e.slug}`} className={buttonClass("primary", "sm")}>
                   {hunt ? "Play" : "Join"}
                 </Link>
               </div>

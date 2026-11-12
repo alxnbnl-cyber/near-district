@@ -43,6 +43,9 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
   const [leaving, setLeaving] = useState(false);
   const [panel, setPanel] = useState<Panel | null>(null);
   const [mission, setMission] = useState<{ slug: string; campaign: string } | null>(null);
+  /** Partner jump: the modal fades out, a dot travels between the two pins, the modal comes back. */
+  const [jump, setJump] = useState<{ from: string; to: string; key: number } | null>(null);
+  const [modalAway, setModalAway] = useState(false);
   const [signIn, setSignIn] = useState<string | null>(null);
   // On the map, every sign-in link opens a modal over the live map instead of leaving the page.
   useEffect(() => {
@@ -216,6 +219,36 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  const jumpTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => jumpTimers.current.forEach(clearTimeout), []);
+  const partnerJump = useCallback(
+    (fromName: string | null, toName: string | null) => {
+      if (!mission || !scene) return;
+      const host = data.buildings.find((b) => b.slug === mission.slug);
+      const byName = (n: string | null) => (n === null ? host : data.buildings.find((b) => b.name.toLowerCase() === n.toLowerCase()));
+      const a = byName(fromName), b = byName(toName);
+      if (!a || !b || a.spaceId === b.spaceId) return; // partner not on the map: just switch the secret
+      jumpTimers.current.forEach(clearTimeout);
+      jumpTimers.current = [];
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      // timeline (ms): the steps overlap so it reads as one continuous move
+      const T = reduce
+        ? { frame: 0, frameDur: 0, dot: 0, follow: 0, followDur: 0, back: 300, clear: 400 }
+        : { frame: 0, frameDur: 1000, dot: 620, follow: 1500, followDur: 1150, back: 2350, clear: 3000 };
+      setModalAway(true);
+      const ax = a.x * atlas.width, ay = a.y * atlas.height, bx = b.x * atlas.width, by = b.y * atlas.height;
+      const vw = document.documentElement.clientWidth || 1200, vh = document.documentElement.clientHeight || 800;
+      const fit = Math.max(0.12, Math.min(0.7, Math.min(vw / (Math.abs(bx - ax) + 1500), vh / (Math.abs(by - ay) + 1200))));
+      const at = (ms: number, fn: () => void) => jumpTimers.current.push(setTimeout(fn, ms));
+      at(T.frame, () => scene.flyTo((ax + bx) / 2, (ay + by) / 2, fit, T.frameDur)); // glide out to frame both pins
+      at(T.dot, () => setJump({ from: a.spaceId, to: b.spaceId, key: Date.now() })); // dot leaves while the camera settles
+      at(T.follow, () => scene.flyTo(bx, by, Math.max(fit * 1.6, 0.5), T.followDur)); // camera drifts after the dot
+      at(T.back, () => setModalAway(false)); // modal returns as the camera lands
+      at(T.clear, () => setJump(null));
+    },
+    [mission, scene, data, atlas],
+  );
+
   /** Pin click: zoom right in on the pin, then open its mission over the map. */
   const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pickPin = useCallback(
@@ -383,6 +416,8 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
           interactive={exploring}
           onSelect={pickPin}
           onZoomTo={(x, y, s) => scene?.flyTo(x, y, s)}
+          links={data.links ?? []}
+          jump={jump}
         />
       </div>
 
@@ -551,7 +586,7 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
 
       <Tutorial open={tutorial} onClose={() => setTutorial(false)} />
       {signIn && <SignInModal next={signIn} onClose={() => setSignIn(null)} />}
-      {mission && <MissionModal key={`${mission.slug}/${mission.campaign}`} slug={mission.slug} campaign={mission.campaign} onClose={closeMission} onOpen={openMission} />}
+      {mission && <MissionModal key={`${mission.slug}/${mission.campaign}`} slug={mission.slug} campaign={mission.campaign} onClose={closeMission} onOpen={openMission} onPartnerJump={partnerJump} away={modalAway} />}
     </div>
   );
 }
