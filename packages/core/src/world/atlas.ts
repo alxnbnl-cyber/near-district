@@ -17,6 +17,31 @@ import artwork from "./artwork-lots.json";
  */
 export const ARTWORK_LOTS: readonly (readonly [number, number])[] = (artwork as unknown as { lots: [number, number][] }).lots;
 
+/**
+ * Pins never sit at the map's corners or edges (inner 70% only), and never bunch up: the first
+ * pin takes the spot nearest the centre, and each next pin takes the free spot farthest from
+ * every pin already placed, so pins stay spread out however many there are.
+ */
+const PIN_MARGIN = 0.15;
+const ATLAS_W_ = 9000, ATLAS_H_ = 6000; // map aspect, so spacing is measured in real map distance
+const PIN_LOTS: readonly (readonly [number, number])[] = (() => {
+  const dist = (a: readonly number[], b: readonly number[]) => Math.hypot((a[0]! - b[0]!) * ATLAS_W_, (a[1]! - b[1]!) * ATLAS_H_);
+  const free = ARTWORK_LOTS.filter(([x, y]) => x >= PIN_MARGIN && x <= 1 - PIN_MARGIN && y >= PIN_MARGIN && y <= 1 - PIN_MARGIN).slice();
+  if (!free.length) return free;
+  free.sort((a, b) => dist(a, [0.5, 0.5]) - dist(b, [0.5, 0.5]));
+  const out = [free.shift()!];
+  const near = free.map((p) => dist(p, out[0]!));
+  while (free.length) {
+    let best = 0;
+    for (let i = 1; i < free.length; i++) if (near[i]! > near[best]!) best = i;
+    const [p] = free.splice(best, 1);
+    near.splice(best, 1);
+    out.push(p!);
+    for (let i = 0; i < free.length; i++) near[i] = Math.min(near[i]!, dist(free[i]!, p!));
+  }
+  return out;
+})();
+
 export const ATLAS_VERSION = 3;
 export const ATLAS_W = 9000;
 export const ATLAS_H = 6000;
@@ -326,12 +351,12 @@ export function generateAtlas(): Atlas {
  * interleaved across the whole city, so Spaces appear scattered, never clustered by category.
  */
 export function lotPosition(districtId: DistrictId, plotIndex: number): { x: number; y: number } {
-  if (ARTWORK_LOTS.length) {
+  if (PIN_LOTS.length) {
     // Interleave groups so every (group, plot) pair gets its own spot until the map is full.
     const k = Math.max(0, DISTRICTS.findIndex((d) => d.id === districtId));
     const g = plotIndex * DISTRICTS.length + k;
-    const [x, y] = ARTWORK_LOTS[g % ARTWORK_LOTS.length]!;
-    const lap = Math.floor(g / ARTWORK_LOTS.length);
+    const [x, y] = PIN_LOTS[g % PIN_LOTS.length]!;
+    const lap = Math.floor(g / PIN_LOTS.length);
     if (lap === 0) return { x, y };
     const t = lap * 2.399;
     return { x: x + Math.cos(t) * 0.012 * Math.sqrt(lap), y: y + Math.sin(t) * 0.018 * Math.sqrt(lap) };

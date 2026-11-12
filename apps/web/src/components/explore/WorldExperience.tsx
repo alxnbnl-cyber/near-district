@@ -1,5 +1,4 @@
 "use client";
-import { LogoMark } from "@/components/brand/Logo";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -393,7 +392,8 @@ export function WorldExperience({ data, initialMode, viewer }: { data: WorldData
         <>
           {/* top left: brand + map title (quiet, not a link) */}
           <div className="yv-enter pointer-events-none absolute left-6 top-6 z-30 flex select-none items-center gap-3 opacity-70">
-            <LogoMark size={42} />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/brand/yielvy-mark.webp" alt="" className="size-10 sm:size-11" />
             <span className="font-mono">
               <span className="block font-display text-[17px] font-bold leading-none tracking-[0.14em] text-[rgb(214_219_225/.85)] sm:text-[19px]">NEAR DISTRICT</span>
               <span className="mt-1 block text-[9px] uppercase tracking-[0.24em]" style={{ color: `${ink} / .45)` }}>

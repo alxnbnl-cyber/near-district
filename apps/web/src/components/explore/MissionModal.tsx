@@ -20,7 +20,10 @@ interface MissionData {
     category: string;
     websiteUrl: string | null;
     socials: Record<string, string>;
-    otherMissions: { title: string; slug: string; template: string; status: string }[];
+    otherMissions: { title: string; slug: string; template: string; status: string; endsAt: string | null }[];
+    verified: boolean;
+    joinedAt: string | null;
+    stats: { missions: number; players: number };
   };
   rules: { funded: boolean; winnersCount: number; equalShare: boolean; claimWindowDays: number; judgingCriteria: { key: string; label: string; weightBps: number }[] | null };
   participants: number;
@@ -47,72 +50,150 @@ const SOCIAL_LABEL: Record<string, string> = { x: "X", twitter: "X", telegram: "
 
 const safeUrl = (u: string) => (/^https?:\/\//i.test(u) ? u : null);
 
-/** Who's behind the mission: logo, pitch, links and their other missions. */
-function CompanyCard({ space, onOpen }: { space: MissionData["space"]; onOpen?(slug: string, campaign: string): void }) {
+/** Who's behind the mission: full profile, numbers, links and every open mission. */
+function CompanyCard({ space, current, onOpen }: { space: MissionData["space"]; current: MissionData["campaign"]; onOpen?(slug: string, campaign: string): void }) {
   const links = [
     ...(space.websiteUrl && safeUrl(space.websiteUrl) ? [["Website", space.websiteUrl] as const] : []),
     ...Object.entries(space.socials)
       .map(([k, v]) => [SOCIAL_LABEL[k.toLowerCase()] ?? k, v] as const)
       .filter(([, v]) => Boolean(v && safeUrl(v))),
   ];
+  const host = (u: string) => {
+    try {
+      return new URL(u).hostname.replace(/^www\./, "");
+    } catch {
+      return u;
+    }
+  };
+  const since = space.joinedAt ? new Date(space.joinedAt).toLocaleDateString("en", { month: "short", year: "numeric" }) : "—";
+  const missions = [{ title: current.title, slug: current.slug, template: current.template, status: "CURRENT", endsAt: current.endsAt }, ...space.otherMissions];
+  const label = "text-[9.5px] font-bold uppercase tracking-[0.24em] text-[rgb(214_219_225/.45)]";
   return (
-    <section className="mt-6 overflow-hidden bg-[rgb(10_13_18/.6)] font-mono" style={frame(14, `${INK} / .14)`)}>
-      <div className="flex items-stretch">
-        <span className="relative w-[96px] shrink-0 overflow-hidden border-r border-[rgb(255_255_255/.08)] bg-[rgb(255_255_255/.04)]">
-          {space.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={space.logoUrl} alt="" className="absolute inset-0 size-full object-cover" />
-          ) : (
-            <span className="grid size-full place-items-center font-display text-[34px] font-bold text-orange">{space.name[0]?.toUpperCase()}</span>
-          )}
-        </span>
-        <div className="min-w-0 flex-1 p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-orange">About the company</p>
-          <h2 className="mt-1 font-display text-[22px] font-bold uppercase leading-tight tracking-[0.02em] text-white">{space.name}</h2>
-          {space.tagline && <p className="mt-0.5 font-sans text-[14px] text-[rgb(214_219_225/.7)]">{space.tagline}</p>}
-          <span className="mt-2 inline-block bg-[rgb(255_255_255/.05)] px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.18em] text-[rgb(214_219_225/.6)]">{space.category}</span>
-        </div>
-      </div>
-      {space.description && <p className="border-t border-[rgb(255_255_255/.06)] px-4 py-3 font-sans text-[14px] leading-relaxed text-[rgb(214_219_225/.72)]">{space.description}</p>}
-      {(links.length > 0 || space.otherMissions.length > 0) && (
-        <div className="grid gap-4 border-t border-[rgb(255_255_255/.06)] px-4 py-3 md:grid-cols-2">
+    <section className="mt-6 grid gap-3 font-mono lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-5">
+      <div className="flex min-w-0 flex-col gap-3">
+          {/* hero */}
+          <div className="relative overflow-hidden bg-[radial-gradient(120%_140%_at_0%_0%,rgb(255_145_56/.22),transparent_55%),linear-gradient(160deg,rgb(16_20_27/.9),rgb(8_10_14/.9))] p-5" style={frame(16, "rgb(255 145 56 / .35)")}>
+            <span aria-hidden className="pointer-events-none absolute -right-10 -top-10 size-44 rounded-full border border-[rgb(255_145_56/.15)]" />
+            <span aria-hidden className="pointer-events-none absolute -right-2 -top-2 size-28 rounded-full border border-dashed border-[rgb(255_145_56/.2)]" />
+            <div className="relative flex items-center gap-4">
+              <span className="relative size-[84px] shrink-0 overflow-hidden bg-[rgb(255_255_255/.05)] shadow-[0_0_30px_rgb(255_145_56/.25)]" style={frame(14, "rgb(255 145 56 / .55)", 1.5)}>
+                {space.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={space.logoUrl} alt="" className="absolute inset-0 size-full object-cover" />
+                ) : (
+                  <span className="grid size-full place-items-center font-display text-[38px] font-bold text-orange">{space.name[0]?.toUpperCase()}</span>
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-orange">Mission host</p>
+                <h2 className="mt-1 flex flex-wrap items-center gap-2 font-display text-[26px] font-bold uppercase leading-none tracking-[0.02em] text-white">
+                  {space.name}
+                  {space.verified && (
+                    <span className="inline-flex items-center gap-1 bg-[rgb(77_224_170/.12)] px-2 py-1 text-[9.5px] font-bold tracking-[0.18em] text-mint-ink" style={frame(5, "rgb(77 224 170 / .4)")}>
+                      ✓ Verified
+                    </span>
+                  )}
+                </h2>
+                {space.tagline && <p className="mt-1.5 font-sans text-[15px] leading-snug text-[rgb(214_219_225/.8)]">{space.tagline}</p>}
+                <span className="mt-2 inline-block bg-[rgb(255_255_255/.06)] px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.18em] text-[rgb(214_219_225/.7)]">{space.category}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* about */}
+          <div className="bg-[rgb(10_13_18/.6)] px-4 py-4" style={frame(12, `${INK} / .12)`)}>
+            <p className={label}>About</p>
+            <p className="mt-2 whitespace-pre-line font-sans text-[14.5px] leading-relaxed text-[rgb(214_219_225/.8)]">
+              {space.description?.trim() || space.tagline || `${space.name} hosts missions on NEAR District.`}
+            </p>
+          </div>
+
+          {/* links */}
           {links.length > 0 && (
-            <div>
-              <p className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.45)]">Links</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {links.map(([label, url]) => (
-                  <a key={label} href={url} target="_blank" rel="noopener noreferrer nofollow" className="px-2.5 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[rgb(214_219_225/.8)] hover:text-orange" style={frame(6, `${INK} / .2)`)}>
-                    {label} ↗
+            <div className="bg-[rgb(10_13_18/.6)] px-4 py-4" style={frame(12, `${INK} / .12)`)}>
+              <p className={label}>Links</p>
+              <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2">
+                {links.map(([name, url]) => (
+                  <a
+                    key={name}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="group flex items-center justify-between gap-3 bg-[rgb(255_255_255/.03)] px-3 py-2.5 transition-colors hover:bg-[rgb(255_145_56/.1)]"
+                    style={frame(7, `${INK} / .14)`)}
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-[10.5px] font-bold uppercase tracking-[0.16em] text-white">{name}</span>
+                      <span className="block truncate font-sans text-[12px] text-[rgb(214_219_225/.55)]">{host(url)}</span>
+                    </span>
+                    <span className="shrink-0 text-orange transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5">↗</span>
                   </a>
                 ))}
               </div>
+              <p className="mt-2.5 font-sans text-[11.5px] text-[rgb(214_219_225/.4)]">Links are provided by the company. NEAR District doesn't vouch for them.</p>
             </div>
           )}
-          {space.otherMissions.length > 0 && (
-            <div>
-              <p className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.45)]">More missions</p>
-              <ul className="mt-2 flex flex-col gap-1">
-                {space.otherMissions.map((m) => (
-                  <li key={m.slug}>
-                    <button
-                      type="button"
-                      onClick={() => onOpen?.(space.slug, m.slug)}
-                      className="group flex w-full items-center justify-between gap-2 bg-[rgb(255_255_255/.03)] px-3 py-2 text-left text-[11.5px] font-bold uppercase tracking-[0.08em] text-white hover:bg-[rgb(255_145_56/.1)]"
-                    >
-                      <span className="truncate">{m.title}</span>
+
+      </div>
+      <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:self-start">
+          {/* numbers */}
+          <div className="grid grid-cols-3 gap-2">
+            {(
+              [
+                ["Open missions", String(space.stats.missions), "text-orange"],
+                ["Players", space.stats.players.toLocaleString("en"), "text-sky"],
+                ["Host since", since, "text-reward"],
+              ] as const
+            ).map(([k, v, cls]) => (
+              <div key={k} className="bg-[rgb(10_13_18/.6)] px-3 py-3" style={frame(10, `${INK} / .12)`)}>
+                <p className={label}>{k}</p>
+                <p className={`mt-1 font-display text-[20px] font-bold leading-none tabular-nums ${cls}`}>{v}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* missions */}
+          <div className="bg-[rgb(10_13_18/.6)] px-4 py-4" style={frame(12, `${INK} / .12)`)}>
+            <p className={label}>Missions by {space.name}</p>
+            <ul className="mt-2.5 flex flex-col gap-1.5">
+              {missions.map((m) => {
+                const here = m.status === "CURRENT";
+                const hunt = m.template === "treasure_hunt";
+                const body = (
+                  <>
+                    <GameIcon name={hunt ? "explore" : "play"} size={30} className={here ? "" : "opacity-80"} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12px] font-bold uppercase tracking-[0.08em] text-white">{m.title}</span>
+                      <span className="block text-[10px] uppercase tracking-[0.16em] text-[rgb(214_219_225/.5)]">
+                        {hunt ? "Treasure hunt" : "Creative challenge"}
+                        {m.status === "SCHEDULED" ? " · coming soon" : m.endsAt ? ` · ${timeLeft(m.endsAt)}` : ""}
+                      </span>
+                    </span>
+                    {here ? (
+                      <span className="shrink-0 text-[9.5px] font-bold uppercase tracking-[0.2em] text-orange">Viewing</span>
+                    ) : (
                       <span className="shrink-0 text-orange transition-transform group-hover:translate-x-0.5">→</span>
-                    </button>
+                    )}
+                  </>
+                );
+                return (
+                  <li key={m.slug}>
+                    {here ? (
+                      <div className="flex items-center gap-3 bg-[rgb(255_145_56/.08)] px-3 py-2" style={frame(8, "rgb(255 145 56 / .35)")}>{body}</div>
+                    ) : (
+                      <button type="button" onClick={() => onOpen?.(space.slug, m.slug)} className="group flex w-full items-center gap-3 bg-[rgb(255_255_255/.03)] px-3 py-2 text-left transition-colors hover:bg-[rgb(255_145_56/.1)]" style={frame(8, `${INK} / .12)`)}>
+                        {body}
+                      </button>
+                    )}
                   </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+                );
+              })}
+            </ul>
+          </div>
+      </div>
     </section>
   );
 }
-
 
 /** The prize pool: big, live, and clear about where it comes from. */
 function PrizePool({ data }: { data: MissionData }) {
@@ -122,7 +203,7 @@ function PrizePool({ data }: { data: MissionData }) {
     <section className="relative overflow-hidden bg-[linear-gradient(150deg,rgb(255_194_75/.16),rgb(8_11_16/.88)_55%)] p-5 font-mono md:p-6" style={frame(16, "rgb(255 194 75 / .55)", 1, { shadow: "0 0 40px rgb(255 194 75 / .14)" })}>
       <span aria-hidden className="yv-pp-rays pointer-events-none absolute -right-16 -top-16 size-64 rounded-full bg-[conic-gradient(from_0deg,transparent,rgb(255_194_75/.16),transparent_20%,rgb(255_145_56/.12),transparent_45%,rgb(255_194_75/.14),transparent_70%)]" />
       <div className="relative flex flex-wrap items-center gap-5">
-        <GameIcon name="earn" size={92} className="yv-float shrink-0" />
+        <GameIcon name="earn" size={80} className="yv-float shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-[0.28em] text-reward">
             Prize pool
@@ -130,9 +211,10 @@ function PrizePool({ data }: { data: MissionData }) {
           {funded ? (
             <>
               <LiveReward prize={data.prize!} className="mt-1 block font-display text-[40px] font-bold leading-none text-reward md:text-[48px]" />
-              <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[rgb(214_219_225/.7)]">
-                🏆 {hunt ? "Split equally by everyone who solves it" : `${data.rules.winnersCount} winner${data.rules.winnersCount === 1 ? "" : "s"} picked by ${data.space.name}`} · 👥 {data.participants} playing
+              <p className="mt-2.5 text-[11px] font-bold uppercase leading-relaxed tracking-[0.14em] text-[rgb(214_219_225/.75)]">
+                🏆 {hunt ? "Split equally by everyone who solves it" : `${data.rules.winnersCount} winner${data.rules.winnersCount === 1 ? "" : "s"} picked by ${data.space.name}`}
               </p>
+              <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[rgb(214_219_225/.55)]">👥 {data.participants} playing</p>
             </>
           ) : (
             <>
@@ -229,7 +311,7 @@ export function MissionModal({ slug, campaign, onClose, onOpen }: { slug: string
             Back to map <span aria-hidden className="text-[14px]">✕</span>
           </button>
 
-          <div className="mx-auto max-w-4xl px-5 pb-12 pt-8 md:px-10">
+          <div className="mx-auto w-full max-w-[1320px] px-5 pb-12 pt-8 md:px-10 xl:px-14">
             {error ? (
               <p className="mt-20 text-center font-mono text-[13px] uppercase tracking-[0.2em] text-danger">{error}</p>
             ) : !data ? (
@@ -252,7 +334,7 @@ export function MissionModal({ slug, campaign, onClose, onOpen }: { slug: string
                       <h1 className="font-display text-[30px] font-bold uppercase leading-[1.05] tracking-[0.01em] text-white md:text-[40px]">{data.campaign.title}</h1>
                     </span>
                   </div>
-                  {data.campaign.summary && <p className="mt-3 max-w-2xl font-sans text-[16px] leading-relaxed text-[rgb(214_219_225/.75)]">{data.campaign.summary}</p>}
+                  {data.campaign.summary && <p className="mt-3 max-w-3xl font-sans text-[16px] leading-relaxed text-[rgb(214_219_225/.75)]">{data.campaign.summary}</p>}
                 </section>
 
                 {/* tabs */}
@@ -273,37 +355,70 @@ export function MissionModal({ slug, campaign, onClose, onOpen }: { slug: string
                 </div>
 
                 {tab === "mission" ? (
-                  <div className="mt-6 flex flex-col gap-5">
-                    <PrizePool data={data} />
-                    <MissionTimeline startsAt={data.campaign.startsAt} endsAt={data.campaign.endsAt} claimDays={data.rules.claimWindowDays} funded={data.rules.funded} />
-                    <section>
-                      {hunt ? (
-                        <HuntPlayer campaignId={data.campaign.id} status={data.status} signedIn={data.signedIn} returnTo={returnTo} />
-                      ) : (
-                        <ContestEntry campaignId={data.campaign.id} status={data.status} signedIn={data.signedIn} returnTo={returnTo} />
-                      )}
-                    </section>
-                    <section className="grid gap-3 font-mono md:grid-cols-2">
+                  <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+                    {/* main: timeline, play, story */}
+                    <div className="flex min-w-0 flex-col gap-5">
+                      <MissionTimeline startsAt={data.campaign.startsAt} endsAt={data.campaign.endsAt} claimDays={data.rules.claimWindowDays} funded={data.rules.funded} />
+                      <section>
+                        {hunt ? (
+                          <HuntPlayer campaignId={data.campaign.id} status={data.status} signedIn={data.signedIn} returnTo={returnTo} />
+                        ) : (
+                          <ContestEntry campaignId={data.campaign.id} status={data.status} signedIn={data.signedIn} returnTo={returnTo} />
+                        )}
+                      </section>
                       {data.campaign.description && (
-                        <details className="bg-[rgb(10_13_18/.6)] px-4 py-3" style={frame(10, `${INK} / .12)`)}>
-                          <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.8)]">The story</summary>
-                          <p className="mt-2 whitespace-pre-line font-sans text-[14px] leading-relaxed text-[rgb(214_219_225/.7)]">{data.campaign.description}</p>
-                        </details>
+                        <section className="bg-[rgb(10_13_18/.6)] px-5 py-4 font-mono" style={frame(12, `${INK} / .12)`)}>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange">The story</p>
+                          <p className="mt-2 whitespace-pre-line font-sans text-[15px] leading-relaxed text-[rgb(214_219_225/.78)]">{data.campaign.description}</p>
+                        </section>
                       )}
-                      <details className="bg-[rgb(10_13_18/.6)] px-4 py-3" style={frame(10, `${INK} / .12)`)}>
-                        <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.8)]">Rules</summary>
-                        <ul className="mt-2 space-y-1.5 font-sans text-[13px] text-[rgb(214_219_225/.7)]">
-                          <li>• Free to play. One entry per person.</li>
-                          {hunt && <li>• Answers are sealed: you can change them until the deadline; results are revealed when the mission ends.</li>}
-                          {data.rules.funded && <li>• Winners are picked by the published rules after the mission ends and paid straight to their wallet.</li>}
-                          {data.rules.funded && <li>• You need a NEAR wallet to receive {data.symbol}, or choose cash out when you win.</li>}
-                          <li>• Answers are checked on our servers; bots are disqualified.</li>
+                    </div>
+
+                    {/* side: prize, host, rules */}
+                    <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
+                      <PrizePool data={data} />
+                      <button
+                        type="button"
+                        onClick={() => setTab("company")}
+                        className="group flex items-center gap-3 bg-[rgb(10_13_18/.6)] p-3 text-left font-mono transition-colors hover:bg-[rgb(255_145_56/.08)]"
+                        style={frame(12, `${INK} / .14)`)}
+                      >
+                        <span className="relative size-12 shrink-0 overflow-hidden bg-[rgb(255_255_255/.05)]" style={frame(8, "rgb(255 145 56 / .4)")}>
+                          {data.space.logoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={data.space.logoUrl} alt="" className="absolute inset-0 size-full object-cover" />
+                          ) : (
+                            <span className="grid size-full place-items-center font-display text-[20px] font-bold text-orange">{data.space.name[0]?.toUpperCase()}</span>
+                          )}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[9.5px] font-bold uppercase tracking-[0.24em] text-[rgb(214_219_225/.45)]">Hosted by</span>
+                          <span className="block truncate text-[14px] font-bold uppercase tracking-[0.06em] text-white">
+                            {data.space.name} {data.space.verified && <span className="text-mint-ink">✓</span>}
+                          </span>
+                          {data.space.tagline && <span className="block truncate font-sans text-[12.5px] text-[rgb(214_219_225/.6)]">{data.space.tagline}</span>}
+                        </span>
+                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-orange transition-transform group-hover:translate-x-0.5">Profile →</span>
+                      </button>
+                      <section className="bg-[rgb(10_13_18/.6)] px-4 py-4 font-mono" style={frame(12, `${INK} / .12)`)}>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[rgb(214_219_225/.55)]">Rules</p>
+                        <ul className="mt-2.5 space-y-2 font-sans text-[13.5px] leading-snug text-[rgb(214_219_225/.75)]">
+                          <li className="flex gap-2"><span className="text-orange">◆</span>Free to play. One entry per person.</li>
+                          {hunt && <li className="flex gap-2"><span className="text-orange">◆</span>Answers are sealed: change them any time until the deadline. Results are revealed when the mission ends.</li>}
+                          {data.rules.funded && (
+                            <li className="flex gap-2">
+                              <span className="text-orange">◆</span>
+                              {hunt ? "Everyone who answers every clue correctly splits the prize equally." : `${data.space.name} picks up to ${data.rules.winnersCount} winners, who split the prize equally.`}
+                            </li>
+                          )}
+                          {data.rules.funded && <li className="flex gap-2"><span className="text-orange">◆</span>Prizes are paid in {data.symbol} to the NEAR wallet you sign in with.</li>}
+                          <li className="flex gap-2"><span className="text-orange">◆</span>Answers are checked on our servers; bots are disqualified.</li>
                         </ul>
-                      </details>
-                    </section>
+                      </section>
+                    </aside>
                   </div>
                 ) : (
-                  <CompanyCard space={data.space} onOpen={onOpen} />
+                  <CompanyCard space={data.space} current={data.campaign} onOpen={onOpen} />
                 )}
               </>
             )}
