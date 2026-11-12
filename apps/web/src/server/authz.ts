@@ -29,7 +29,7 @@ export async function requireCampaignAccess(db: Db, user: SessionUser, campaignI
     .innerJoin(spaces, eq(spaces.id, campaigns.spaceId))
     .where(eq(campaigns.id, campaignId))
     .limit(1);
-  if (!row) throw notFound("Campaign not found.");
+  if (!row) throw notFound("Mission not found.");
   const role = await requireOrgRole(db, user, row.space.organizationId, min);
   return { ...row, role };
 }

@@ -51,9 +51,9 @@ export default async function OwnerHome() {
   const locked = !approved;
 
   const steps: Step[] = [
-    { icon: "profile", title: "Company profile", body: "Shown on your map pin", done: true, action: { href: "/organizer/space", label: "Edit profile" } },
+    { icon: "company", title: "Company profile", body: "Shown on your map pin", done: true, action: { href: "/organizer/space", label: "Edit profile" } },
     {
-      icon: "explore",
+      icon: "approval",
       title: "Get approved",
       body: approved ? "You're on the map" : "Usually takes a moment",
       done: approved,
@@ -119,7 +119,7 @@ export default async function OwnerHome() {
                     className={`inline-flex h-10 items-center px-4 text-[11px] font-black uppercase tracking-[0.16em] transition-colors ${now ? "bg-orange text-[#140c05] hover:bg-[#ffa458]" : "text-[rgb(214_219_225/.75)] hover:text-white"}`}
                     style={now ? frame(9, "rgb(255 145 56)") : frame(9, `${INK} / .22)`)}
                   >
-                    {st.done && !now ? (st.doneAction?.label ?? (st.icon === "profile" ? "Edit" : "View")) : st.action.label}
+                    {st.done && !now ? (st.doneAction?.label ?? (st.icon === "company" ? "Edit" : "View")) : st.action.label}
                   </Link>
                 ) : null}
               </div>

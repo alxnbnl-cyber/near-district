@@ -49,3 +49,5 @@ export function getDb(): Promise<Db> {
 export { assignBuildingPlot } from "./world";
 export * from "./hint-engine";
 export { finalizeSealedEntry, finalizeSealedHunt, sealedPoints } from "./sealed";
+/** Local demo payouts live in their own reward period so they never mix with the real one. */
+export const DEMO_REWARD_PERIOD = 999;

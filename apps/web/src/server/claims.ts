@@ -32,7 +32,7 @@ export async function buildClaimTransactions(db: Db, rpc: NearRpc, vaultId: stri
   const now = new Date();
   if (p.state !== "CLAIMABLE" || !p.claimableAfter || p.claimableAfter > now) throw conflict("This reward isn't claimable yet.");
   if (!p.claimDeadline || p.claimDeadline <= now) throw conflict("The claim window for this reward has closed.", "expired");
-  if (c.vaultCampaignId === null) throw new HttpError(500, "Campaign is not linked to the vault.");
+  if (c.vaultCampaignId === null) throw new HttpError(500, "Mission is not linked to the vault.");
   const already = await rpc.view<boolean>(vaultId, "is_claimed", { campaign_id: c.vaultCampaignId.toString(), period_id: p.periodNumber, account_id: a.accountId });
   if (already) throw conflict("This reward has already been claimed.", "already_claimed");
   const storage = await rpc.view<{ total: string } | null>(tokenId, "storage_balance_of", { account_id: a.accountId });

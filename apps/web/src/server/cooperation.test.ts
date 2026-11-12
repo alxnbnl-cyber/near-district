@@ -132,7 +132,7 @@ describe("partner hints: end-to-end acceptance", () => {
   });
 
   it("B offers its quiz as an activity (and can't offer someone else's campaign)", async () => {
-    await expectHttp(createOffering(h.db, users_.ownerB!, orgs.B!.orgId, { title: "Steal", description: "", activity: { type: "internal_quiz", campaignId: huntA } }, { onchainEnabled: true }), 400, /own organization/);
+    await expectHttp(createOffering(h.db, users_.ownerB!, orgs.B!.orgId, { title: "Steal", description: "", activity: { type: "internal_quiz", campaignId: huntA } }, { onchainEnabled: true }), 400, /own company/);
     const o = await createOffering(h.db, users_.ownerB!, orgs.B!.orgId, { title: "Complete the RHEA Learning Challenge", description: "Learn how lending works.", activity: { type: "internal_quiz", campaignId: quizB } }, { onchainEnabled: true });
     offeringB = o.id;
     const visible = await partnerOfferings(h.db, orgs.A!.orgId);
@@ -374,10 +374,10 @@ describe("shared expedition: end-to-end acceptance", () => {
     const e = await createExpedition(h.db, users_.ownerA!, orgs.A!.orgId, { title: "The Grand Expedition", summary: "Two Spaces, one adventure." });
     expeditionId = e.id;
     await addOwnChapter(h.db, users_.ownerA!, orgs.A!.orgId, e.id, chapter1);
-    await expectHttp(addOwnChapter(h.db, users_.ownerA!, orgs.A!.orgId, e.id, chapter2), 400, /own campaigns/);
+    await expectHttp(addOwnChapter(h.db, users_.ownerA!, orgs.A!.orgId, e.id, chapter2), 400, /own missions/);
     await inviteExpeditionPartner(h.db, users_.ownerA!, orgs.A!.orgId, e.id, "b-labs");
     await expectHttp(publishExpedition(h.db, users_.ownerA!, orgs.A!.orgId, e.id), 400, /two chapters/);
-    await expectHttp(respondExpeditionInvite(h.db, users_.ownerB!, orgs.B!.orgId, e.id, "accept", chapter1), 400, /own campaigns/);
+    await expectHttp(respondExpeditionInvite(h.db, users_.ownerB!, orgs.B!.orgId, e.id, "accept", chapter1), 400, /own missions/);
     await respondExpeditionInvite(h.db, users_.ownerB!, orgs.B!.orgId, e.id, "accept", chapter2);
     await addOwnChapter(h.db, users_.ownerA!, orgs.A!.orgId, e.id, finale);
     await setRewardChapter(h.db, users_.ownerA!, orgs.A!.orgId, e.id, finale);

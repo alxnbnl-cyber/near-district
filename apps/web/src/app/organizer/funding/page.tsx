@@ -41,7 +41,7 @@ export default async function FundingPage() {
       {!vaultDeployed && (
         <div className="flex items-center gap-3 rounded-[16px] border border-sky/40 bg-sky-wash px-4 py-3 text-[14px]">
           <span className="text-lg">⏳</span>
-          <span className="text-sky-ink">Deposits open soon — the prize vault is being audited. You can already preview cross-chain quotes.</span>
+          <span className="text-sky-ink">Deposits open soon: the prize vault is being deployed and reviewed.</span>
         </div>
       )}
 

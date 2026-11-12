@@ -239,7 +239,7 @@ export async function hintPublishProblems(db: Db, c: CampaignRow, fundingSource:
       if (l.activity.type.startsWith("near_") && !onchainEnabled()) problems.push(`Hint “${h.title}” needs a mainnet deployment for on-chain verification.`);
       if ("campaignId" in l.activity) {
         const [t] = await db.select({ v: campaigns.currentVersion, title: campaigns.title }).from(campaigns).where(eq(campaigns.id, l.activity.campaignId)).limit(1);
-        if (!t?.v) problems.push(`Hint “${h.title}” points to “${t?.title ?? "a campaign"}”, which isn't published yet.`);
+        if (!t?.v) problems.push(`Hint “${h.title}” points to “${t?.title ?? "a mission"}”, which isn't published yet.`);
       }
     }
     if (!hasFreePath(rule)) {
@@ -293,7 +293,7 @@ const REASON_TEXT: Record<string, string> = {
   sequence_incomplete: "Keep going: not enough questions solved yet.",
   score_below_minimum: "Finished, but below the minimum score.",
   no_entry: "No entry found yet.",
-  campaign_unavailable: "That campaign isn't available.",
+  campaign_unavailable: "That mission isn't available.",
   invalid_tx_hash: "That doesn't look like a NEAR transaction hash.",
   signer_not_verified_wallet: "That transaction wasn't signed by a wallet you've verified.",
   tx_not_found_for_wallet: "We couldn't find that transaction for your verified wallets.",
@@ -395,7 +395,7 @@ export async function hintCards(db: Db, userId: string, questionId: string): Pro
 /** Players may work on hints of any clue, in a live hunt they joined. */
 async function assertPlayerAccess(db: Db, user: SessionUser, campaignId: string, hintId: string) {
   const [c] = await db.select().from(campaigns).where(eq(campaigns.id, campaignId)).limit(1);
-  if (!c || !c.currentVersion || c.moderation !== "approved") throw notFound("Campaign not found.");
+  if (!c || !c.currentVersion || c.moderation !== "approved") throw notFound("Mission not found.");
   if (effectiveStatus(c as never) !== "LIVE") throw conflict("This mission isn't open right now.");
   const pos = await hintQuestionPosition(db, hintId);
   if (!pos || pos.campaignId !== c.id) throw notFound("Hint not found.");

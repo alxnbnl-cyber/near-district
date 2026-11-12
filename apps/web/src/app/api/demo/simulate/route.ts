@@ -1,4 +1,4 @@
-import { and, campaigns, count, eq, finalizeSealedEntry, participantEntries, qualifications, rewardAllocations, rewardClaims, rewardPeriods, walletConnections } from "@yielvy/db";
+import { and, campaigns, count, DEMO_REWARD_PERIOD, eq, finalizeSealedEntry, participantEntries, qualifications, rewardAllocations, rewardClaims, rewardPeriods, walletConnections } from "@yielvy/db";
 import { z } from "zod";
 import { badRequest, body, notFound, route } from "@/server/http";
 import { db } from "@/server/db";
@@ -9,8 +9,6 @@ import { audit } from "@/server/audit";
 
 const input = z.object({ campaignId: z.string().uuid(), action: z.enum(["deadline", "reward"]) });
 
-/** Demo payouts use their own reward record, so they never clash with the real one at the deadline. */
-const DEMO_PERIOD = 999;
 
 /**
  * LOCAL DEMO ONLY (DEMO_REWARDS=1, never in production). Fast-forwards a mission FOR THE CALLER ONLY;
@@ -64,11 +62,11 @@ export const POST = route(
     const share = pool / BigInt(Math.max(1, n));
 
     const paid = await database.transaction(async (tx) => {
-      let [period] = await tx.select().from(rewardPeriods).where(and(eq(rewardPeriods.campaignId, c.id), eq(rewardPeriods.periodNumber, DEMO_PERIOD))).limit(1);
+      let [period] = await tx.select().from(rewardPeriods).where(and(eq(rewardPeriods.campaignId, c.id), eq(rewardPeriods.periodNumber, DEMO_REWARD_PERIOD))).limit(1);
       if (!period) {
         [period] = await tx
           .insert(rewardPeriods)
-          .values({ campaignId: c.id, periodNumber: DEMO_PERIOD, startsAt: c.startsAt ?? now, endsAt: now, state: "COMPLETED", claimableAfter: now, claimDeadline: new Date(now.getTime() + 30 * 86_400_000) })
+          .values({ campaignId: c.id, periodNumber: DEMO_REWARD_PERIOD, startsAt: c.startsAt ?? now, endsAt: now, state: "COMPLETED", claimableAfter: now, claimDeadline: new Date(now.getTime() + 30 * 86_400_000) })
           .returning();
       }
       const [alloc] = await tx

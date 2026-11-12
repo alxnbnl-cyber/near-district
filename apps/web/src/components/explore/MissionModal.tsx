@@ -251,7 +251,7 @@ function MissionTimeline({ startsAt, endsAt, claimDays, funded, demo, campaignId
     { label: "Starts", at: startsAt ? Date.parse(startsAt) : null },
     { label: "Answers lock", at: end },
     { label: "Results revealed", at: end },
-    ...(funded ? [{ label: "Rewards paid", at: end ? end + 3_600_000 : null, note: `claim within ${claimDays}d` }] : []),
+    ...(funded ? [{ label: "Rewards paid", at: end ? end + 3_600_000 : null, note: "paid automatically" }] : []),
   ];
   const current = steps.findIndex((st) => st.at === null || st.at > now);
   return (
@@ -402,7 +402,7 @@ export function MissionModal({ slug, campaign, onClose, onOpen, onPartnerJump, a
                       onClick={() => setTab(t)}
                       className={`-mb-px flex items-center gap-2 px-4 py-3 text-[12px] font-bold uppercase tracking-[0.2em] transition-colors ${tab === t ? "border-b-2 border-orange text-orange" : "border-b-2 border-transparent text-[rgb(214_219_225/.55)] hover:text-white"}`}
                     >
-                      <GameIcon name={t === "mission" ? (hunt ? "explore" : "play") : "profile"} size={22} className={tab === t ? "" : "opacity-60 grayscale"} />
+                      <GameIcon name={t === "mission" ? (hunt ? "explore" : "play") : "company"} size={22} className={tab === t ? "" : "opacity-60 grayscale"} />
                       {t === "mission" ? "Mission" : "Company"}
                     </button>
                   ))}

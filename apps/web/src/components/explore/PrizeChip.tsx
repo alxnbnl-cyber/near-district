@@ -3,7 +3,7 @@ import { IconTrophy } from "./icons";
 
 /**
  * Gold = something you can win. Shows the verified on-chain prize pool when we have one,
- * "Token prize" when the quest is funded but no snapshot exists yet, and "Just for fun" otherwise.
+ * "Prize" when the quest is funded but no snapshot exists yet, and "Just for fun" otherwise.
  */
 export function PrizeChip({ prize, rewards, size = "sm", className = "" }: { prize: Prize | null; rewards: "none" | "token"; size?: "sm" | "lg"; className?: string }) {
   if (rewards === "none" && !prize) {
@@ -15,7 +15,7 @@ export function PrizeChip({ prize, rewards, size = "sm", className = "" }: { pri
       className={`yv-shine inline-flex items-center gap-1.5 rounded-full bg-reward font-display font-bold text-[#2a1600] ${lg ? "px-3.5 py-1.5 text-[15px]" : "px-2.5 py-0.5 text-[11.5px]"} ${className}`}
     >
       <IconTrophy size={lg ? 17 : 13} />
-      {prize ? `${prize.amount} ${prize.symbol}` : "Token prize"}
+      {prize ? `${prize.amount} ${prize.symbol}` : "Prize"}
     </span>
   );
 }

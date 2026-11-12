@@ -3,9 +3,9 @@ import { httpUrl, plainText, slug } from "./schemas";
 
 export const TEMPLATES = {
   treasure_hunt: { label: "Mission", live: true, blurb: "Hidden secrets to decrypt. Decrypt them all to qualify." },
-  creative_contest: { label: "Creative Contest", live: true, blurb: "Ask for ideas, feedback or creative work. Your team picks winners." },
+  creative_contest: { label: "Creative challenge", live: true, blurb: "Ask for ideas, feedback or creative work. Your team picks winners." },
   product_explorer: { label: "Product Explorer", live: false, blurb: "Guided tours through your product. Coming soon." },
-  more_experiences: { label: "More experiences", live: false, blurb: "More formats are on the way." },
+  more_experiences: { label: "More missions", live: false, blurb: "More formats are on the way." },
 } as const;
 
 const intStr = z.string().regex(/^\d+$/, "Whole token units only");

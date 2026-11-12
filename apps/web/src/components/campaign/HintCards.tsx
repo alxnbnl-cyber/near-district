@@ -108,7 +108,7 @@ function HintItem({ campaignId, h, returnTo, onChange }: { campaignId: string; h
               : o.status === "pending"
                 ? { tone: "warn", text: o.message ?? "Waiting for confirmation. We'll keep checking automatically." }
                 : o.status === "under_review"
-                  ? { tone: "warn", text: "Submitted. The organizer will review it." }
+                  ? { tone: "warn", text: "Submitted. The company will review it." }
                   : { tone: "danger", text: o.message ?? "We couldn't verify that yet." },
         );
       }

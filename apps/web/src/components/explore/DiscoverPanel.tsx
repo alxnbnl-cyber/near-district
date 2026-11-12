@@ -130,11 +130,11 @@ function VaultRow({ b, selected, onPick }: { b: WorldBuildingData; selected: boo
     >
       {/* outline drawn last so it sits over the logo */}
       <span aria-hidden className="pointer-events-none absolute inset-0 z-10" style={frame(10, selected ? "rgb(255 145 56 / .7)" : "rgb(214 219 225 / .14)")} />
-      {/* logo fills the whole left side of the card */}
-      <span className="relative grid w-[104px] shrink-0 place-items-center overflow-hidden border-r border-[rgb(255_255_255/.1)] bg-[rgb(255_255_255/.04)]">
+      {/* logo: a small rounded tile centred in the left column */}
+      <span className="relative grid w-[84px] shrink-0 place-items-center border-r border-[rgb(255_255_255/.08)] bg-[rgb(255_255_255/.025)]">
         {b.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={b.logoUrl} alt="" className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover:scale-105" />
+          <img src={b.logoUrl} alt="" className="size-12 rounded-[12px] object-cover shadow-[0_0_0_1px_rgb(255_255_255/.1),0_6px_14px_-6px_rgb(0_0_0/.8)] transition-transform duration-300 group-hover:scale-105" />
         ) : (
           <span aria-hidden className="font-display text-[28px] font-bold text-[rgb(214_219_225/.7)]">{(b.name.match(/[A-Za-z0-9]/)?.[0] ?? "Y").toUpperCase()}</span>
         )}

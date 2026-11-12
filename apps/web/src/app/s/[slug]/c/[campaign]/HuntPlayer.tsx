@@ -147,7 +147,7 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo, onPartnerJu
       <Panel>
         {styles}
         <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
-          <GameIcon name="explore" size={120} className="yv-float shrink-0" />
+          <GameIcon name="decrypt" size={120} className="yv-float shrink-0" />
           <div className="font-mono">
             <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-orange">Ready, explorer?</p>
             <h2 className="mt-1 font-display text-[26px] font-bold uppercase leading-tight text-white">Sign in to start the mission</h2>
@@ -173,7 +173,7 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo, onPartnerJu
         <div className="flex flex-col items-center gap-7 text-center md:flex-row md:text-left">
           <div className="relative shrink-0">
             <span aria-hidden className="yv-rays absolute -inset-6 rounded-full bg-[conic-gradient(from_0deg,transparent,rgb(255_145_56/.18),transparent_30%,rgb(255_194_75/.14),transparent_60%)]" />
-            <GameIcon name="explore" size={140} className="yv-float relative" />
+            <GameIcon name="decrypt" size={140} className="yv-float relative" />
           </div>
           <div className="flex-1 font-mono">
             <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-orange">Briefing</p>

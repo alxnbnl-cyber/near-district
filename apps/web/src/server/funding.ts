@@ -64,10 +64,10 @@ export function planRegister(user: SessionUser, vaultId: string, opts: { maxOper
 
 export async function confirmRegister(db: Db, rpc: NearRpc, network: string, vaultId: string, user: SessionUser, campaign: typeof campaigns.$inferSelect, txHash: string) {
   const sponsor = requireSponsor(user);
-  if (campaign.vaultCampaignId !== null) throw conflict("This campaign is already registered in the vault.");
+  if (campaign.vaultCampaignId !== null) throw conflict("This mission is already registered in the vault.");
   const events = await verifiedVaultEvents(db, rpc, network, vaultId, txHash, sponsor);
   const created = events.find((e) => e.event === "campaign_created" && e.data.sponsor === sponsor);
-  if (!created?.data.campaign_id) throw badRequest("That transaction did not register a campaign for your wallet.");
+  if (!created?.data.campaign_id) throw badRequest("That transaction did not register a mission for your wallet.");
   await db.update(campaigns).set({ vaultCampaignId: BigInt(created.data.campaign_id), updatedAt: new Date() }).where(eq(campaigns.id, campaign.id));
   await audit(db, { actorUserId: user.userId, action: "vault.campaign_registered", targetType: "campaign", targetId: campaign.id, metadata: { txHash, vaultCampaignId: created.data.campaign_id } });
   return { vaultCampaignId: created.data.campaign_id };
@@ -86,7 +86,7 @@ export async function planDeposit(
   amountHuman: string,
 ): Promise<TxPlan & { orderId: string }> {
   const sponsor = requireSponsor(user);
-  if (campaign.vaultCampaignId === null) throw conflict("Register the campaign in the vault first.");
+  if (campaign.vaultCampaignId === null) throw conflict("Register the mission in the vault first.");
   let amount: bigint;
   try {
     amount = parseUnits(amountHuman, decimals);
@@ -164,7 +164,7 @@ export async function confirmDeposit(db: Db, rpc: NearRpc, network: string, vaul
 
 export function planExit(user: SessionUser, vaultId: string, campaign: typeof campaigns.$inferSelect, step: "wind_down" | "redeem" | "withdraw", amounts: { principal: bigint; yield: bigint; bonus: bigint }): TxPlan {
   const sponsor = requireSponsor(user);
-  if (campaign.vaultCampaignId === null) throw conflict("This campaign isn't in the vault.");
+  if (campaign.vaultCampaignId === null) throw conflict("This mission isn't in the vault.");
   const id = campaign.vaultCampaignId.toString();
   const tx =
     step === "wind_down"

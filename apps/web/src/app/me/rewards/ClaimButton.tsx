@@ -29,20 +29,20 @@ export function ClaimButton({ allocationId, pending }: { allocationId: string; p
         return;
       }
       const r = await api<{ state: string }>(`/api/rewards/${allocationId}`, { method: "POST", body: { txHash: claimHash } });
-      setMsg(r.state === "CONFIRMED" ? { tone: "ok", text: "Claimed! The tokens are in your wallet." } : { tone: "danger", text: "The claim didn't go through on-chain. Nothing was paid; you can try again." });
+      setMsg(r.state === "CONFIRMED" ? { tone: "ok", text: "Claimed! The tokens are in your wallet." } : { tone: "danger", text: "The payout didn't go through on-chain. Nothing was paid; you can try again." });
       router.refresh();
     } catch (e) {
-      setMsg({ tone: "danger", text: e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Claim failed." });
+      setMsg({ tone: "danger", text: e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Payout failed." });
     } finally {
       setBusy(false);
     }
   };
 
-  if (pending) return <Notice tone="info">Claim submitted — waiting for confirmation.</Notice>;
+  if (pending) return <Notice tone="info">Payout sent — waiting for confirmation.</Notice>;
   return (
     <div className="flex min-w-48 flex-col items-end gap-2">
       {!choosing ? (
-        <Button onClick={() => setChoosing(true)}>Claim reward</Button>
+        <Button onClick={() => setChoosing(true)}>Collect now</Button>
       ) : (
         <div className="flex flex-col gap-1.5">
           <p className="text-[12px] text-ink-3">Sign with your wallet:</p>

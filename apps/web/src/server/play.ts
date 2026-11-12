@@ -19,7 +19,7 @@ export async function assertNotOrganizer(db: Db, userId: string, spaceId: string
     .innerJoin(spaces, eq(spaces.organizationId, organizationMembers.organizationId))
     .where(and(eq(spaces.id, spaceId), eq(organizationMembers.userId, userId)))
     .limit(1);
-  if (m) throw forbidden("Organizer team members can't take part in their own campaigns. Use Preview in the editor instead.");
+  if (m) throw forbidden("Your team can't play its own missions. Use another wallet to try it as a player.");
 }
 
 /** Points per question: 100 × difficulty, minus 10 per wrong attempt, floored at 10 × difficulty. */
@@ -32,17 +32,17 @@ const MIN_SECONDS_PER_QUESTION = 4;
 
 async function loadLive(db: Db, campaignId: string) {
   const [c] = await db.select().from(campaigns).where(eq(campaigns.id, campaignId)).limit(1);
-  if (!c || c.moderation !== "approved" || !c.currentVersion) throw notFound("Campaign not found.");
+  if (!c || c.moderation !== "approved" || !c.currentVersion) throw notFound("Mission not found.");
   const status = effectiveStatus(c as never);
   return { c, status };
 }
 
 export async function joinCampaign(db: Db, user: SessionUser, campaignId: string, country: string | null) {
   const { c, status } = await loadLive(db, campaignId);
-  if (status !== "LIVE") throw conflict(status === "SCHEDULED" ? "This campaign hasn't started yet." : "This campaign isn't open right now.");
+  if (status !== "LIVE") throw conflict(status === "SCHEDULED" ? "This mission hasn't started yet." : "This mission isn't open right now.");
   const rules = (await currentRules(db, c)) as CampaignRules;
   if (country && rules.eligibility.blockedJurisdictions.includes(country.toUpperCase())) {
-    throw forbidden("This campaign isn't available in your region.");
+    throw forbidden("This mission isn't available in your region.");
   }
   await assertNotOrganizer(db, user.userId, c.spaceId);
   await assertExpeditionGate(db, user.userId, c.id);
@@ -55,7 +55,7 @@ export async function joinCampaign(db: Db, user: SessionUser, campaignId: string
     if (existing) return existing;
     if (rules.eligibility.maxParticipants) {
       const [{ n } = { n: 0 }] = await tx.select({ n: count() }).from(participantEntries).where(eq(participantEntries.campaignId, c.id));
-      if (n >= rules.eligibility.maxParticipants) throw conflict("This campaign is full.");
+      if (n >= rules.eligibility.maxParticipants) throw conflict("This mission is full.");
     }
     const [row] = await tx
       .insert(participantEntries)

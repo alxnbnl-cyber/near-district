@@ -3,7 +3,7 @@
 import type { Prize } from "@/world/types";
 
 /** Dollar sign for dollar stablecoins; other tokens show their symbol after the number. */
-export const isDollar = (symbol: string) => /^(USDC|USDT)(\.e)?$/.test(symbol);
+export const isDollar = (symbol: string) => /^(USD|USDC|USDT)(\.e)?$/.test(symbol);
 
 /** A mission's fixed prize, e.g. "$100.00" (NEAR District prizes are fixed: no yield, no ticking). */
 export function LiveReward({ prize, className = "" }: { prize: Prize; className?: string; tailClassName?: string }) {

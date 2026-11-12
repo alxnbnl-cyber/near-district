@@ -132,7 +132,7 @@ describe("treasure hunt", () => {
   });
 
   it("blocks organizers from playing their own campaign", async () => {
-    await expectHttp(joinCampaign(h.db, organizer, campaignId, null), 403, /Organizer/);
+    await expectHttp(joinCampaign(h.db, organizer, campaignId, null), 403, /can.t play its own/);
   });
 
   it("never sends answers to the player; every clue is open at once", async () => {

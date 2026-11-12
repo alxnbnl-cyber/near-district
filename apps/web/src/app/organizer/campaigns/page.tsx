@@ -51,7 +51,7 @@ export default async function QuestsPage() {
         <Link href="/organizer/campaigns/new" className="card-reward yv-pop flex flex-col items-center rounded-[22px] p-10 text-center">
           <GameIcon name="host" size={150} className="yv-float" />
           <p className="mt-3 text-[22px] font-bold">Create your first mission</p>
-          <p className="mt-1 text-ink-2">A few questions about your project and a prize. That&apos;s it.</p>
+          <p className="mt-1 text-ink-2">A few secrets about your project and a prize. That&apos;s it.</p>
         </Link>
       ) : (
         <ul className="yv-stagger grid gap-4 sm:grid-cols-2">

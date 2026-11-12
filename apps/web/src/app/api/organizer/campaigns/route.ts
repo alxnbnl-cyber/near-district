@@ -11,7 +11,7 @@ export const GET = route(
   async (_req, { user }) => {
     const database = await db();
     const mine = await myOrganization(database, user!.userId);
-    if (!mine?.space) throw notFound("You don't have a Space yet.");
+    if (!mine?.space) throw notFound("You don't have a company profile yet.");
     return database.select().from(campaigns).where(eq(campaigns.spaceId, mine.space.id)).orderBy(desc(campaigns.createdAt));
   },
   { auth: "required" },
@@ -22,7 +22,7 @@ export const POST = route(
     const input = await body(req, createCampaignInput);
     const database = await db();
     const mine = await myOrganization(database, user!.userId);
-    if (!mine?.space) throw notFound("Open a Space first.");
+    if (!mine?.space) throw notFound("Create your company profile first.");
     await requireOrgRole(database, user!, mine.org.id, "editor");
     await rateLimit(database, `campaign-create:${user!.userId}`, 20, 3600);
     const c = await createDraft(database, user!, mine.space.id, input);

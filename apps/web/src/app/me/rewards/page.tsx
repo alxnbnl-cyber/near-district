@@ -34,18 +34,18 @@ export default async function MyRewards() {
       <SiteHeader />
       <main className="mx-auto max-w-4xl px-4 py-10">
         <h1 className="text-3xl font-semibold">My Rewards</h1>
-        <p className="mt-1 text-ink-2">Prizes you win show up here, ready to claim.</p>
+        <p className="mt-1 text-ink-2">Prizes you win are paid automatically to your NEAR wallet after the deadline.</p>
         {!user.payoutAccountId && (
           <div className="mt-6">
             <Notice tone="warn" title="No payout wallet yet">
-              Rewards can only be claimed by a NEAR wallet you've verified. <Link href="/me/profile" className="font-semibold underline">Link one in your profile</Link>.
+              Prizes are paid to the NEAR wallet you signed in with. <Link href="/me/profile" className="font-semibold underline">Link one in your profile</Link>.
             </Notice>
           </div>
         )}
         {rows.length === 0 ? (
           <Card className="mt-8">
             <EmptyState title="No rewards yet" action={<Link href="/explore?tab=experiences" className={buttonClass("secondary")}>Find a mission</Link>}>
-              Finish a mission or enter a contest that offers token rewards.
+              Decrypt every secret in a mission and your prize shows up here.
             </EmptyState>
           </Card>
         ) : (
@@ -76,7 +76,7 @@ export default async function MyRewards() {
                     ) : claimable && env().VAULT_CONTRACT_ID ? (
                       <ClaimButton allocationId={a.id} pending={claim?.state === "SUBMITTED"} />
                     ) : (
-                      <Badge tone="sky">{p.claimableAfter && p.claimableAfter > now ? `Claimable from ${p.claimableAfter.toLocaleDateString()}` : "Finalizing"}</Badge>
+                      <Badge tone="sky">{p.claimableAfter && p.claimableAfter > now ? `Paying from ${p.claimableAfter.toLocaleDateString()}` : "Finalizing"}</Badge>
                     )}
                   </Card>
                 </li>

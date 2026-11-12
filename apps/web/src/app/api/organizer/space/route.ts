@@ -20,7 +20,7 @@ export const PATCH = route(
     const patch = await body(req, spaceUpdate.partial());
     const database = await db();
     const mine = await myOrganization(database, user!.userId);
-    if (!mine?.space) throw notFound("You don't have a Space yet.");
+    if (!mine?.space) throw notFound("You don't have a company profile yet.");
     await updateSpace(database, user!, mine.space.id, patch);
     return { ok: true };
   },

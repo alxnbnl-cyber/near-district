@@ -193,7 +193,7 @@ function buildRule(q: QuestionInput, salt: string) {
 
 function assertEditable(c: typeof campaigns.$inferSelect) {
   if (c.status !== "DRAFT" && c.status !== "PENDING_FUNDING") {
-    throw conflict("Questions are locked once a campaign is published, so every participant plays the same mission.");
+    throw conflict("Secrets are locked once a mission is published, so every player plays the same mission.");
   }
 }
 
@@ -305,7 +305,7 @@ export async function checkPublishable(db: Db, c: typeof campaigns.$inferSelect)
     const start = Date.parse(rules.startsAt), end = Date.parse(rules.endsAt);
     if (end <= start) problems.push("The end date must be after the start date.");
     if (end <= Date.now()) problems.push("The end date is in the past.");
-    if (end - start < 3_600_000) problems.push("Campaigns must run for at least an hour.");
+    if (end - start < 3_600_000) problems.push("Missions must run for at least an hour.");
     if (rules.fundingSource !== "none") {
       const rc = { ...rules.reward, perPersonCap: rules.reward.perPersonCap ? BigInt(rules.reward.perPersonCap) : undefined, minPayout: BigInt(rules.reward.minPayout) };
       problems.push(...validateRewardConfig(rc));
@@ -323,7 +323,7 @@ export async function checkPublishable(db: Db, c: typeof campaigns.$inferSelect)
     warnings.push(...hp.warnings);
   }
   const [space] = await db.select({ moderation: spaces.moderation }).from(spaces).where(eq(spaces.id, c.spaceId)).limit(1);
-  if (space?.moderation !== "approved") problems.push("Your Space must be approved before campaigns can go public.");
+  if (space?.moderation !== "approved") problems.push("Your company profile must be approved before missions can go live.");
 
   // Funding: verified against the vault contract, never against a form field.
   let funding = { required: false, verified: true, detail: "No token rewards. The campaign page will say so clearly." };
@@ -349,7 +349,7 @@ export async function checkPublishable(db: Db, c: typeof campaigns.$inferSelect)
 }
 
 export async function publishCampaign(db: Db, user: SessionUser, c: typeof campaigns.$inferSelect) {
-  if (c.status !== "DRAFT" && c.status !== "PENDING_FUNDING") throw conflict("This campaign is already published.");
+  if (c.status !== "DRAFT" && c.status !== "PENDING_FUNDING") throw conflict("This mission is already published.");
   const check = await checkPublishable(db, c);
   if (!check.ok) throw new HttpError(422, check.problems[0] ?? "Not ready to publish", "not_publishable");
   const rules = rulesInput.parse({ ...defaultRules(c.template as "treasure_hunt"), ...(c.draftRules as object) });

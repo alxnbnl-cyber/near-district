@@ -13,8 +13,12 @@ export function network() {
   return getNetwork(env().NEAR_NETWORK);
 }
 
+/**
+ * The prize token. Shown to people as "USD" (it is a dollar stablecoin); the contract id and
+ * decimals are unchanged, and the on-chain symbol (e.g. USDC.e) is only used by the NEAR checks.
+ */
 export function token() {
-  return primaryToken(network());
+  return { ...primaryToken(network()), symbol: "USD" };
 }
 
 export function rhea(): RheaClient {

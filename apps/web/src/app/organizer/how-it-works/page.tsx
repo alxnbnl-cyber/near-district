@@ -16,7 +16,7 @@ const STEPS: { icon: GameIconName; title: string; body: string; points: string[]
   {
     icon: "earn",
     title: "Fund the reward",
-    body: "Deposit a fixed prize (USDC) into the vault from your NEAR wallet. It is locked for the players until the deadline.",
+    body: "Deposit a fixed prize (USD) into the vault from your NEAR wallet. It is locked for the players until the deadline.",
     points: ["Fixed prize", "Locked on-chain", "Unpaid prize comes back to you"],
   },
   {
@@ -86,7 +86,7 @@ function RewardFlow() {
   const box = "flex flex-col items-center gap-1 bg-[rgb(255_255_255/.04)] px-3 py-2.5 text-center";
   const arrow = <span aria-hidden className="self-center text-[16px] text-orange">→</span>;
   const steps: [string, string, string][] = [
-    ["🏢", "Your prize", "e.g. 100 USDC"],
+    ["🏢", "Your prize", "e.g. 100 USD"],
     ["🔐", "Vault", "locked on-chain"],
     ["⏱", "Deadline", "answers revealed"],
     ["🏆", "Split equally", "everyone correct"],

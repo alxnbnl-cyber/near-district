@@ -61,7 +61,7 @@ export async function createExpedition(db: Db, user: SessionUser, orgId: string,
 /** The primary organizer adds one of its own published campaigns as the next chapter. */
 export async function addOwnChapter(db: Db, user: SessionUser, orgId: string, expeditionId: string, campaignId: string) {
   const e = await load(db, expeditionId);
-  if (e.primaryOrgId !== orgId) throw forbidden("Only the primary organizer adds its own chapters this way.");
+  if (e.primaryOrgId !== orgId) throw forbidden("Only the lead company adds its own chapters this way.");
   await requireOrgRole(db, user, orgId, "admin");
   assertDraft(e);
   await insertChapter(db, user, e, orgId, campaignId);
@@ -69,8 +69,8 @@ export async function addOwnChapter(db: Db, user: SessionUser, orgId: string, ex
 
 async function insertChapter(db: Db, user: SessionUser, e: ExpeditionRow, orgId: string, campaignId: string) {
   const c = await campaignWithOrg(db, campaignId);
-  if (!c || c.org !== orgId) throw badRequest("Chapters must be your organization's own campaigns.");
-  if (!c.c.currentVersion || c.c.moderation !== "approved") throw badRequest("Only published campaigns can be chapters.");
+  if (!c || c.org !== orgId) throw badRequest("Chapters must be your company's own missions.");
+  if (!c.c.currentVersion || c.c.moderation !== "approved") throw badRequest("Only published missions can be chapters.");
   const existing = await db.select({ position: expeditionChapters.position }).from(expeditionChapters).where(eq(expeditionChapters.expeditionId, e.id));
   if (existing.length >= 8) throw badRequest("An expedition can have at most 8 chapters.");
   try {
@@ -82,7 +82,7 @@ async function insertChapter(db: Db, user: SessionUser, e: ExpeditionRow, orgId:
       addedBy: user.userId,
     });
   } catch (err) {
-    if (String((err as { cause?: { code?: string } }).cause?.code) === "23505") throw conflict("That campaign is already a chapter.");
+    if (String((err as { cause?: { code?: string } }).cause?.code) === "23505") throw conflict("That mission is already a chapter.");
     throw err;
   }
   await audit(db, { actorUserId: user.userId, action: "expedition.chapter_added", targetType: "expedition", targetId: e.id, metadata: { campaignId, orgId } });
@@ -90,12 +90,12 @@ async function insertChapter(db: Db, user: SessionUser, e: ExpeditionRow, orgId:
 
 export async function inviteExpeditionPartner(db: Db, user: SessionUser, orgId: string, expeditionId: string, partnerSlug: string) {
   const e = await load(db, expeditionId);
-  if (e.primaryOrgId !== orgId) throw forbidden("Only the primary organizer invites partners.");
+  if (e.primaryOrgId !== orgId) throw forbidden("Only the lead company invites partners.");
   await requireOrgRole(db, user, orgId, "admin");
   assertDraft(e);
   const [o] = await db.select().from(organizations).where(eq(organizations.slug, partnerSlug)).limit(1);
   if (!o || o.status !== "approved") throw notFound("No approved organization uses that address.");
-  if (o.id === orgId) throw badRequest("You're already the primary organizer.");
+  if (o.id === orgId) throw badRequest("You're already the lead company.");
   await db
     .insert(expeditionPartners)
     .values({ expeditionId: e.id, organizationId: o.id, invitedBy: user.userId })
@@ -104,7 +104,7 @@ export async function inviteExpeditionPartner(db: Db, user: SessionUser, orgId: 
   await notifyOrgAdmins(db, o.id, {
     kind: "expedition_invite",
     title: `You're invited to the expedition “${e.title}”`,
-    body: "Contribute one of your campaigns as a chapter, or decline.",
+    body: "Contribute one of your missions as a chapter, or decline.",
     link: "/organizer/expeditions",
     dedupeKey: `expedition:${e.id}:invite`,
   });
@@ -119,7 +119,7 @@ export async function respondExpeditionInvite(db: Db, user: SessionUser, orgId: 
   if (!p) throw notFound("Invitation not found.");
   if (p.status !== "PENDING") throw conflict("This invitation was already answered.");
   if (decision === "accept") {
-    if (!campaignId) throw badRequest("Pick the campaign you contribute as your chapter.");
+    if (!campaignId) throw badRequest("Pick the mission you contribute as your chapter.");
     await insertChapter(db, user, e, orgId, campaignId);
   }
   await db

@@ -72,7 +72,7 @@ export function findLeaf(h: HintRow, leafId: string): ActivityLeaf | undefined {
 /** Org that owns the campaign a hint belongs to. */
 async function campaignOrg(db: Db | Tx, campaignId: string): Promise<string> {
   const [r] = await db.select({ org: spaces.organizationId }).from(campaigns).innerJoin(spaces, eq(spaces.id, campaigns.spaceId)).where(eq(campaigns.id, campaignId)).limit(1);
-  if (!r) throw new HintEngineError(404, "Campaign not found.", "not_found");
+  if (!r) throw new HintEngineError(404, "Mission not found.", "not_found");
   return r.org;
 }
 

@@ -161,7 +161,7 @@ const HUNTS: Hunt[] = [
   {
     owner: "rhea",
     title: "The RHEA Liquidity Trail",
-    summary: "Follow the liquidity through RHEA and split 300 USDC.",
+    summary: "Follow the liquidity through RHEA and split 300 USD.",
     description: "Three secrets are hidden across RHEA and its friends on NEAR. Decrypt all three before the deadline and you split the prize with everyone else who did.",
     prize: 300,
     days: 7,
@@ -192,7 +192,7 @@ const HUNTS: Hunt[] = [
   {
     owner: "near",
     title: "Secrets of the NEAR Protocol",
-    summary: "Decrypt three NEAR secrets and split 200 USDC.",
+    summary: "Decrypt three NEAR secrets and split 200 USD.",
     description: "How well do you know the chain under NEAR District? Decrypt all three secrets before the deadline to share the prize.",
     prize: 200,
     days: 6,
@@ -223,7 +223,7 @@ const HUNTS: Hunt[] = [
   {
     owner: "linear",
     title: "The LiNEAR Staking Quest",
-    summary: "Learn liquid staking, decrypt three secrets and split 100 USDC.",
+    summary: "Learn liquid staking, decrypt three secrets and split 100 USD.",
     description: "Stake smarter on NEAR. Decrypt all three secrets about liquid staking before the deadline to share the prize.",
     prize: 100,
     days: 5,
@@ -254,7 +254,7 @@ const HUNTS: Hunt[] = [
   {
     owner: "social",
     title: "The Social Signal",
-    summary: "Two secrets between NEAR Social and RHEA. Split 150 USDC.",
+    summary: "Two secrets between NEAR Social and RHEA. Split 150 USD.",
     description: "NEAR Social and RHEA hid one secret each. Decrypt both before the deadline to share the prize.",
     prize: 150,
     days: 5,
@@ -354,7 +354,7 @@ for (const hunt of HUNTS) {
   const [fresh] = await db.select().from(campaigns).where(eq(campaigns.id, c.id));
   await publishCampaign(db, o.me, fresh!);
   const partners = hunt.secrets.slice(1).map((s) => COMPANIES.find((x) => x.key === s.activityOf)!.org);
-  console.log(`seeded ${hunt.title} (${hunt.prize} USDC) · partners: ${partners.join(", ")}`);
+  console.log(`seeded ${hunt.title} (${hunt.prize} USD) · partners: ${partners.join(", ")}`);
 }
 
 await h.close();

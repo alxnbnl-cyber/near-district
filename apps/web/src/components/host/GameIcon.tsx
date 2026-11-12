@@ -1,5 +1,5 @@
 /** The game icon set (placeholders until dedicated host assets arrive). */
-export type GameIconName = "explore" | "profile" | "earn" | "host" | "play";
+export type GameIconName = "explore" | "profile" | "earn" | "host" | "play" | "company" | "decrypt" | "approval";
 
 export function GameIcon({ name, size = 48, className = "" }: { name: GameIconName; size?: number; className?: string }) {
   return (

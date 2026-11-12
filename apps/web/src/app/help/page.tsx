@@ -26,7 +26,7 @@ export default function HelpPage() {
       <main className="mx-auto max-w-3xl px-4 py-10">
         <h1 className="text-3xl font-semibold">Help</h1>
         <section className="mt-8" id="explorers">
-          <h2 className="text-xl font-semibold">For explorers</h2>
+          <h2 className="text-xl font-semibold">For players</h2>
           <dl className="mt-4 divide-y divide-line rounded-lg border border-line bg-card">
             {EXPLORERS.map(([q, a]) => (
               <div key={q} className="px-5 py-4">
@@ -37,7 +37,7 @@ export default function HelpPage() {
           </dl>
         </section>
         <section className="mt-10" id="organizers">
-          <h2 className="text-xl font-semibold">For organizers</h2>
+          <h2 className="text-xl font-semibold">For companies</h2>
           <dl className="mt-4 divide-y divide-line rounded-lg border border-line bg-card">
             {ORGANIZERS.map(([q, a]) => (
               <div key={q} className="px-5 py-4">

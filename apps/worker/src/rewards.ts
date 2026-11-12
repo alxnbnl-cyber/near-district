@@ -13,6 +13,7 @@ import {
   and,
   campaigns,
   creativeSubmissions,
+  DEMO_REWARD_PERIOD,
   eligibilitySnapshots,
   eq,
   inArray,
@@ -68,6 +69,16 @@ export async function eligibleCandidates(db: Db, c: typeof campaigns.$inferSelec
       .where(and(eq(qualifications.campaignId, c.id), eq(qualifications.status, "qualified")));
     // Multi-period hunts: a qualification counts in the period in which it happened.
     rows = rules.periods > 1 ? q.filter((r) => r.at >= p.startsAt && r.at < p.endsAt) : q;
+  }
+  // a player already paid through a local demo simulation is not paid again
+  const demoPaid = await db
+    .select({ userId: rewardAllocations.userId })
+    .from(rewardAllocations)
+    .innerJoin(rewardPeriods, eq(rewardPeriods.id, rewardAllocations.rewardPeriodId))
+    .where(and(eq(rewardPeriods.campaignId, c.id), eq(rewardPeriods.periodNumber, DEMO_REWARD_PERIOD)));
+  if (demoPaid.length) {
+    const paid = new Set(demoPaid.map((d) => d.userId));
+    rows = rows.filter((r) => !paid.has(r.userId));
   }
   if (rows.length === 0) return [];
   const wallets = await db

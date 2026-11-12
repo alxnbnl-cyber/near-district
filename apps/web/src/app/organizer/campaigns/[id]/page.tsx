@@ -8,7 +8,7 @@ import { token } from "@/server/near";
 import { serialize } from "@/server/http";
 import { CampaignEditor } from "./CampaignEditor";
 
-export const metadata = { title: "Edit campaign" };
+export const metadata = { title: "Edit mission" };
 
 export default async function CampaignEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

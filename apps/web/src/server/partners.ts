@@ -150,11 +150,11 @@ export async function assertActivityOwnership(db: Db, orgId: string, a: Activity
       .innerJoin(spaces, eq(spaces.id, campaigns.spaceId))
       .where(eq(campaigns.id, a.campaignId))
       .limit(1);
-    if (!c || c.org !== orgId) throw badRequest("Activities can only use your own organization's campaigns.");
+    if (!c || c.org !== orgId) throw badRequest("Activities can only use your own company's missions.");
     if (c.id === excludeCampaignId) throw badRequest("A hint can't require finishing the same mission it belongs to.");
     const needsHunt = a.type === "internal_quiz" || a.type === "internal_question_sequence";
     if (needsHunt && c.template !== "treasure_hunt") throw badRequest("Quizzes and question sequences must be Treasure Hunts.");
-    if (a.type === "internal_contest_entry" && c.template !== "creative_contest") throw badRequest("Contest entries need a Creative Contest.");
+    if (a.type === "internal_contest_entry" && c.template !== "creative_contest") throw badRequest("Challenge entries need a creative challenge.");
   }
 }
 

@@ -189,10 +189,10 @@ function HintForm({ campaignId, questionId, existing, options, onDone, onCancel 
           <input id={`ht-${questionId}`} className={inputClass} value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder="The Lending Secret" />
         </Field>
         <Field label="Teaser (public)" htmlFor={`hte-${questionId}`} hint="Shown while the hint is locked.">
-          <input id={`hte-${questionId}`} className={inputClass} value={teaser} maxLength={300} onChange={(e) => setTeaser(e.target.value)} placeholder="A clue about the hidden engine" />
+          <input id={`hte-${questionId}`} className={inputClass} value={teaser} maxLength={300} onChange={(e) => setTeaser(e.target.value)} placeholder="A hint about the hidden engine" />
         </Field>
       </div>
-      <Field label="Hidden clue" htmlFor={`hc-${questionId}`} hint="Never sent to players until they unlock it.">
+      <Field label="Hint text" htmlFor={`hc-${questionId}`} hint="Never sent to players until they unlock it.">
         <textarea id={`hc-${questionId}`} className={`${textareaClass} min-h-20`} value={content} maxLength={2000} onChange={(e) => setContent(e.target.value)} />
       </Field>
 
@@ -270,7 +270,7 @@ function HintForm({ campaignId, questionId, existing, options, onDone, onCancel 
               {reqs.map((r) => <li key={r.id}>• {describeActivity(r.activity, { campaign: campName })}</li>)}
             </ul>
           )}
-          <p className="mt-2 text-[12px] text-ink-3">The clue text stays hidden until unlocked.</p>
+          <p className="mt-2 text-[12px] text-ink-3">The hint text stays hidden until unlocked.</p>
         </div>
       )}
 

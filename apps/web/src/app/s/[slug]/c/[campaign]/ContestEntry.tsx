@@ -24,7 +24,7 @@ export function ContestEntry({ campaignId, status, signedIn, returnTo }: { campa
     );
   }
   if (status !== "LIVE") {
-    return <Notice tone="info">{status === "SCHEDULED" ? "Entries open when the contest starts." : "This contest is closed to new entries."}</Notice>;
+    return <Notice tone="info">{status === "SCHEDULED" ? "Entries open when the challenge starts." : "This challenge is closed to new entries."}</Notice>;
   }
   if (state === "done") {
     return (

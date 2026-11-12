@@ -61,9 +61,9 @@ const STEPS: Record<Side, Step[]> = {
     {
       icon: ICON.earn,
       tag: "Earn",
-      title: "Claim the prize",
-      body: "Finish the mission to qualify. Winners claim their reward straight to their NEAR wallet.",
-      objectives: ["Complete every step", "Get picked as a winner", "Claim USDC to your wallet"],
+      title: "Get paid",
+      body: "Decrypt every secret before the deadline. Winners split the prize and are paid automatically to their NEAR wallet.",
+      objectives: ["Decrypt every secret", "Wait for the deadline", "Get paid in USD to your wallet"],
     },
     {
       icon: ICON.earn,
@@ -86,7 +86,7 @@ const STEPS: Record<Side, Step[]> = {
       icon: ICON.earn,
       tag: "Fund",
       title: "Fund the reward",
-      body: "Deposit the prize (USDC) into the vault from your NEAR wallet. It is locked for the players and paid out at the deadline.",
+      body: "Deposit the prize (USD) into the vault from your NEAR wallet. It is locked for the players and paid out at the deadline.",
       objectives: ["Fixed prize, locked on-chain", "Paid automatically at the deadline", "Unpaid prize comes back to you"],
     },
     {

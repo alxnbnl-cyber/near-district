@@ -16,10 +16,10 @@ export async function submitEntry(
   country: string | null,
 ) {
   const [c] = await db.select().from(campaigns).where(eq(campaigns.id, campaignId)).limit(1);
-  if (!c || c.template !== "creative_contest" || !c.currentVersion || c.moderation !== "approved") throw notFound("Contest not found.");
-  if (effectiveStatus(c as never) !== "LIVE") throw conflict("This contest isn't accepting entries right now.");
+  if (!c || c.template !== "creative_contest" || !c.currentVersion || c.moderation !== "approved") throw notFound("Challenge not found.");
+  if (effectiveStatus(c as never) !== "LIVE") throw conflict("This challenge isn't accepting entries right now.");
   const rules = (await currentRules(db, c)) as CampaignRules;
-  if (country && rules.eligibility.blockedJurisdictions.includes(country.toUpperCase())) throw forbidden("This contest isn't available in your region.");
+  if (country && rules.eligibility.blockedJurisdictions.includes(country.toUpperCase())) throw forbidden("This challenge isn't available in your region.");
   if (rules.fundingSource !== "none" && rules.eligibility.requireVerifiedPayout && !user.payoutAccountId) {
     throw new HttpError(403, "Link a NEAR wallet you control first — that's where any reward would be sent.", "wallet_required");
   }
@@ -41,7 +41,7 @@ export async function submitEntry(
     await audit(db, { actorUserId: user.userId, action: "contest.submitted", targetType: "submission", targetId: row!.id, metadata: { campaignId: c.id } });
     return row!;
   } catch (e) {
-    if (String((e as { cause?: { code?: string } }).cause?.code) === "23505") throw conflict("You've already entered this contest.");
+    if (String((e as { cause?: { code?: string } }).cause?.code) === "23505") throw conflict("You've already entered this challenge.");
     throw e;
   }
 }
@@ -103,16 +103,16 @@ export async function reviewSubmission(
  * snapshot, which is frozen and committed on-chain for funded campaigns.
  */
 export async function selectWinners(db: Db, user: SessionUser, campaign: typeof campaigns.$inferSelect, submissionIds: string[]) {
-  if (campaign.endsAt && campaign.endsAt > new Date()) throw conflict("Winners can be chosen after the contest closes.");
+  if (campaign.endsAt && campaign.endsAt > new Date()) throw conflict("Winners can be chosen after the challenge closes.");
   const rules = (await currentRules(db, campaign)) as CampaignRules;
   if (submissionIds.length === 0) throw badRequest("Pick at least one winner.");
   if (submissionIds.length > rules.reward.winnersCount) throw badRequest(`This contest has ${rules.reward.winnersCount} winner place(s).`);
   if (new Set(submissionIds).size !== submissionIds.length) throw badRequest("Each entry can only win once.");
   await db.transaction(async (tx) => {
     const existing = await tx.select({ id: creativeSubmissions.id }).from(creativeSubmissions).where(and(eq(creativeSubmissions.campaignId, campaign.id), eq(creativeSubmissions.status, "winner")));
-    if (existing.length) throw conflict("Winners have already been selected for this contest.");
+    if (existing.length) throw conflict("Winners have already been selected for this challenge.");
     const subs = await tx.select().from(creativeSubmissions).where(and(eq(creativeSubmissions.campaignId, campaign.id), inArray(creativeSubmissions.id, submissionIds)));
-    if (subs.length !== submissionIds.length) throw badRequest("Some selected entries don't belong to this contest.");
+    if (subs.length !== submissionIds.length) throw badRequest("Some selected entries don't belong to this challenge.");
     if (subs.some((s) => s.status === "rejected" || s.status === "withdrawn" || s.moderation !== "approved")) throw badRequest("Rejected or removed entries can't win.");
     await tx.update(creativeSubmissions).set({ status: "winner" }).where(inArray(creativeSubmissions.id, submissionIds));
     await tx.update(campaigns).set({ status: "AWAITING_RESULTS", updatedAt: new Date() }).where(eq(campaigns.id, campaign.id));

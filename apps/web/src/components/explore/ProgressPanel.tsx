@@ -67,7 +67,7 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
       .catch((e) => setError(e instanceof ApiError ? e.message : "Could not load your missions."));
     api<{ items: Reward[]; symbol: string; hasWallet: boolean }>("/api/me/rewards")
       .then(setRewards)
-      .catch(() => setRewards({ items: [], symbol: viewer?.symbol ?? "USDC", hasWallet: false }));
+      .catch(() => setRewards({ items: [], symbol: viewer?.symbol ?? "USD", hasWallet: false }));
   }, [signedIn, viewer?.symbol]);
 
   if (!signedIn) {
@@ -112,7 +112,7 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <div className="bg-[rgb(255_194_75/.07)] px-3 py-2.5" style={frame(8, "rgb(255 194 75 / .3)")}>
-            <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[rgb(255_194_75/.75)]">Treasure claimed</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[rgb(255_194_75/.75)]">Rewards earned</p>
             <p className="mt-0.5 font-display text-[18px] font-bold text-reward">{viewer ? `${viewer.rewardsClaimed} USD` : "—"}</p>
           </div>
           <div className="px-3 py-2.5" style={frame(8, `${INK} / .18)`)}>
@@ -141,7 +141,7 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
             )}
             {!rewards.hasWallet && (
               <li className="px-1 font-sans text-[12.5px] text-gold">
-                <Link href="/me/profile" className="underline underline-offset-2">Link a NEAR wallet</Link> to claim your rewards.
+                <Link href="/me/profile" className="underline underline-offset-2">Link a NEAR wallet</Link> to receive your rewards.
               </li>
             )}
             {rewards.items.map((r) => (
@@ -163,7 +163,7 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
                   ) : r.state === "expired" ? (
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-danger">Expired</span>
                   ) : r.state === "pending" ? (
-                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky">{r.claimableFrom ? `Claimable from ${new Date(r.claimableFrom).toLocaleDateString()}` : "Finalizing"}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky">{r.claimableFrom ? `Paying from ${new Date(r.claimableFrom).toLocaleDateString()}` : "Finalizing"}</span>
                   ) : (
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-reward">Ready</span>
                   )}

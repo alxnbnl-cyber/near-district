@@ -10,7 +10,7 @@ const REASONS = [
   ["impersonation", "Impersonation"],
   ["copyright", "Copyright"],
   ["malicious_link", "Malicious link"],
-  ["unfair_campaign", "Unfair or misleading campaign"],
+  ["unfair_campaign", "Unfair or misleading mission"],
   ["other", "Something else"],
 ] as const;
 

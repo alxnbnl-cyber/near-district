@@ -76,13 +76,13 @@ export async function updateSpace(
   patch: Partial<{ name: string; tagline: string; description: string; websiteUrl?: string; socials: Record<string, string | undefined>; buildingStyle: string; logoUploadId: string | null; bannerUploadId: string | null }>,
 ) {
   const [s] = await db.select().from(spaces).where(eq(spaces.id, spaceId)).limit(1);
-  if (!s) throw new HttpError(404, "Space not found.");
+  if (!s) throw new HttpError(404, "Company not found.");
   const [m] = await db
     .select({ role: organizationMembers.role })
     .from(organizationMembers)
     .where(and(eq(organizationMembers.organizationId, s.organizationId), eq(organizationMembers.userId, user.userId)))
     .limit(1);
-  if (!m || !["owner", "admin", "editor"].includes(m.role)) throw new HttpError(403, "You can't edit this Space.");
+  if (!m || !["owner", "admin", "editor"].includes(m.role)) throw new HttpError(403, "You can't edit this company profile.");
   const values: Record<string, unknown> = { updatedAt: new Date() };
   for (const k of ["name", "tagline", "description", "buildingStyle", "logoUploadId", "bannerUploadId"] as const) {
     if (patch[k] !== undefined) values[k] = patch[k];
