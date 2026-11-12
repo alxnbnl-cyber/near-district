@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SPACE_CATEGORIES } from "@yielvy/core/world";
 import { Field, Notice, inputClass } from "@/components/ui";
 import { WalletChooser } from "@/components/auth/WalletChooser";
@@ -28,6 +28,14 @@ export function Onboarding({ hasWallet, walletAccount }: { hasWallet: boolean; w
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [logo, setLogo] = useState<File | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!logo) return setLogoUrl(null);
+    const u = URL.createObjectURL(logo);
+    setLogoUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [logo]);
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v, ...(k === "name" && !slugTouched ? { slug: slugify(v) } : {}) }));
 
   return (
@@ -81,6 +89,15 @@ export function Onboarding({ hasWallet, walletAccount }: { hasWallet: boolean; w
             setBusy(true);
             try {
               await api("/api/organizer/space", { method: "POST", body: parsed.data });
+              if (logo) {
+                // the company exists now, so the logo can be stored against it
+                const fd = new FormData();
+                fd.set("purpose", "logo");
+                fd.set("file", logo);
+                const res = await fetch("/api/uploads", { method: "POST", body: fd });
+                const up = (await res.json().catch(() => null)) as { id?: string } | null;
+                if (res.ok && up?.id) await api("/api/organizer/space", { method: "PATCH", body: { logoUploadId: up.id } });
+              }
               router.refresh();
             } catch (err) {
               setServerError(err instanceof ApiError ? err.message : "Could not create your profile.");
@@ -118,6 +135,39 @@ export function Onboarding({ hasWallet, walletAccount }: { hasWallet: boolean; w
                 <input id="tagline" className={inputClass} maxLength={120} value={form.tagline} onChange={(e) => set("tagline", e.target.value)} placeholder="Puzzles hidden in our docs" />
               </Field>
             </div>
+            <Field label="Logo" htmlFor="logo" hint="Square PNG, JPEG or WebP, under 1 MB. Shown on your map pin.">
+              <div className="flex items-center gap-3">
+                <label
+                  htmlFor="logo"
+                  className="inline-flex h-11 cursor-pointer items-center gap-2 px-4 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[rgb(214_219_225/.85)] hover:text-white"
+                  style={frame(9, `${INK} / .25)`)}
+                >
+                  {logo ? "Change logo" : "Upload logo"}
+                </label>
+                <input
+                  id="logo"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    if (file && file.size > 1_000_000) {
+                      setErrors((x) => ({ ...x, logo: "Logo must be under 1 MB." }));
+                      return;
+                    }
+                    setErrors(({ logo: _drop, ...rest }) => rest);
+                    setLogo(file);
+                  }}
+                />
+                {logo && <span className="truncate font-mono text-[11px] text-[rgb(214_219_225/.55)]">{logo.name}</span>}
+                {logo && (
+                  <button type="button" onClick={() => setLogo(null)} className="font-mono text-[10.5px] font-bold uppercase tracking-[0.16em] text-[rgb(214_219_225/.5)] hover:text-white">
+                    Remove
+                  </button>
+                )}
+              </div>
+              {errors.logo && <p className="mt-1 text-[12px] text-danger">{errors.logo}</p>}
+            </Field>
             {serverError && <Notice tone="danger">{serverError}</Notice>}
             <div>
               <button
@@ -134,13 +184,18 @@ export function Onboarding({ hasWallet, walletAccount }: { hasWallet: boolean; w
           <div className={PANEL} style={frame(14, `${INK} / .14)`)}>
             <p className="font-mono text-[10.5px] font-bold uppercase tracking-[0.22em] text-[rgb(214_219_225/.5)]">Preview on the map</p>
             <div className="mt-4 grid place-items-center bg-[#0b0f15] py-8 shadow-[inset_0_0_0_1px_rgb(255_255_255/.06)]">
-              <span className="yv-float relative block size-14 drop-shadow-[0_0_10px_rgb(255_145_56/.5)]">
+              <span className="yv-float relative block size-16 drop-shadow-[0_0_10px_rgb(255_145_56/.5)]">
                 <span className="absolute inset-0 bg-orange" style={{ clipPath: "polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)" }} />
                 <span
-                  className="absolute inset-[2.5px] grid place-items-center bg-[linear-gradient(180deg,#141922,#07090c)] font-display text-[20px] font-bold text-orange"
+                  className="absolute inset-[2.5px] grid place-items-center overflow-hidden bg-[linear-gradient(180deg,#141922,#07090c)] font-display text-[20px] font-bold text-orange"
                   style={{ clipPath: "polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)" }}
                 >
-                  {(form.name.match(/[A-Za-z0-9]/)?.[0] ?? "Y").toUpperCase()}
+                  {logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={logoUrl} alt="" className="size-full object-cover" />
+                  ) : (
+                    (form.name.match(/[A-Za-z0-9]/)?.[0] ?? "Y").toUpperCase()
+                  )}
                 </span>
               </span>
               <span className="mt-3 max-w-full truncate px-3 font-mono text-[12px] font-bold uppercase tracking-[0.1em] text-white">{form.name || "Your company"}</span>

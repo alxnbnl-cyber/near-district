@@ -147,7 +147,7 @@ export function SectionGate({ approved, hasSpace, children }: { approved: boolea
 }
 
 /**
- * Local demo only: a pending profile is approved automatically after a few seconds and a toast
+ * Local demo only: a pending profile is approved automatically after about a second and a toast
  * announces it. In production the server route refuses and nothing happens.
  */
 export function DemoApprove({ pending, demo }: { pending: boolean; demo: boolean }) {
@@ -166,7 +166,7 @@ export function DemoApprove({ pending, demo }: { pending: boolean; demo: boolean
       } catch {
         /* stays pending; an admin can still approve */
       }
-    }, 5000);
+    }, 1000);
     return () => clearTimeout(t);
   }, [pending, demo, router]);
   useEffect(() => {

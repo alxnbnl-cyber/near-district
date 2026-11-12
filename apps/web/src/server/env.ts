@@ -7,6 +7,10 @@ const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   APP_URL: z.string().url(),
   DATABASE_URL: z.string().min(1),
+  /** Optional: higher rate limits on the NearBlocks indexer used to find contract-call transactions. */
+  NEARBLOCKS_API_KEY: z.string().optional(),
+  /** Optional: archival RPC for older transactions (defaults to FastNEAR archival). */
+  NEAR_ARCHIVAL_RPC_URLS: z.string().optional(),
   NEAR_NETWORK: z.enum(["mainnet", "testnet"]),
   NEAR_RPC_URLS: z.string().min(1),
   /** Vault contract account. Unset => funding features show an honest "not deployed" state. */

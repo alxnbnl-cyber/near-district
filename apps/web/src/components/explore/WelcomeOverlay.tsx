@@ -214,7 +214,7 @@ export function WelcomeOverlay({
                 ) : (
                   <div className="yv-row mt-2 flex items-center justify-between border-t border-[rgb(214_219_225/.12)] pt-1.5 text-[10px] uppercase tracking-[0.16em]" style={{ animationDelay: "1300ms" }}>
                     <span className="text-[rgb(214_219_225/.5)]">Objective</span>
-                    <span className="text-[rgb(214_219_225/.8)]">{active.b.featured!.template === "treasure_hunt" ? "Solve the clues" : "Submit an idea"}</span>
+                    <span className="text-[rgb(214_219_225/.8)]">{active.b.featured!.template === "treasure_hunt" ? "Decrypt the secrets" : "Submit an idea"}</span>
                   </div>
                 )}
               </>

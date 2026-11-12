@@ -13,6 +13,15 @@ export const activityInput = z.discriminatedUnion("type", [
   z.object({ type: z.literal("manual_review"), instructions: plainText(1000, 10), requireLink: z.boolean().optional() }),
   z.object({ type: z.literal("near_stake"), network: z.enum(["mainnet", "testnet"]), minAmount: intStr }),
   z.object({ type: z.literal("meteor_wallet_signin") }),
+  z.object({
+    type: z.literal("near_contract_call"),
+    network: z.enum(["mainnet", "testnet"]),
+    contractId: z.string().trim().toLowerCase().min(2).max(64),
+    methodName: z.string().trim().min(1).max(64),
+    title: plainText(120, 3),
+    description: plainText(1000).optional(),
+    partner: z.object({ name: plainText(60, 1), url: z.string().trim().max(300) }).optional(),
+  }),
   z.object({ type: z.literal("near_rhea_swap"), network: z.enum(["mainnet", "testnet"]), tokenIn: z.string().max(80).optional(), tokenOut: z.string().max(80).optional(), minAmountIn: intStr.optional() }),
   z.object({
     type: z.literal("near_rhea_lending_supply"),

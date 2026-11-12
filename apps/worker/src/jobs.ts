@@ -22,7 +22,7 @@ import { campaignMachine, type CampaignRules, type CampaignState } from "@yielvy
 import { ledgerMovesForEvent, sharesToTokens, type NearRpc, type RheaClient, type VaultClient, type VaultEvent } from "@yielvy/near";
 import type { AllowedToken } from "@yielvy/core";
 import { duePendingVerifications, processVerification, type EngineDeps } from "@yielvy/db";
-import { NearActivityVerifier, dispatchOnchain } from "@yielvy/near";
+import { NearActivityVerifier, NearBlocksIndexer, NearRpc as ArchiveRpc, archivalRpcUrls, dispatchOnchain } from "@yielvy/near";
 import { enqueue, RetryLater } from "./queue";
 import { processPeriod } from "./rewards";
 import type { OperatorSigner } from "./operator";
@@ -230,7 +230,7 @@ export function hintEngineDeps(ctx: JobCtx): EngineDeps {
     walletNetwork: network,
     onchain: v
       ? {
-          verify: dispatchOnchain(v),
+          verify: dispatchOnchain(v, { indexer: new NearBlocksIndexer({ apiKey: process.env.NEARBLOCKS_API_KEY }), archive: new ArchiveRpc({ urls: archivalRpcUrls(network, process.env.NEAR_ARCHIVAL_RPC_URLS) }) }),
         }
       : null,
   };

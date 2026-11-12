@@ -3,3 +3,4 @@ export * from "./rhea";
 export * from "./nep413";
 export * from "./vault";
 export * from "./activity";
+export * from "./contract-call";

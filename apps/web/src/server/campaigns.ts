@@ -204,7 +204,7 @@ export async function addQuestion(db: Db, user: SessionUser, c: typeof campaigns
   const rule = buildRule(q, salt);
   return db.transaction(async (tx) => {
     const existing = await tx.select({ position: treasureQuestions.position }).from(treasureQuestions).where(eq(treasureQuestions.campaignId, c.id));
-    if (existing.length >= 50) throw badRequest("A mission can have at most 50 clues.");
+    if (existing.length >= 50) throw badRequest("A mission can have at most 50 secrets.");
     const position = existing.length ? Math.max(...existing.map((e) => e.position)) + 1 : 0;
     const [row] = await tx
       .insert(treasureQuestions)

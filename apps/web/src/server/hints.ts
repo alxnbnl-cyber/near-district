@@ -11,6 +11,7 @@ import {
   hintProgress,
   hintQuestionPosition,
   inArray,
+  lt,
   organizations,
   participantEntries,
   partnershipAccepted,
@@ -39,7 +40,7 @@ import {
   type CampaignRules,
   type RuleNode,
 } from "@yielvy/core";
-import { NearActivityVerifier, dispatchOnchain } from "@yielvy/near";
+import { NearActivityVerifier, NearBlocksIndexer, NearRpc, archivalRpcUrls, dispatchOnchain } from "@yielvy/near";
 import type { HintInput } from "@/lib/hint-schemas";
 import { audit } from "./audit";
 import { conflict, badRequest, HttpError, notFound, forbidden } from "./http";
@@ -61,7 +62,12 @@ export function engineDeps(): EngineDeps {
   let onchain: OnchainPort | null = null;
   if (onchainEnabled()) {
     const v = NearActivityVerifier.forNetwork(nearRpc(), env().NEAR_NETWORK);
-    onchain = { verify: dispatchOnchain(v) };
+    onchain = {
+      verify: dispatchOnchain(v, {
+        indexer: new NearBlocksIndexer({ apiKey: env().NEARBLOCKS_API_KEY }),
+        archive: new NearRpc({ urls: archivalRpcUrls(env().NEAR_NETWORK, env().NEAR_ARCHIVAL_RPC_URLS) }),
+      }),
+    };
   }
   return { walletNetwork: env().NEAR_NETWORK, onchain };
 }
@@ -84,7 +90,7 @@ async function orgOfCampaign(db: Db, c: CampaignRow) {
 }
 
 function assertEditable(c: CampaignRow) {
-  if (c.status !== "DRAFT" && c.status !== "PENDING_FUNDING") throw conflict("Hints are locked once a mission is published, so every player sees the same clues.");
+  if (c.status !== "DRAFT" && c.status !== "PENDING_FUNDING") throw conflict("Hints are locked once a mission is published, so every player sees the same secrets.");
   if (c.template !== "treasure_hunt") throw badRequest("Only Treasure Hunts have hints.");
 }
 
@@ -122,9 +128,14 @@ function hintHash(h: { title: string; content: string; unlock: RuleNode | null; 
 
 export async function saveHint(db: Db, user: SessionUser, c: CampaignRow, input: HintInput, hintId?: string) {
   assertEditable(c);
-  const [q] = await db.select({ id: treasureQuestions.id }).from(treasureQuestions).where(and(eq(treasureQuestions.id, input.questionId), eq(treasureQuestions.campaignId, c.id))).limit(1);
+  const [q] = await db.select({ id: treasureQuestions.id, position: treasureQuestions.position }).from(treasureQuestions).where(and(eq(treasureQuestions.id, input.questionId), eq(treasureQuestions.campaignId, c.id))).limit(1);
   if (!q) throw notFound("Question not found.");
   const unlock = input.unlock ? await normalizeRule(db, c, input.unlock) : null;
+  // partners are linked on the second secret only
+  if (unlock && leaves(unlock).some((l) => "partner" in l.activity && l.activity.partner)) {
+    const earlier = await db.select({ id: treasureQuestions.id }).from(treasureQuestions).where(and(eq(treasureQuestions.campaignId, c.id), lt(treasureQuestions.position, q.position)));
+    if (earlier.length !== 1) throw badRequest("A partner can only be linked on the second secret.");
+  }
   const availableFrom = input.availableFrom ? new Date(input.availableFrom) : null;
   const availableUntil = input.availableUntil ? new Date(input.availableUntil) : null;
   if (availableFrom && availableUntil && availableUntil <= availableFrom) throw badRequest("The hint must close after it opens.");
@@ -193,8 +204,9 @@ export async function orgBuilderOptions(db: Db, orgId: string, excludeCampaignId
   return {
     catalogue: ACTIVITY_CATALOGUE.map((e) => ({
       ...e,
-      available: e.support !== "not_supported" && (e.category !== "onchain" || onchain),
-      unavailableReason: e.support === "not_supported" ? e.unsupportedReason : e.category === "onchain" && !onchain ? "Verified on mainnet deployments only (wallet ownership is proven per network)." : undefined,
+      // one activity for now: a smart contract function call; the rest are shown as coming soon
+      available: e.type === "near_contract_call" && onchain,
+      unavailableReason: e.type === "near_contract_call" ? undefined : "Coming soon",
     })),
     ownCampaigns: own.filter((x) => x.id !== excludeCampaignId),
     partnerOfferings: await partnerOfferings(db, orgId),
@@ -248,7 +260,10 @@ export interface HintRequirementView {
   label: string;
   type: string;
   category: string;
-  verification: "automatic" | "onchain" | "manual";
+  /** "discover": on-chain, found automatically from the player's wallet (no tx hash needed). */
+  verification: "automatic" | "onchain" | "discover" | "manual";
+  /** Contract-call details shown to the player. */
+  contract: { contractId: string; methodName: string; description: string | null; partner: { name: string; url: string } | null } | null;
   provider: { orgName: string; spaceSlug: string | null; spaceName: string | null };
   target: { spaceSlug: string; campaignSlug: string; title: string } | null;
   status: "TODO" | "PENDING_VERIFICATION" | "UNDER_REVIEW" | "VERIFIED" | "FAILED";
@@ -292,6 +307,10 @@ const REASON_TEXT: Record<string, string> = {
   mainnet_wallet_required: "Verify a NEAR wallet first.",
   no_successful_stake: "No successful stake with a validator in that transaction.",
   wrong_contract: "That transaction didn't call the required contract.",
+  wrong_method: "That transaction called a different function.",
+  transaction_failed: "That transaction failed on chain.",
+  not_found: "No matching transaction from your wallet yet. Do the activity, wait a few seconds, then verify again.",
+  indexer_unavailable: "We couldn't search your wallet history just now; we'll keep checking.",
   wrong_program: "That transaction didn't use the required program.",
   tx_failed: "That transaction failed on chain.",
   no_event_yet: "No event from the app yet. Enter your code there, then check again.",
@@ -336,7 +355,8 @@ export async function hintCards(db: Db, userId: string, questionId: string): Pro
           label: describeActivity(l.activity, { campaign: (id) => targets.find((x) => x.id === id)?.title }),
           type: l.activity.type,
           category: entry?.category ?? "internal",
-          verification: entry?.category === "onchain" ? "onchain" : entry?.support === "manual" ? "manual" : "automatic",
+          verification: l.activity.type === "near_contract_call" ? "discover" : entry?.category === "onchain" ? "onchain" : entry?.support === "manual" ? "manual" : "automatic",
+          contract: l.activity.type === "near_contract_call" ? { contractId: l.activity.contractId, methodName: l.activity.methodName, description: l.activity.description ?? null, partner: l.activity.partner ?? null } : null,
           provider: { orgName: o?.name ?? "Unknown", spaceSlug: o?.spaceSlug ?? null, spaceName: o?.spaceName ?? null },
           target: t ? { spaceSlug: t.spaceSlug, campaignSlug: t.slug, title: t.title } : null,
           status: done ? "VERIFIED" : last?.status === "pending" ? "PENDING_VERIFICATION" : last?.status === "under_review" ? "UNDER_REVIEW" : last?.status === "failed" ? "FAILED" : "TODO",

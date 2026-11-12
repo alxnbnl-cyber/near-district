@@ -7,7 +7,7 @@ import { GameIcon } from "@/components/host/GameIcon";
 import { api, ApiError } from "@/lib/api";
 
 const TYPES = [
-  { id: "treasure_hunt" as const, icon: "host" as const, title: "Mission", body: "A trail of clues about your project. Solve them all to win.", ph: "The Hidden Signal" },
+  { id: "treasure_hunt" as const, icon: "host" as const, title: "Mission", body: "Hide secrets about your project. Players decrypt them all to win.", ph: "The Hidden Signal" },
   { id: "creative_contest" as const, icon: "play" as const, title: "Creative Challenge", body: "Ask for ideas or work. Your team picks the winners.", ph: "Design our next feature" },
 ];
 

@@ -167,7 +167,7 @@ export async function submitAnswer(db: Db, user: SessionUser, campaignId: string
     if (!entry) throw badRequest("Start the mission first.");
     if (entry.status !== "in_progress") throw conflict("This mission is already scored.");
     const [q] = await tx.select().from(treasureQuestions).where(and(eq(treasureQuestions.id, questionId), eq(treasureQuestions.campaignId, c.id))).limit(1);
-    if (!q) throw notFound("Clue not found.");
+    if (!q) throw notFound("Secret not found.");
     if (q.type === "multiple_choice" && !(q.options ?? []).some((o) => o.id === answer)) throw badRequest("Pick one of the options.");
 
     const [ruleRow] = await tx.select().from(treasureAnswerRules).where(eq(treasureAnswerRules.questionId, q.id)).limit(1);

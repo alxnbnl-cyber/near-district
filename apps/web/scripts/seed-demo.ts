@@ -13,6 +13,8 @@ import { campaigns, createDb, organizations, spaces, users, eq, sql } from "@yie
 import { runMigrations } from "@yielvy/db/migrate";
 import { addQuestion, createDraft, publishCampaign, updateCampaign } from "../src/server/campaigns";
 import { createSpace } from "../src/server/spaces";
+import { saveHint } from "../src/server/hints";
+import { listQuestions } from "../src/server/campaigns";
 import type { SessionUser } from "../src/server/session";
 import type { QuestionInput } from "../src/lib/campaign-schemas";
 
@@ -85,7 +87,7 @@ const DEMOS: Demo[] = [
       template: "treasure_hunt",
       title: "The RHEA Liquidity Trail",
       summary: "Follow the trail through RHEA and split a fixed USDC prize.",
-      description: "Answer every clue correctly before the deadline. Everyone who gets them all right splits the prize equally, paid to their NEAR wallet.",
+      description: "Decrypt every secret before the deadline. Everyone who gets them all right splits the prize equally, paid to their NEAR wallet.",
       prize: 300,
       days: 7,
       questions: [
@@ -126,8 +128,8 @@ const DEMOS: Demo[] = [
     mission: {
       template: "treasure_hunt",
       title: "The Meteor Shower Hunt",
-      summary: "Solve the clues about Meteor Wallet and split the prize.",
-      description: "Answer every clue correctly before the deadline. Everyone who gets them all right splits the prize equally, paid to their NEAR wallet.",
+      summary: "Decrypt the secrets about Meteor Wallet and split the prize.",
+      description: "Decrypt every secret before the deadline. Everyone who gets them all right splits the prize equally, paid to their NEAR wallet.",
       prize: 200,
       days: 5,
       questions: [
@@ -157,6 +159,39 @@ for (const d of DEMOS) {
   const m = d.mission;
   const c = await createDraft(db, me, space.id, { template: m.template, title: m.title });
   for (const question of m.questions ?? []) await addQuestion(db, me, c, question);
+  // demo hints: unlocked by calling a contract function (testnet guest book); a partner on secret 2
+  if (m.questions?.length) {
+    const qs = await listQuestions(db, c.id);
+    for (const [i, q] of qs.slice(0, 2).entries()) {
+      await saveHint(db, me, c, {
+        questionId: q.id,
+        title: "Hint",
+        teaser: "",
+        content: i === 0 ? "Think of the network the whole district is built on." : "Two words: the action that adds supply for borrowers.",
+        unlock: {
+          kind: "group",
+          op: "ANY",
+          children: [
+            {
+              kind: "activity",
+              id: "unlock",
+              ownerOrgId: space.organizationId,
+              activity: {
+                type: "near_contract_call",
+                network,
+                contractId: network === "testnet" ? "guest-book.testnet" : "social.near",
+                methodName: network === "testnet" ? "addMessage" : "set",
+                title: i === 0 ? "Sign the district guest book" : "Leave a message on the partner board",
+                description: "Use the same wallet you signed in with.",
+                ...(i === 1 ? { partner: { name: "NEAR Guest Book", url: "https://examples.near.org/guest-book" } } : {}),
+              },
+            },
+          ],
+        },
+        withdrawalPolicy: "disable",
+      });
+    }
+  }
   const hunt = m.template === "treasure_hunt";
   await updateCampaign(db, me, c, {
     summary: m.summary,

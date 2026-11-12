@@ -304,6 +304,58 @@ describe("on-chain hint evidence (engine rules with an injected chain port)", ()
   });
 });
 
+describe("contract-call activity: player just presses Verify", () => {
+  let hunt: string;
+  let hintMint: string;
+  let hintMint2: string;
+  const seen: { txHash: string; exclude?: string[] }[] = [];
+  // Simulates indexer discovery + RPC proof: the wallet has one qualifying tx (MINT) unless excluded.
+  const MINT = "3xQmA1nTqk9Y3hV2fWm8b7cZ5dE4rT6yU8iO9pLkJhGf";
+  const deps: EngineDeps = {
+    walletNetwork: "mainnet",
+    onchain: {
+      async verify(def, input) {
+        seen.push({ txHash: input.txHash, exclude: input.exclude });
+        if (def.type !== "near_contract_call") return { status: "failed", reason: "unsupported_activity" };
+        const hash = input.txHash || MINT;
+        if ((input.exclude ?? []).includes(hash)) return { status: "failed", reason: "not_found" };
+        return { status: "verified", evidence: { provider: "near-rpc", network: "mainnet", txHash: hash, receiptId: "r1", amount: "0", executedAt: new Date().toISOString() } };
+      },
+    },
+  };
+  const mint = (id: string, partner = false) => ({ kind: "activity" as const, id, ownerOrgId: orgs.A!.orgId, activity: { type: "near_contract_call" as const, network: "mainnet" as const, contractId: "nft.district.near", methodName: "nft_mint", title: "Mint the district badge", ...(partner ? { partner: { name: "Badge Labs", url: "https://badges.example" } } : {}) } });
+
+  it("accepts contract-call hints; a partner link only on the second secret", async () => {
+    hunt = await mkHunt(users_.ownerA!, "A", "Badge Trail", [["first", "one"], ["second", "two"]]);
+    const c = await campaign(hunt);
+    const [q1, q2] = (await listQuestions(h.db, hunt)).map((q) => q.id);
+    await expectHttp(saveHint(h.db, users_.ownerA!, c, { questionId: q1!, title: "Hint", teaser: "", content: "look up", unlock: { kind: "group", op: "ANY", children: [mint("mint", true)] }, withdrawalPolicy: "disable" }), 400, /second secret/);
+    hintMint = (await saveHint(h.db, users_.ownerA!, c, { questionId: q1!, title: "Hint", teaser: "", content: "look up", unlock: { kind: "group", op: "ANY", children: [mint("mint")] }, withdrawalPolicy: "disable" })).id;
+    hintMint2 = (await saveHint(h.db, users_.ownerA!, c, { questionId: q2!, title: "Hint", teaser: "", content: "look down", unlock: { kind: "group", op: "ANY", children: [mint("mint2", true)] }, withdrawalPolicy: "disable" })).id;
+    await publishCampaign(h.db, users_.ownerA!, await campaign(hunt));
+    await joinCampaign(h.db, users_.player3!, hunt, null);
+  });
+
+  it("verifies without a transaction hash and unlocks the hint", async () => {
+    const r = await requestVerification(h.db, deps, { userId: users_.player3!.userId, hintId: hintMint, leafId: "mint" });
+    expect(r).toMatchObject({ status: "verified", unlocked: true });
+    expect(seen.at(-1)!.txHash).toBe("");
+  });
+
+  it("verifying the same activity again is a no-op (no second verification)", async () => {
+    const before = seen.length;
+    const r = await requestVerification(h.db, deps, { userId: users_.player3!.userId, hintId: hintMint, leafId: "mint" });
+    expect(r).toMatchObject({ status: "verified", unlocked: true });
+    expect(seen.length).toBe(before);
+  });
+
+  it("an already-used transaction is excluded from discovery for the next hint", async () => {
+    const r = await requestVerification(h.db, deps, { userId: users_.player3!.userId, hintId: hintMint2, leafId: "mint2" });
+    expect(seen.at(-1)!.exclude).toContain(MINT);
+    expect(r).toMatchObject({ status: "failed", reason: "not_found" });
+  });
+});
+
 describe("shared expedition: end-to-end acceptance", () => {
   let chapter1: string;
   let chapter2: string;

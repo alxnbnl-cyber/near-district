@@ -2,7 +2,7 @@ import { z } from "zod";
 import { httpUrl, plainText, slug } from "./schemas";
 
 export const TEMPLATES = {
-  treasure_hunt: { label: "Mission", live: true, blurb: "A trail of questions and clues. Answer them all to qualify." },
+  treasure_hunt: { label: "Mission", live: true, blurb: "Hidden secrets to decrypt. Decrypt them all to qualify." },
   creative_contest: { label: "Creative Contest", live: true, blurb: "Ask for ideas, feedback or creative work. Your team picks winners." },
   product_explorer: { label: "Product Explorer", live: false, blurb: "Guided tours through your product. Coming soon." },
   more_experiences: { label: "More experiences", live: false, blurb: "More formats are on the way." },

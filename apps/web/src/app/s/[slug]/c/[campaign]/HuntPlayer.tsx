@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import { HintCards, type HintCard } from "@/components/campaign/HintCards";
+import type { HintCard } from "@/components/campaign/HintCards";
+import { DecryptStyles, LockGrid, SecretConsole, useActiveLock } from "./DecryptGame";
 import { Burst } from "@/components/art/Burst";
 import { GameIcon } from "@/components/host/GameIcon";
 import { frame, plate } from "@/components/explore/frame";
@@ -44,7 +45,6 @@ type PlayState =
     };
 
 const INK = "rgb(214 219 225";
-const HEX = "polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)";
 const pad = (n: number) => String(n).padStart(2, "0");
 const bigBtn =
   "inline-flex h-12 items-center justify-center gap-2 bg-[linear-gradient(180deg,#ffa458,#ff8a2a)] px-6 font-mono text-[12.5px] font-black uppercase tracking-[0.18em] text-[#140c05] shadow-[0_0_24px_rgb(255_145_56/.35)] transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[0_0_36px_rgb(255_145_56/.6)] disabled:opacity-50";
@@ -75,157 +75,13 @@ function Panel({ children, tone = `${INK} / .14)`, className = "" }: { children:
   );
 }
 
-/** Trail of hex waypoints: filled once an answer is sealed in (or, after the end, green/red by result). */
-function Trail({ questions, total, closed }: { questions: Question[] | null; total: number; closed: boolean }) {
-  return (
-    <div className="flex items-center">
-      {Array.from({ length: total }, (_, i) => {
-        const q = questions?.[i];
-        const tone = closed ? (q?.result?.correct ? "#34d399" : "#f87171") : q?.saved ? "#FFC24B" : "rgb(214 219 225 / .22)";
-        const filled = closed || Boolean(q?.saved);
-        return (
-          <div key={i} className="flex flex-1 items-center">
-            <span className="relative grid size-9 shrink-0 place-items-center">
-              <span className="absolute inset-0" style={{ clipPath: HEX, background: tone }} />
-              <span
-                className={`absolute inset-[2px] grid place-items-center font-mono text-[11px] font-black ${filled ? "text-[#1a1206]" : "text-[rgb(214_219_225/.5)]"}`}
-                style={{ clipPath: HEX, background: filled ? tone : "linear-gradient(180deg,#141922,#07090c)" }}
-              >
-                {closed ? (q?.result?.correct ? "✓" : "✗") : q?.saved ? "◆" : pad(i + 1)}
-              </span>
-            </span>
-            <span className={`mx-1 h-[2px] flex-1 ${filled ? "bg-[linear-gradient(90deg,#FFC24B,#FF9138)]" : "bg-[repeating-linear-gradient(90deg,rgb(214_219_225/.25)_0_5px,transparent_5px_10px)]"}`} />
-          </div>
-        );
-      })}
-      <GameIcon name="earn" size={46} className={closed ? "" : "opacity-80 grayscale-[.3]"} />
-    </div>
-  );
-}
-
-/** One clue: answer field that can be saved and edited until the deadline; never says right or wrong before the end. */
-function ClueCard({ q, total, campaignId, returnTo, closed, onSaved, onHints }: { q: Question; total: number; campaignId: string; returnTo: string; closed: boolean; onSaved(): void; onHints(h: HintCard[]): void }) {
-  const [value, setValue] = useState(q.saved ?? "");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
-  const [flash, setFlash] = useState(false);
-  useEffect(() => setValue(q.saved ?? ""), [q.saved]);
-  const dirty = value.trim() !== (q.saved ?? "").trim();
-
-  const save = async (v: string) => {
-    if (!v.trim() || busy) return;
-    setBusy(true);
-    setMsg(null);
-    try {
-      await api(`/api/campaigns/${campaignId}/answer`, { method: "POST", body: { questionId: q.id, answer: v } });
-      setFlash(true);
-      setTimeout(() => setFlash(false), 900);
-      setMsg({ tone: "ok", text: q.saved ? "Answer updated and sealed" : "Answer sealed" });
-      onSaved();
-    } catch (e) {
-      setMsg({ tone: "err", text: e instanceof ApiError ? e.message : "Couldn't save. Your other answers are safe." });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const tone = closed ? (q.result?.correct ? "rgb(52 211 153 / .7)" : "rgb(248 113 113 / .6)") : flash ? "rgb(255 194 75 / .9)" : q.saved ? "rgb(255 194 75 / .4)" : `${INK} / .14)`;
-  return (
-    <Panel tone={tone}>
-      {flash && <span className="yv-stamp absolute right-5 top-5 border-2 border-reward px-3 py-1 font-mono text-[11px] font-black uppercase tracking-[0.3em] text-reward">Sealed</span>}
-      <div className="flex flex-wrap items-center gap-3 font-mono">
-        <span className="bg-[rgb(255_194_75/.12)] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-reward">Clue {pad(q.index + 1)}</span>
-        <span className="text-[10.5px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.45)]">of {pad(total)}</span>
-        {!closed && q.saved && <span className="ml-auto text-[10px] font-bold uppercase tracking-[0.2em] text-gold">◆ Sealed {q.savedAt ? `· ${new Date(q.savedAt).toLocaleTimeString("en", { hour: "numeric", minute: "2-digit" })}` : ""}</span>}
-        {closed && <span className={`ml-auto text-[11px] font-black uppercase tracking-[0.2em] ${q.result?.correct ? "text-mint-ink" : "text-danger"}`}>{q.result?.correct ? "✓ Correct" : q.saved ? "✗ Not quite" : "✗ No answer"}</span>}
-      </div>
-      <h3 className="mt-3 whitespace-pre-line font-display text-[21px] font-bold leading-snug text-white md:text-[24px]">{q.prompt}</h3>
-      {q.clue && <p className="mt-2 font-sans text-[14px] italic text-[rgb(214_219_225/.65)]">{q.clue}</p>}
-      {q.imageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={q.imageUrl} alt="Image for this clue" className="mt-3 max-h-72 border border-[rgb(255_255_255/.1)] object-contain" />
-      )}
-      {q.referenceUrl && (
-        <a href={q.referenceUrl} target="_blank" rel="noopener noreferrer nofollow" className="mt-2 inline-block font-mono text-[10.5px] font-bold uppercase tracking-[0.16em] text-orange hover:underline">
-          Investigate ↗
-        </a>
-      )}
-
-      {closed ? (
-        <div className="mt-4 font-mono">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.5)]">Your answer</p>
-          <p className="mt-1 font-sans text-[15px] text-white">{q.type === "multiple_choice" ? (q.options?.find((o) => o.id === q.saved)?.label ?? "—") : (q.saved ?? "—")}</p>
-          {q.result?.reveal && (
-            <div className="mt-3 bg-[rgb(255_194_75/.07)] p-3" style={frame(8, "rgb(255 194 75 / .3)")}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-reward">Revealed</p>
-              <p className="mt-1 whitespace-pre-line font-sans text-[14px] text-[rgb(214_219_225/.85)]">{q.result.reveal}</p>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="mt-5">
-          {q.type === "multiple_choice" ? (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {q.options!.map((o, i) => {
-                const picked = (q.saved ?? "") === o.id;
-                return (
-                  <button
-                    key={o.id}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => save(o.id)}
-                    aria-pressed={picked}
-                    className={`group flex items-center gap-3 px-4 py-3.5 text-left text-[15px] font-medium text-white transition-colors disabled:opacity-50 ${picked ? "bg-[rgb(255_194_75/.12)]" : "bg-[rgb(255_255_255/.03)] hover:bg-[rgb(255_145_56/.1)]"}`}
-                    style={frame(10, picked ? "rgb(255 194 75 / .6)" : `${INK} / .18)`)}
-                  >
-                    <span className={`grid size-7 shrink-0 place-items-center border font-mono text-[12px] font-black ${picked ? "border-reward text-reward" : "border-[rgb(214_219_225/.3)] text-[rgb(214_219_225/.7)] group-hover:border-orange group-hover:text-orange"}`}>
-                      {picked ? "◆" : String.fromCharCode(65 + i)}
-                    </span>
-                    {o.label}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <form
-              className="flex flex-col gap-2 sm:flex-row"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void save(value);
-              }}
-            >
-              <label htmlFor={`a-${q.id}`} className="sr-only">Your answer</label>
-              <input
-                id={`a-${q.id}`}
-                autoComplete="off"
-                inputMode={q.type === "numeric" ? "decimal" : "text"}
-                className="h-12 w-full border border-[rgb(255_255_255/.14)] bg-[rgb(60_76_100/.12)] px-4 font-mono text-[16px] tracking-[0.04em] text-white placeholder:text-[rgb(214_219_225/.35)] focus:border-orange focus:outline-none"
-                placeholder="Type your answer"
-                value={value}
-                maxLength={500}
-                onChange={(e) => setValue(e.target.value)}
-              />
-              <button type="submit" className={`${bigBtn} shrink-0`} style={plate(11)} disabled={busy || !value.trim() || !dirty}>
-                {busy ? "Sealing…" : q.saved ? (dirty ? "Update" : "Sealed ◆") : "Seal answer"}
-              </button>
-            </form>
-          )}
-          <p className="mt-2 min-h-5 font-mono text-[11px] font-bold uppercase tracking-[0.14em]" aria-live="polite">
-            {msg ? <span className={msg.tone === "ok" ? "text-gold" : "text-danger"}>{msg.text}</span> : <span className="text-[rgb(214_219_225/.4)]">You can change this any time before the deadline</span>}
-          </p>
-          {q.hints.length > 0 && <HintCards campaignId={campaignId} hints={q.hints} returnTo={returnTo} onChange={onHints} />}
-        </div>
-      )}
-    </Panel>
-  );
-}
-
 export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaignId: string; status: string; signedIn: boolean; returnTo: string }) {
   const [state, setState] = useState<PlayState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [burst, setBurst] = useState(0);
   const now = useNow();
+  const [active, setActive] = useActiveLock(state && state.joined ? state.questions : null);
 
   const load = useCallback(async () => {
     try {
@@ -259,6 +115,8 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
   }, [endsAt, closed, load]);
 
   const styles = (
+    <>
+    <DecryptStyles />
     <style>{`
       @keyframes yv-stamp { 0% { opacity: 0; transform: scale(1.8) rotate(-12deg) } 40% { opacity: 1; transform: scale(.95) rotate(-6deg) } 100% { opacity: 1; transform: scale(1) rotate(-6deg) } }
       .yv-stamp { animation: yv-stamp 420ms cubic-bezier(.2,.8,.2,1) both }
@@ -266,6 +124,7 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
       .yv-rays { animation: yv-rays 18s linear infinite }
       @media (prefers-reduced-motion: reduce) { .yv-stamp, .yv-rays { animation: none } }
     `}</style>
+    </>
   );
 
   if (!signedIn) {
@@ -304,11 +163,12 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
           <div className="flex-1 font-mono">
             <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-orange">Briefing</p>
             <h2 className="mt-1 font-display text-[28px] font-bold uppercase leading-tight text-white">
-              Crack {state.total} clue{state.total === 1 ? "" : "s"} to qualify for the prize pool
+              Decrypt {state.total} secret{state.total === 1 ? "" : "s"} to qualify for the prize pool
             </h2>
             <ul className="mt-3 space-y-1.5 text-[11.5px] font-bold uppercase tracking-[0.14em] text-[rgb(214_219_225/.75)]">
-              <li><span className="text-orange">▸</span> Every clue is open: answer in any order</li>
+              <li><span className="text-orange">▸</span> Every lock is open: decrypt them in any order</li>
               <li><span className="text-orange">▸</span> Answers are sealed: change them any time until the deadline</li>
+              <li><span className="text-orange">▸</span> Stuck? Do an on-chain activity to decrypt a hint</li>
               <li><span className="text-orange">▸</span> Results are revealed when the mission ends</li>
             </ul>
             {status !== "LIVE" || t.closed ? (
@@ -351,22 +211,16 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
       {styles}
       <Burst trigger={burst} />
 
-      {/* status bar: trail, count, countdown */}
-      <Panel className="py-4 md:py-5" tone={t.closed ? (state.qualification === "qualified" ? "rgb(52 211 153 / .6)" : `${INK} / .2)`) : allSealed ? "rgb(255 194 75 / .5)" : `${INK} / .14)`}>
+      {/* decryption grid: one sphere per secret */}
+      <Panel className="py-4 md:py-5" tone={t.closed ? (state.qualification === "qualified" ? "rgb(52 211 153 / .6)" : `${INK} / .2)`) : allSealed ? "rgb(255 194 75 / .5)" : "rgb(69 227 255 / .35)"}>
         <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[10.5px] font-bold uppercase tracking-[0.22em]">
-          <span className="text-[rgb(214_219_225/.55)]">{t.closed ? "Results" : `${state.answered} / ${state.total} sealed`}</span>
-          {t.closed ? (
-            <span className="text-[rgb(214_219_225/.7)]">Ended {when(t.endsAt)}</span>
-          ) : (
-            <span className="text-orange">⏱ Answers lock in {lockIn ?? "—"}</span>
-          )}
+          <span className="text-[#45e3ff]">Decryption grid <span className="text-[rgb(214_219_225/.5)]">· {t.closed ? "results" : `${state.answered} / ${state.total} sealed`}</span></span>
+          {t.closed ? <span className="text-[rgb(214_219_225/.7)]">Ended {when(t.endsAt)}</span> : <span className="text-orange">⏱ Locks reveal in {lockIn ?? "—"}</span>}
         </div>
-        <div className="mt-3">
-          <Trail questions={state.questions} total={state.total} closed={t.closed} />
-        </div>
+        <LockGrid questions={state.questions} total={state.total} closed={t.closed} active={active} onPick={setActive} />
         {!t.closed && (
-          <p className="mt-3 font-sans text-[13px] text-[rgb(214_219_225/.65)]">
-            {allSealed ? "All clues sealed. You can still change any answer until the deadline. Results are revealed when it ends." : "Your answers stay sealed: we never say right or wrong before the deadline, so nobody can brute-force the clues."}
+          <p className="text-center font-sans text-[13px] text-[rgb(214_219_225/.6)]">
+            {allSealed ? "Every lock is sealed. You can still change any answer until the deadline." : "Pick a lock, find the answer and seal it. Nobody sees right or wrong until the deadline."}
           </p>
         )}
       </Panel>
@@ -381,7 +235,7 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
                 <GameIcon name="earn" size={120} className="relative" />
               </div>
               <p className="yv-stamp mx-auto mt-3 w-fit border-2 border-mint-ink px-4 py-1 font-mono text-[12px] font-black uppercase tracking-[0.3em] text-mint-ink">Qualified</p>
-              <h2 className="mt-3 font-display text-[26px] font-bold uppercase text-white">Every clue cracked!</h2>
+              <h2 className="mt-3 font-display text-[26px] font-bold uppercase text-white">Every secret decrypted!</h2>
               <p className="mx-auto mt-1 max-w-md font-sans text-[15px] text-[rgb(214_219_225/.7)]">You&apos;re in the prize pool. Winners are paid by the mission&apos;s rules; check your Progress panel.</p>
               <Link href="/explore?panel=progress" className={`${bigBtn} mt-5`} style={plate(12)} onClick={() => setBurst((b) => b + 1)}>
                 See my rewards
@@ -394,7 +248,7 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
                 {state.correctCount ?? 0} / {state.total} correct
               </h2>
               <p className="mx-auto mt-1 max-w-md font-sans text-[15px] text-[rgb(214_219_225/.7)]">
-                {state.qualification === "held" ? "Your result is being reviewed." : "Not every clue this time. The answers are revealed below. Try another mission!"}
+                {state.qualification === "held" ? "Your result is being reviewed." : "Not every lock this time. Pick a sphere to see the answers. Try another mission!"}
               </p>
               <Link href="/explore" className="mt-4 inline-flex h-11 items-center px-6 font-mono text-[11.5px] font-bold uppercase tracking-[0.18em] text-[rgb(214_219_225/.8)] hover:text-white" style={frame(10, `${INK} / .25)`)}>
                 Find another mission
@@ -404,23 +258,27 @@ export function HuntPlayer({ campaignId, status, signedIn, returnTo }: { campaig
         </Panel>
       )}
 
-      {state.questions.map((q) => (
-        <ClueCard
-          key={q.id}
-          q={q}
+      {state.questions[active] && (
+        <SecretConsole
+          key={state.questions[active]!.id}
+          q={state.questions[active]!}
           total={state.total}
           campaignId={campaignId}
-          returnTo={returnTo}
           closed={t.closed}
+          onNav={(d) => setActive(Math.min(state.total - 1, Math.max(0, active + d)))}
           onSaved={() => {
-            void load().then(() => {
-              /* celebrate the moment the last clue is sealed */
-            });
-            if (state.answered + (q.saved ? 0 : 1) === state.total) setBurst((b) => b + 1);
+            const q = state.questions[active]!;
+            const completes = state.answered + (q.saved ? 0 : 1) === state.total;
+            void load();
+            if (completes) setBurst((b) => b + 1);
+            else if (!q.saved) {
+              const next = state.questions.findIndex((x, i) => i !== active && !x.saved);
+              if (next >= 0) setTimeout(() => setActive(next), 900);
+            }
           }}
-          onHints={(h) => setHints(q.id, h)}
+          onHints={(h) => setHints(state.questions[active]!.id, h)}
         />
-      ))}
+      )}
     </div>
   );
 }

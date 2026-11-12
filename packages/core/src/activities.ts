@@ -21,11 +21,11 @@ export type ActivityType =
   | "near_rhea_lending_supply"
   | "near_stake"
   | "meteor_wallet_signin"
+  | "near_contract_call"
 
   | "near_liquidity_provision"
   | "near_asset_holding"
   | "near_nft_ownership"
-  | "near_contract_interaction"
   | "partner_api_event"
   | "meteor_swap";
 
@@ -42,6 +42,7 @@ export interface CatalogueEntry {
 }
 
 export const ACTIVITY_CATALOGUE: readonly CatalogueEntry[] = [
+  { type: "near_contract_call", category: "onchain", label: "Call a smart contract function", description: "The player's own NEAR wallet successfully calls a specific function on a specific contract (e.g. mint, stake, ft_transfer_call).", support: "automatic", financial: false },
   { type: "internal_campaign_completion", category: "internal", label: "Finish a campaign", description: "Complete a Treasure Hunt or enter a Creative Contest.", support: "automatic", financial: false },
   { type: "internal_quiz", category: "internal", label: "Pass a learning quiz", description: "Finish a Treasure Hunt used as a quiz, optionally with a minimum score.", support: "automatic", financial: false },
   { type: "internal_question_sequence", category: "internal", label: "Solve the first questions", description: "Solve the first N questions of a Treasure Hunt (an earlier chapter).", support: "automatic", financial: false },
@@ -54,7 +55,6 @@ export const ACTIVITY_CATALOGUE: readonly CatalogueEntry[] = [
   { type: "near_liquidity_provision", category: "onchain", label: "Provide liquidity", description: "Add liquidity to a pool.", support: "not_supported", unsupportedReason: "No verified adapter for pool-share accounting yet.", financial: true },
   { type: "near_asset_holding", category: "onchain", label: "Hold an asset", description: "Hold a token for a duration.", support: "not_supported", unsupportedReason: "Holding history needs an indexer; point-in-time balances can be borrowed.", financial: true },
   { type: "near_nft_ownership", category: "onchain", label: "Own an NFT", description: "Own an NFT from a collection.", support: "not_supported", unsupportedReason: "No collection registry has been reviewed yet.", financial: false },
-  { type: "near_contract_interaction", category: "onchain", label: "Contract interaction", description: "Call an approved contract method.", support: "not_supported", unsupportedReason: "Arbitrary methods aren't accepted; each interaction needs a reviewed adapter.", financial: false },
   { type: "partner_api_event", category: "partner_app", label: "Verified partner app action", description: "A signed event from a partner app.", support: "not_supported", unsupportedReason: "Not offered: NEAR District focuses on on-chain NEAR activity.", financial: false },
   { type: "meteor_swap", category: "partner_app", label: "Swap using Meteor", description: "A swap made inside Meteor Wallet.", support: "not_supported", unsupportedReason: "Meteor routes through other exchanges and leaves no verifiable attribution. Use “Swap on RHEA” instead.", financial: true },
 ];
@@ -142,6 +142,19 @@ export type ActivityDef =
     }
   | { type: "meteor_wallet_signin" }
   | {
+      type: "near_contract_call";
+      network: ActivityNetwork;
+      /** NEAR account id of the contract the player must call directly. */
+      contractId: string;
+      /** Function (method) name the player's transaction must call on that contract. */
+      methodName: string;
+      /** Instructions shown to players. */
+      title: string;
+      description?: string;
+      /** Optional partner this activity belongs to; linked without approval, shown to players. */
+      partner?: { name: string; url: string };
+    }
+  | {
       type: "near_rhea_lending_supply";
       network: ActivityNetwork;
       tokenId: string;
@@ -152,6 +165,9 @@ export type ActivityDef =
     };
 
 const INT = /^\d{1,40}$/;
+/** NEAR account ids: 2–64 chars of lowercase letters and digits with - _ . separators. */
+export const NEAR_ACCOUNT_ID = /^(?=.{2,64}$)(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
+export const NEAR_METHOD_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Structural validation of an activity definition. Returns problems (empty = valid). */
@@ -191,6 +207,17 @@ export function validateActivity(a: ActivityDef): string[] {
       if (!INT.test(a.minAmount) || BigInt(a.minAmount) === 0n) p.push("Set a minimum stake above zero.");
       break;
     case "meteor_wallet_signin":
+      break;
+    case "near_contract_call":
+      if (a.network !== "mainnet" && a.network !== "testnet") p.push("Unknown NEAR network.");
+      if (!NEAR_ACCOUNT_ID.test(a.contractId ?? "")) p.push("Enter a valid NEAR contract account, e.g. nft.example.near.");
+      if (!NEAR_METHOD_NAME.test(a.methodName ?? "")) p.push("Enter the function name, e.g. mint.");
+      if (!a.title?.trim() || a.title.length > 120) p.push("Add a short title for players (up to 120 characters).");
+      if (a.description && a.description.length > 1000) p.push("Keep the description under 1000 characters.");
+      if (a.partner) {
+        if (!a.partner.name?.trim() || a.partner.name.length > 60) p.push("Partner name is required (up to 60 characters).");
+        if (!/^https:\/\/[^\s]{3,300}$/.test(a.partner.url ?? "")) p.push("Partner link must start with https://");
+      }
       break;
     case "near_rhea_lending_supply": {
       if (a.network !== "mainnet" && a.network !== "testnet") p.push("Unknown NEAR network.");
@@ -247,6 +274,8 @@ export function describeActivity(a: ActivityDef, names: { campaign?: (id: string
     }
     case "meteor_wallet_signin":
       return "Sign in with Meteor Wallet";
+    case "near_contract_call":
+      return a.title?.trim() || `Call ${a.methodName} on ${a.contractId}`;
     case "near_rhea_lending_supply":
       return `Supply at least ${amt(a.tokenId, a.minAmount)} to RHEA Lending${a.minHoldSeconds ? ` and keep it for ${Math.round(a.minHoldSeconds / 3600)}h` : ""}`;
   }

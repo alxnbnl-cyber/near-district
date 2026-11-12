@@ -55,8 +55,8 @@ const STEPS: Record<Side, Step[]> = {
       icon: ICON.play,
       tag: "Play",
       title: "Take on a mission",
-      body: "Open a mission and follow its brief: crack the clues of a hunt or submit your best entry to a challenge.",
-      objectives: ["Read the mission brief", "Solve clues or submit an entry", "Stuck? Unlock a hint with a partner activity"],
+      body: "Open a mission and follow its brief: decrypt the secrets of a hunt or submit your best entry to a challenge.",
+      objectives: ["Read the mission brief", "Decrypt secrets or submit an entry", "Stuck? Do an on-chain activity to unlock a hint"],
     },
     {
       icon: ICON.earn,
@@ -93,8 +93,8 @@ const STEPS: Record<Side, Step[]> = {
       icon: ICON.host,
       tag: "Mission",
       title: "Design a mission",
-      body: "Pick a format (a clue hunt or a creative challenge), write the brief and set the dates. Bring in corporate partners: their activities can unlock hints, and they can co-fund the reward and share the spotlight.",
-      objectives: ["Choose hunt or challenge", "Add corporate partners and their activities", "Schedule start and end"],
+      body: "Pick a format (a treasure hunt or a creative challenge), write the brief and set the dates. Hide secrets, add a hint players unlock with an on-chain activity, and optionally link a partner on the second secret.",
+      objectives: ["Choose hunt or challenge", "Hide secrets and hints", "Schedule start and end"],
     },
     {
       icon: ICON.explore,
@@ -237,7 +237,7 @@ export function Tutorial({ open, onClose, onStart, initialSide = "player" }: { o
                 <div className="yv-tut-row bg-[rgb(255_194_75/.05)] p-3" style={{ animationDelay: "300ms", ...frame(10, "rgb(255 194 75 / .35)") }}>
                   <p className="text-[11.5px] font-bold uppercase tracking-[0.22em] text-reward">Solve it, split it</p>
                   <p className="mt-1 font-sans text-[14.5px] leading-snug text-[rgb(214_219_225/.75)]">
-                    When the deadline hits, everyone who answered every clue correctly splits the prize equally.
+                    When the deadline hits, everyone who decrypted every secret correctly splits the prize equally.
                   </p>
                   <p className="mt-2 text-[12.5px] font-bold text-mint-ink">e.g. $100 prize, 4 correct players → $25 each</p>
                 </div>

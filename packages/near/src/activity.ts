@@ -17,6 +17,7 @@
  */
 import { activityToken, RHEA_CONTRACTS, RHEA_MAINNET, STAKING_POOL_SUFFIXES, type ActivityDef, type ActivityNetwork } from "@yielvy/core";
 import { RpcError, type NearRpc, type ReceiptOutcome, type TxOutcome } from "./rpc";
+import { verifyContractCall, type ContractCallDef, type ContractCallInput, type TxIndexer } from "./contract-call";
 
 export type OnchainVerdict =
   | { status: "verified"; evidence: OnchainEvidence }
@@ -162,6 +163,20 @@ export class NearActivityVerifier {
     return transient ? { status: "pending", reason: "rpc_unavailable", retryAt: new Date(now.getTime() + 60_000) } : { status: "failed", reason: "tx_not_found_for_wallet" };
   }
 
+  /** Generic contract-function call; see ./contract-call. */
+  verifyContractCall(def: ContractCallDef, input: ContractCallInput, indexer: TxIndexer | null, archive: NearRpc | null = null): Promise<OnchainVerdict> {
+    const blockTime = async (h: string) => {
+      try {
+        return await this.blockInfo(h);
+      } catch (e) {
+        if (!archive) throw e;
+        const b = await archive.call<{ header: { height: number; timestamp_nanosec: string } }>("block", { block_id: h });
+        return { height: b.header.height, time: new Date(Number(BigInt(b.header.timestamp_nanosec) / 1_000_000n)) };
+      }
+    };
+    return verifyContractCall({ rpc: this.rpc, archive, indexer, network: this.network, blockTime }, def, input);
+  }
+
   async blockInfo(blockHash: string): Promise<{ height: number; time: Date }> {
     const b = await this.rpc.call<{ header: { height: number; timestamp_nanosec: string } }>("block", { block_id: blockHash });
     return { height: b.header.height, time: new Date(Number(BigInt(b.header.timestamp_nanosec) / 1_000_000n)) };
@@ -301,9 +316,11 @@ export class NearActivityVerifier {
 }
 
 /** Routes each on-chain (NEAR) activity type to its verifier; shared by the web app and the worker. */
-export function dispatchOnchain(v: NearActivityVerifier) {
-  return (def: ActivityDef, input: VerifyInput): Promise<OnchainVerdict> =>
-    def.type === "near_rhea_swap"
+export function dispatchOnchain(v: NearActivityVerifier, opts: { indexer?: TxIndexer | null; archive?: NearRpc | null } = {}) {
+  return (def: ActivityDef, input: ContractCallInput): Promise<OnchainVerdict> =>
+    def.type === "near_contract_call"
+      ? v.verifyContractCall(def, input, opts.indexer ?? null, opts.archive ?? null)
+      : def.type === "near_rhea_swap"
       ? v.verifySwap(def, input)
       : def.type === "near_rhea_lending_supply"
         ? v.verifyLendingSupply(def, input)

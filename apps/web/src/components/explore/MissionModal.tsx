@@ -356,7 +356,7 @@ export function MissionModal({ slug, campaign, onClose, onOpen }: { slug: string
 
                 {tab === "mission" ? (
                   <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-                    {/* main: timeline, play, story */}
+                    {/* main: timeline, play */}
                     <div className="flex min-w-0 flex-col gap-5">
                       <MissionTimeline startsAt={data.campaign.startsAt} endsAt={data.campaign.endsAt} claimDays={data.rules.claimWindowDays} funded={data.rules.funded} />
                       <section>
@@ -366,40 +366,17 @@ export function MissionModal({ slug, campaign, onClose, onOpen }: { slug: string
                           <ContestEntry campaignId={data.campaign.id} status={data.status} signedIn={data.signedIn} returnTo={returnTo} />
                         )}
                       </section>
-                      {data.campaign.description && (
-                        <section className="bg-[rgb(10_13_18/.6)] px-5 py-4 font-mono" style={frame(12, `${INK} / .12)`)}>
-                          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange">The story</p>
-                          <p className="mt-2 whitespace-pre-line font-sans text-[15px] leading-relaxed text-[rgb(214_219_225/.78)]">{data.campaign.description}</p>
-                        </section>
-                      )}
                     </div>
 
-                    {/* side: prize, host, rules */}
+                    {/* side: prize, story, rules */}
                     <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
                       <PrizePool data={data} />
-                      <button
-                        type="button"
-                        onClick={() => setTab("company")}
-                        className="group flex items-center gap-3 bg-[rgb(10_13_18/.6)] p-3 text-left font-mono transition-colors hover:bg-[rgb(255_145_56/.08)]"
-                        style={frame(12, `${INK} / .14)`)}
-                      >
-                        <span className="relative size-12 shrink-0 overflow-hidden bg-[rgb(255_255_255/.05)]" style={frame(8, "rgb(255 145 56 / .4)")}>
-                          {data.space.logoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={data.space.logoUrl} alt="" className="absolute inset-0 size-full object-cover" />
-                          ) : (
-                            <span className="grid size-full place-items-center font-display text-[20px] font-bold text-orange">{data.space.name[0]?.toUpperCase()}</span>
-                          )}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-[9.5px] font-bold uppercase tracking-[0.24em] text-[rgb(214_219_225/.45)]">Hosted by</span>
-                          <span className="block truncate text-[14px] font-bold uppercase tracking-[0.06em] text-white">
-                            {data.space.name} {data.space.verified && <span className="text-mint-ink">✓</span>}
-                          </span>
-                          {data.space.tagline && <span className="block truncate font-sans text-[12.5px] text-[rgb(214_219_225/.6)]">{data.space.tagline}</span>}
-                        </span>
-                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-orange transition-transform group-hover:translate-x-0.5">Profile →</span>
-                      </button>
+                      {data.campaign.description && (
+                        <section className="bg-[rgb(10_13_18/.6)] px-4 py-4 font-mono" style={frame(12, `${INK} / .12)`)}>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange">The story</p>
+                          <p className="mt-2 whitespace-pre-line font-sans text-[14.5px] leading-relaxed text-[rgb(214_219_225/.78)]">{data.campaign.description}</p>
+                        </section>
+                      )}
                       <section className="bg-[rgb(10_13_18/.6)] px-4 py-4 font-mono" style={frame(12, `${INK} / .12)`)}>
                         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[rgb(214_219_225/.55)]">Rules</p>
                         <ul className="mt-2.5 space-y-2 font-sans text-[13.5px] leading-snug text-[rgb(214_219_225/.75)]">
@@ -408,7 +385,7 @@ export function MissionModal({ slug, campaign, onClose, onOpen }: { slug: string
                           {data.rules.funded && (
                             <li className="flex gap-2">
                               <span className="text-orange">◆</span>
-                              {hunt ? "Everyone who answers every clue correctly splits the prize equally." : `${data.space.name} picks up to ${data.rules.winnersCount} winners, who split the prize equally.`}
+                              {hunt ? "Everyone who decrypts every secret correctly splits the prize equally." : `${data.space.name} picks up to ${data.rules.winnersCount} winners, who split the prize equally.`}
                             </li>
                           )}
                           {data.rules.funded && <li className="flex gap-2"><span className="text-orange">◆</span>Prizes are paid in {data.symbol} to the NEAR wallet you sign in with.</li>}

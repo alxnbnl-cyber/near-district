@@ -29,7 +29,7 @@ export function StatusBadge({ status }: { status: CampaignState }) {
 }
 
 const MODE_COPY: Record<string, (r: CampaignRules) => string> = {
-  equal: () => "When the deadline ends, everyone who answered every clue correctly splits the prize equally.",
+  equal: () => "When the deadline ends, everyone who decrypted every secret correctly splits the prize equally.",
   organizer_selected: (r) => `The company picks up to ${r.reward.winnersCount} winner(s) using the published judging criteria. Winners split the prize equally.`,
 };
 

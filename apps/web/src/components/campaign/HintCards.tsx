@@ -12,7 +12,8 @@ export interface HintRequirement {
   label: string;
   type: string;
   category: string;
-  verification: "automatic" | "onchain" | "manual";
+  verification: "automatic" | "onchain" | "discover" | "manual";
+  contract: { contractId: string; methodName: string; description: string | null; partner: { name: string; url: string } | null } | null;
   provider: { orgName: string; spaceSlug: string | null; spaceName: string | null };
   target: { spaceSlug: string; campaignSlug: string; title: string } | null;
   status: "TODO" | "PENDING_VERIFICATION" | "UNDER_REVIEW" | "VERIFIED" | "FAILED";
@@ -53,7 +54,7 @@ const REQ_STATUS: Record<HintRequirement["status"], { label: string; cls: string
   FAILED: { label: "Not verified", cls: "text-danger" },
 };
 
-const VERIFY_LABEL = { automatic: "Checked instantly", onchain: "Checked on NEAR", manual: "Approved by the project team" };
+const VERIFY_LABEL = { automatic: "Checked instantly", onchain: "Checked on NEAR", discover: "Checked on NEAR from your wallet", manual: "Approved by the project team" };
 
 function LockIcon({ open }: { open: boolean }) {
   return (
@@ -71,7 +72,7 @@ export function HintCards({ campaignId, hints, returnTo, onChange }: { campaignI
     <section aria-labelledby="hints-title" className="mt-6">
       <div className="flex items-baseline justify-between gap-3">
         <h3 id="hints-title" className="text-[15px] font-semibold">Need a hint?</h3>
-        <p className="text-[12px] text-ink-3">Optional — do an activity to reveal a clue.</p>
+        <p className="text-[12px] text-ink-3">Optional — do an activity to reveal a hint.</p>
       </div>
       <ul className="mt-3 flex flex-col gap-3">
         {hints.map((h) => (
@@ -142,11 +143,11 @@ function HintItem({ campaignId, h, returnTo, onChange }: { campaignId: string; h
         <div className="border-t border-line px-4 pb-4 pt-3">
           {unlocked ? (
             <div className="rounded-[10px] border-l-[3px] border-orange bg-orange-wash/40 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-orange-ink">Clue</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-orange-ink">Hint</p>
               <p className="mt-1 whitespace-pre-line text-[14.5px] text-ink">{h.content}</p>
               {h.imageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={h.imageUrl} alt="Image for this clue" className="mt-3 max-h-64 rounded-md border border-line object-contain" />
+                <img src={h.imageUrl} alt="Image for this hint" className="mt-3 max-h-64 rounded-md border border-line object-contain" />
               )}
             </div>
           ) : h.lockReason ? (
@@ -238,7 +239,7 @@ function Requirement({ r, busy, returnTo, onVerify }: { r: HintRequirement; busy
                 Visit {r.provider.spaceName ?? "partner"}
               </Link>
             )}
-            {r.verification === "automatic" && (
+            {(r.verification === "automatic" || r.verification === "discover") && (
               <Button size="sm" disabled={busy !== null} onClick={() => onVerify({})}>
                 {busy === r.id ? "Checking…" : "Verify activity"}
               </Button>

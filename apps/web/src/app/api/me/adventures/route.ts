@@ -35,7 +35,7 @@ export const GET = route(
           spaceName: space.name,
           href: `/s/${space.slug}/c/${c.slug}`,
           campaignStatus: effectiveStatus(c as never),
-          progress: e.status === "completed" ? `Finished · ${e.score} pts` : `Clue ${e.progress + 1} in progress`,
+          progress: e.status === "completed" ? `Finished · ${e.score} pts` : `Secret ${e.progress + 1} in progress`,
           badge: qual(q?.status) ?? (e.status === "completed" ? "Completed" : "In progress"),
           at: e.startedAt.toISOString(),
         })),

@@ -41,7 +41,8 @@ export type OnchainVerdict =
   | { status: "failed"; reason: string };
 
 export interface OnchainPort {
-  verify(def: ActivityDef, input: { txHash: string; wallets: string[]; windowStart: Date; windowEnd: Date; now: Date }): Promise<OnchainVerdict>;
+  /** `txHash` may be empty for activities that discover the transaction themselves (near_contract_call). `exclude`: tx hashes already used in this mission. */
+  verify(def: ActivityDef, input: { txHash: string; wallets: string[]; windowStart: Date; windowEnd: Date; now: Date; exclude?: string[] }): Promise<OnchainVerdict>;
 }
 
 export interface EngineDeps {
@@ -52,7 +53,9 @@ export interface EngineDeps {
 }
 
 export const MAX_PENDING_ATTEMPTS = 60;
-const ONCHAIN_TYPES = new Set(["near_rhea_swap", "near_rhea_lending_supply", "near_stake"]);
+const ONCHAIN_TYPES = new Set(["near_rhea_swap", "near_rhea_lending_supply", "near_stake", "near_contract_call"]);
+/** On-chain activities whose transaction is found automatically (the player just presses Verify). */
+const DISCOVERED_TYPES = new Set(["near_contract_call"]);
 
 type HintRow = typeof treasureHints.$inferSelect;
 type CampaignRow = typeof campaigns.$inferSelect;
@@ -295,14 +298,14 @@ export async function requestVerification(db: Db, deps: EngineDeps, req: VerifyR
   }
 
   if (ONCHAIN_TYPES.has(a.type)) {
-    if (!req.txHash) throw new HintEngineError(400, "Paste the transaction hash of your activity.", "bad_request");
+    if (!req.txHash && !DISCOVERED_TYPES.has(a.type)) throw new HintEngineError(400, "Paste the transaction hash of your activity.", "bad_request");
     const [dup] = await db
       .select({ id: activityVerifications.id, status: activityVerifications.status })
       .from(activityVerifications)
       .where(and(eq(activityVerifications.userId, req.userId), eq(activityVerifications.hintId, hint.id), eq(activityVerifications.leafId, leaf.id), eq(activityVerifications.status, "pending")))
       .limit(1);
     if (dup) return processVerification(db, deps, dup.id);
-    const [row] = await db.insert(activityVerifications).values({ ...base, status: "pending", input: { txHash: req.txHash } }).returning({ id: activityVerifications.id });
+    const [row] = await db.insert(activityVerifications).values({ ...base, status: "pending", input: { txHash: req.txHash ?? "" } }).returning({ id: activityVerifications.id });
     return processVerification(db, deps, row!.id);
   }
 
@@ -346,9 +349,13 @@ export async function processVerification(db: Db, deps: EngineDeps, verification
   if (!c) return fail("campaign_missing");
   const txHash = String((v.input as { txHash?: string }).txHash ?? "");
 
+  // transactions that already counted for something in this mission can't count again
+  const used = await db.select({ ref: activityCompletions.exclusiveRef }).from(activityCompletions).where(eq(activityCompletions.campaignId, c.id));
+  const exclude = used.flatMap((u) => (u.ref?.startsWith(`near:${actNet}:`) ? [u.ref.slice(`near:${actNet}:`.length)] : []));
+
   let verdict: OnchainVerdict;
   try {
-    verdict = await deps.onchain.verify(leaf.activity, { txHash, wallets, ...evidenceWindow(c, hint, now), now });
+    verdict = await deps.onchain.verify(leaf.activity, { txHash, wallets, ...evidenceWindow(c, hint, now), now, exclude });
   } catch (e) {
     verdict = { status: "pending", reason: `verifier_error:${String((e as Error)?.message ?? e).slice(0, 80)}`, retryAt: new Date(now.getTime() + 120_000) };
   }

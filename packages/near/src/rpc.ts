@@ -107,6 +107,7 @@ export interface ReceiptOutcome {
   outcome: {
     logs: string[];
     executor_id: string;
+    receipt_ids?: string[];
     status: { SuccessValue?: string; SuccessReceiptId?: string; Failure?: unknown };
   };
 }
