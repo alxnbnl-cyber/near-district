@@ -238,7 +238,7 @@ function SecretForm({
         </label>
         <label>
           <span className={label}>Revealed after the deadline (optional)</span>
-          <input className={`${inputClass} mt-2 h-11`} maxLength={2000} value={reveal} onChange={(e) => setReveal(e.target.value)} placeholder="Answer: RHEA. Ref and Burrow merged into it." />
+          <input className={`${inputClass} mt-2 h-11`} maxLength={2000} value={reveal} onChange={(e) => setReveal(e.target.value)} placeholder="Answer: RHEA, the liquidity hub of NEAR." />
           <span className={help}>Players never see right or wrong until the mission ends.</span>
         </label>
       </div>
@@ -259,7 +259,7 @@ function SecretForm({
           <div className="mt-5 grid gap-5 border-l-2 border-gold/50 pl-5 lg:grid-cols-2">
             <label className="lg:col-span-2">
               <span className={label}>Hint text</span>
-              <textarea className={`${textareaClass} mt-2 min-h-16`} maxLength={2000} value={hintText} onChange={(e) => setHintText(e.target.value)} placeholder="It merged Ref and Burrow." />
+              <textarea className={`${textareaClass} mt-2 min-h-16`} maxLength={2000} value={hintText} onChange={(e) => setHintText(e.target.value)} placeholder="It's the liquidity hub of NEAR." />
               <span className={help}>Never sent to players until they unlock it.</span>
             </label>
 

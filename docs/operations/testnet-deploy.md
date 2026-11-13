@@ -44,7 +44,7 @@ near contract call-function as-transaction $RHEA storage_deposit json-args "{\"a
 
 ## 3. Get test USDC.e
 
-Swap testnet NEAR for USDC.e on the Ref testnet app (exchange `ref-finance-101.testnet`), or use the token's
+Swap testnet NEAR for USDC.e on the RHEA testnet app (exchange `ref-finance-101.testnet`), or use the token's
 faucet/mint if your wallet offers it. Register your wallet with the token first if needed (same
 `storage_deposit` call with your account).
 

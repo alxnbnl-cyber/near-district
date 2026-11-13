@@ -96,7 +96,7 @@ const COMPANIES: Company[] = [
     category: "defi",
     style: "market",
     tagline: "The liquidity hub of NEAR",
-    description: "Swap, lend and borrow on NEAR. RHEA brings Ref Finance and Burrow together in one app.",
+    description: "Swap, lend and borrow on NEAR, all in one app.",
     website: "https://app.rhea.finance/",
     logo: "rhea.png",
   },
@@ -167,9 +167,9 @@ const HUNTS: Hunt[] = [
     days: 7,
     secrets: [
       {
-        prompt: "RHEA Finance was formed when Ref Finance merged with which NEAR lending protocol? (one word)",
+        prompt: "RHEA's lending market grew out of which NEAR lending protocol? (one word)",
         answers: ["Burrow"],
-        reveal: "Burrow. Ref Finance (the DEX) and Burrow (lending) became RHEA.",
+        reveal: "Burrow: it became the lending side of RHEA.",
         hint: "Think of an animal's underground home.",
         activityOf: "rhea",
       },
@@ -267,7 +267,7 @@ const HUNTS: Hunt[] = [
         activityOf: "social",
       },
       {
-        prompt: "Which NEAR DeFi app was formed by merging Ref Finance and Burrow? (one word)",
+        prompt: "Which NEAR DeFi app lets you swap, lend and borrow in one place? (one word)",
         answers: ["RHEA", "RHEA Finance"],
         reveal: "RHEA Finance: swap, lend and borrow in one app.",
         hint: "A Greek goddess… and the first partner on this map.",
