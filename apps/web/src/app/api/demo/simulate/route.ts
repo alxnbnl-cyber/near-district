@@ -38,6 +38,8 @@ export const POST = route(
       return { ok: true, ...r };
     }
 
+    // a prize locked in the on-chain vault is only ever paid by the vault, never simulated
+    if (c.vaultCampaignId !== null) throw badRequest("This prize is locked on-chain: winners are paid automatically after the real deadline.");
     // reward: only after this player's (or the real) deadline, and only if they qualified
     const ended = Boolean(entry.demoEndedAt) || Boolean(c.endsAt && c.endsAt <= now);
     if (!ended) throw badRequest("Simulate the deadline first.");

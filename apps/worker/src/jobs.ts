@@ -10,8 +10,6 @@ import {
   lt,
   notifications,
   reconciliationRuns,
-  rewardAllocations,
-  rewardClaims,
   rewardPeriods,
   vaultPositions,
   adminRoles,
@@ -19,7 +17,7 @@ import {
   finalizeSealedHunt,
 } from "@yielvy/db";
 import { campaignMachine, type CampaignRules, type CampaignState } from "@yielvy/core";
-import { ledgerMovesForEvent, sharesToTokens, type NearRpc, type RheaClient, type VaultClient, type VaultEvent } from "@yielvy/near";
+import { ledgerMovesForEvent, type NearRpc, type RheaClient, type VaultClient, type VaultEvent } from "@yielvy/near";
 import type { AllowedToken } from "@yielvy/core";
 import { duePendingVerifications, processVerification, type EngineDeps } from "@yielvy/db";
 import { NearActivityVerifier, NearBlocksIndexer, NearRpc as ArchiveRpc, archivalRpcUrls, dispatchOnchain } from "@yielvy/near";
@@ -65,45 +63,50 @@ export async function campaignTick(ctx: JobCtx): Promise<string> {
   const ended = await ctx.db.select({ id: campaigns.id }).from(campaigns).where(and(eq(campaigns.template, "treasure_hunt"), inArray(campaigns.status, ["ENDED", "AWAITING_RESULTS"])));
   for (const c of ended) await finalizeSealedHunt(ctx.db, c.id, now);
   // every funded period that may need work gets a driver job
+  // only periods that can make progress: a mission still running needs no waiting job (they would pile up every minute)
   const periods = await ctx.db
     .select({ id: rewardPeriods.id })
     .from(rewardPeriods)
-    .where(inArray(rewardPeriods.state, ["SCHEDULED", "ELIGIBILITY_FROZEN", "YIELD_SETTLEMENT_PENDING", "FUNDS_RESERVED", "WINNERS_FINALIZED", "CLAIMABLE"]));
+    .where(and(inArray(rewardPeriods.state, ["SCHEDULED", "ELIGIBILITY_FROZEN", "FUNDS_RESERVED", "REQUIRES_REVIEW"]), lt(rewardPeriods.endsAt, now)));
   const bucket = Math.floor(Date.now() / 60_000);
   for (const p of periods) await enqueue(ctx.db, "rewards.period", { periodId: p.id }, { idempotencyKey: `rewards.period:${p.id}:${bucket}` });
   return `moved ${moved}, ${periods.length} periods queued`;
 }
 
 export async function rewardsPeriod(ctx: JobCtx, payload: { periodId: string }): Promise<string> {
-  return processPeriod({ db: ctx.db, vault: ctx.vault, signer: ctx.signer, network: ctx.network, rulesFor: (c) => rulesFor(ctx.db, c) }, payload.periodId);
+  return processPeriod({ db: ctx.db, vault: ctx.vault, signer: ctx.signer, network: ctx.network, token: ctx.token, rpc: ctx.rpc, rulesFor: (c) => rulesFor(ctx.db, c) }, payload.periodId);
 }
 
-/** Compares the vault's books against the token contract and RHEA, and records the result. */
+/**
+ * Checks the prize vault holds at least what it owes: for every mission we know about,
+ * prize - paid - refunded must be covered by the vault's token balance.
+ */
 export async function vaultReconcile(ctx: JobCtx): Promise<string> {
   if (!ctx.vault) return "no vault";
+  const vault = ctx.vault;
   const [run] = await ctx.db.insert(reconciliationRuns).values({ status: "running" }).returning();
   const issues: { kind: string; detail: string }[] = [];
   try {
-    const [totals, inv, balance, rheaShares] = await Promise.all([
-      ctx.vault.totals(),
-      ctx.vault.invariants(),
-      ctx.rpc.view<string>(ctx.token.contractId, "ft_balance_of", { account_id: ctx.vault.contractId }),
-      ctx.rhea.getSuppliedShares(ctx.vault.contractId, ctx.token.contractId),
-    ]);
-    if (!inv.ok) issues.push({ kind: "invariant", detail: `liquid ${inv.liquid_sum}/${inv.liquid_tracked}, shares ${inv.shares_sum}/${inv.total_rhea_shares}` });
-    if (BigInt(balance) < BigInt(totals.liquid_tracked)) issues.push({ kind: "token_shortfall", detail: `token balance ${balance} < tracked ${totals.liquid_tracked}` });
-    if (!totals.pending_op && rheaShares !== BigInt(totals.total_rhea_shares)) issues.push({ kind: "rhea_shares", detail: `RHEA reports ${rheaShares}, vault tracks ${totals.total_rhea_shares}` });
-    if (totals.pending_op && Date.now() - Number(BigInt(totals.pending_op.started_at) / 1_000_000n) > 3_600_000) issues.push({ kind: "stuck_op", detail: `op ${totals.pending_op.op_id} pending > 1h` });
+    const rows = await ctx.db.select({ vid: campaigns.vaultCampaignId }).from(campaigns).where(isNotNull(campaigns.vaultCampaignId));
+    let owed = 0n;
+    for (const r of rows) {
+      const m = await vault.mission(r.vid!);
+      if (!m) { issues.push({ kind: "missing_mission", detail: `vault has no mission ${r.vid}` }); continue; }
+      owed += BigInt(m.prize) - BigInt(m.paid_total) - BigInt(m.refunded_total);
+      if (m.status === "Paying" && m.next_index >= m.winner_count && m.paid_count < m.winner_count) issues.push({ kind: "payout_pending", detail: `mission ${r.vid}: ${m.paid_count}/${m.winner_count} paid` });
+    }
+    const balance = BigInt(await ctx.rpc.view<string>(ctx.token.contractId, "ft_balance_of", { account_id: vault.contractId }));
+    if (balance < owed) issues.push({ kind: "token_shortfall", detail: `token balance ${balance} < owed ${owed}` });
     await ctx.db
       .update(reconciliationRuns)
-      .set({ status: issues.length ? "discrepancy" : "ok", finishedAt: new Date(), vaultTokenBalance: BigInt(balance), vaultLiquidTracked: BigInt(totals.liquid_tracked), vaultRheaShares: BigInt(totals.total_rhea_shares), rheaReportedShares: rheaShares, discrepancies: issues })
+      .set({ status: issues.length ? "discrepancy" : "ok", finishedAt: new Date(), vaultTokenBalance: balance, vaultLiquidTracked: owed, vaultRheaShares: 0n, rheaReportedShares: 0n, discrepancies: issues })
       .where(eq(reconciliationRuns.id, run!.id));
-    if (issues.length) {
+    if (issues.some((i) => i.kind !== "payout_pending")) {
       const admins = await ctx.db.select({ userId: adminRoles.userId }).from(adminRoles).where(inArray(adminRoles.role, ["superadmin", "finance"]));
-      for (const a of admins) {
+      for (const ad of admins) {
         await ctx.db
           .insert(notifications)
-          .values({ userId: a.userId, kind: "reconciliation", title: "Vault reconciliation discrepancy", body: issues.map((i) => i.kind).join(", "), link: "/admin", dedupeKey: `recon:${run!.id}` })
+          .values({ userId: ad.userId, kind: "reconciliation", title: "Prize vault reconciliation discrepancy", body: issues.map((i) => i.kind).join(", "), link: "/admin", dedupeKey: `recon:${run!.id}` })
           .onConflictDoNothing();
       }
     }
@@ -114,31 +117,26 @@ export async function vaultReconcile(ctx: JobCtx): Promise<string> {
   }
 }
 
-/** Append-only snapshots of each campaign's on-chain position for history charts. */
+/**
+ * Records each mission's prize as read from the prize vault, so the map and mission pages show the
+ * on-chain amount (never a form field). bonus_available holds the fixed prize pool, claimed_total what was paid.
+ */
 export async function vaultSnapshot(ctx: JobCtx): Promise<string> {
   if (!ctx.vault) return "no vault";
   const rows = await ctx.db.select({ id: campaigns.id, vid: campaigns.vaultCampaignId }).from(campaigns).where(isNotNull(campaigns.vaultCampaignId));
   if (rows.length === 0) return "none";
-  const asset = await ctx.rhea.getAsset(ctx.token);
   const height = BigInt(await ctx.rpc.finalBlockHeight());
+  let n = 0;
   for (const r of rows) {
-    const c = await ctx.vault.campaign(r.vid!);
-    if (!c) continue;
+    const m = await ctx.vault.mission(r.vid!);
+    if (!m) continue;
     await ctx.db.insert(vaultPositions).values({
-      campaignId: r.id,
-      blockHeight: height,
-      principalIdle: BigInt(c.principal_idle),
-      principalSupplied: BigInt(c.principal_supplied),
-      rheaShares: BigInt(c.rhea_shares),
-      positionValue: sharesToTokens(BigInt(c.rhea_shares), asset),
-      yieldAvailable: BigInt(c.yield_available),
-      bonusAvailable: BigInt(c.bonus_available),
-      reserved: BigInt(c.reserved),
-      claimedTotal: BigInt(c.claimed_total),
-      observedSupplyApr: asset.supplyApr,
+      campaignId: r.id, blockHeight: height, principalIdle: 0n, principalSupplied: 0n, rheaShares: 0n, positionValue: 0n,
+      yieldAvailable: 0n, bonusAvailable: BigInt(m.prize), reserved: 0n, claimedTotal: BigInt(m.paid_total),
     });
+    n++;
   }
-  return `${rows.length} snapshots`;
+  return `${n} snapshots`;
 }
 
 /** Turns verified vault events into append-only ledger rows (idempotent by event ref). */
@@ -147,7 +145,7 @@ export async function indexLedger(ctx: JobCtx): Promise<string> {
   let rows = 0;
   for (const t of txs) {
     for (const [i, ev] of (t.events as VaultEvent[]).entries()) {
-      const vid = ev.data.campaign_id;
+      const vid = ev.data.mission_id;
       const [c] = vid ? await ctx.db.select({ id: campaigns.id }).from(campaigns).where(eq(campaigns.vaultCampaignId, BigInt(vid))).limit(1) : [];
       for (const m of ledgerMovesForEvent(ev)) {
         const res = await ctx.db
@@ -160,54 +158,6 @@ export async function indexLedger(ctx: JobCtx): Promise<string> {
     }
   }
   return `${rows} ledger rows`;
-}
-
-/** Confirms claims whose tx the client never reported back, straight from vault state. */
-export async function claimsReconcile(ctx: JobCtx): Promise<string> {
-  if (!ctx.vault) return "no vault";
-  const pending = await ctx.db
-    .select({ claim: rewardClaims, a: rewardAllocations, p: rewardPeriods, vid: campaigns.vaultCampaignId })
-    .from(rewardClaims)
-    .innerJoin(rewardAllocations, eq(rewardAllocations.id, rewardClaims.allocationId))
-    .innerJoin(rewardPeriods, eq(rewardPeriods.id, rewardAllocations.rewardPeriodId))
-    .innerJoin(campaigns, eq(campaigns.id, rewardPeriods.campaignId))
-    .where(and(inArray(rewardClaims.state, ["AVAILABLE", "SUBMITTED", "FAILED"]), inArray(rewardPeriods.state, ["CLAIMABLE", "COMPLETED"])))
-    .limit(200);
-  let confirmed = 0;
-  let paid = 0;
-  const now = new Date();
-  for (const r of pending) {
-    if (r.vid === null) continue;
-    // Auto-payout: once the dispute window has passed, the operator relays the claim so the reward lands in the
-    // winner's wallet with no action from them. claim_for can only pay the account in the Merkle leaf.
-    const due = r.p.state === "CLAIMABLE" && r.p.claimableAfter && r.p.claimableAfter <= now && (!r.p.claimDeadline || r.p.claimDeadline > now);
-    if (due && ctx.signer && r.claim.state !== "SUBMITTED" && !(await ctx.vault.isClaimed(r.vid, r.p.periodNumber, r.a.accountId))) {
-      try {
-        const reg = await ctx.rpc.view<unknown>(ctx.token.contractId, "storage_balance_of", { account_id: r.a.accountId });
-        if (!reg) await ctx.signer.call(ctx.token.contractId, { methodName: "storage_deposit", args: { account_id: r.a.accountId, registration_only: true }, gasTgas: 30, depositYocto: ctx.token.storageDepositYocto });
-        const res = await ctx.signer.call(ctx.vault.contractId, {
-          methodName: "claim_for",
-          args: { campaign_id: r.vid.toString(), period_id: r.p.periodNumber, account_id: r.a.accountId, amount: r.a.amount.toString(), proof: r.a.proof },
-          gasTgas: 150,
-          depositYocto: 10_000_000_000_000_000_000_000n, // 0.01 NEAR for the claim record; the excess is refunded
-        });
-        await ctx.db
-          .update(rewardClaims)
-          .set({ state: res.success ? "SUBMITTED" : "FAILED", txHash: res.txHash, submittedAt: now, failureReason: res.success ? null : "auto-payout transaction failed", updatedAt: now })
-          .where(eq(rewardClaims.id, r.claim.id));
-        if (res.success) paid++;
-      } catch (e) {
-        await ctx.db.update(rewardClaims).set({ state: "FAILED", failureReason: `auto-payout: ${String(e).slice(0, 200)}`, updatedAt: now }).where(eq(rewardClaims.id, r.claim.id));
-      }
-    }
-    if (await ctx.vault.isClaimed(r.vid, r.p.periodNumber, r.a.accountId)) {
-      await ctx.db.update(rewardClaims).set({ state: "CONFIRMED", confirmedAt: new Date(), updatedAt: new Date() }).where(eq(rewardClaims.id, r.claim.id));
-      confirmed++;
-    } else if (r.p.claimDeadline && r.p.claimDeadline < new Date()) {
-      await ctx.db.update(rewardClaims).set({ state: "EXPIRED", updatedAt: new Date() }).where(eq(rewardClaims.id, r.claim.id));
-    }
-  }
-  return `${paid} auto-paid, ${confirmed} confirmed`;
 }
 
 export async function pruneRateLimits(ctx: JobCtx): Promise<string> {
@@ -253,7 +203,6 @@ export const HANDLERS: Record<string, (ctx: JobCtx, payload: Record<string, unkn
   "vault.reconcile": (c) => vaultReconcile(c),
   "vault.snapshot": (c) => vaultSnapshot(c),
   "ledger.index": (c) => indexLedger(c),
-  "claims.reconcile": (c) => claimsReconcile(c),
   "maintenance.prune": (c) => pruneRateLimits(c),
   "hints.reconcile": (c) => hintsReconcile(c),
 };
@@ -261,10 +210,9 @@ export const HANDLERS: Record<string, (ctx: JobCtx, payload: Record<string, unkn
 /** Recurring schedule: [job, every N seconds]. Idempotency keys per time bucket prevent duplicates across replicas. */
 export const SCHEDULE: [string, number][] = [
   ["campaign.tick", 60],
-  ["claims.reconcile", 120],
   ["ledger.index", 120],
   ["vault.reconcile", 600],
-  ["vault.snapshot", 3600],
+  ["vault.snapshot", 120],
   ["maintenance.prune", 3600],
   ["hints.reconcile", 60],
 ];

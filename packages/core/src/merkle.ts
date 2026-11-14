@@ -89,5 +89,5 @@ export function verifyProof(leaf: AllocationLeaf, proof: string[], rootHex: stri
 export function eligibilityCommitment(campaignId: string, periodId: string, participantIds: string[]): string {
   const sorted = [...new Set(participantIds)].sort();
   if (sorted.length !== participantIds.length) throw new Error("Duplicate participants in snapshot");
-  return bytesToHex(sha256(utf8ToBytes(`yielvy-eligibility-v1\n${campaignId}\n${periodId}\n${sorted.join("\n")}`)));
+  return bytesToHex(sha256(utf8ToBytes(`near-district-eligibility-v1\n${campaignId}\n${periodId}\n${sorted.join("\n")}`)));
 }

@@ -14,9 +14,8 @@ export async function OrganizerFinanceSummary({ spaceId }: { spaceId: string }) 
     return (
       <section>
         <SectionHeader eyebrow="Funding" title="Prizes" />
-        <Notice tone="info" title="On-chain funding is not switched on yet">
-          The NEAR District vault contract has not been deployed on this network. Campaigns can be designed and tested now; funding opens after the contract audit and
-          launch checks. Nothing here is simulated.
+        <Notice tone="info" title="On-chain prizes are not switched on here">
+          The NEAR District prize vault is not configured on this deployment. Missions can be designed and tested now; prizes can be locked once it is. Nothing here is simulated.
         </Notice>
       </section>
     );
@@ -27,15 +26,16 @@ export async function OrganizerFinanceSummary({ spaceId }: { spaceId: string }) 
     .from(campaigns)
     .where(and(eq(campaigns.spaceId, spaceId), isNotNull(campaigns.vaultCampaignId)));
   const t = token();
-  let available = 0n, reserved = 0n, claimed = 0n;
+  let locked = 0n, paid = 0n, refunded = 0n, owed = 0n;
   let error: string | null = null;
   try {
     for (const r of rows) {
-      const c = await v.campaign(r.vaultId!);
-      if (!c) continue;
-      available += BigInt(c.bonus_available);
-      reserved += BigInt(c.reserved);
-      claimed += BigInt(c.claimed_total);
+      const m = await v.mission(r.vaultId!);
+      if (!m) continue;
+      locked += BigInt(m.prize) - BigInt(m.paid_total) - BigInt(m.refunded_total) - BigInt(m.refund_owed);
+      paid += BigInt(m.paid_total);
+      refunded += BigInt(m.refunded_total);
+      owed += BigInt(m.refund_owed);
     }
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
@@ -50,10 +50,9 @@ export async function OrganizerFinanceSummary({ spaceId }: { spaceId: string }) 
         </Notice>
       ) : (
         <Card className="grid grid-cols-2 gap-6 p-5 md:grid-cols-3">
-          <Figure label="Prize in vault" value={fmt(available + reserved)} unit={t.symbol} help="Fixed prizes you deposited that haven't been paid out." />
-          <Figure label="Not yet promised" value={fmt(available)} unit={t.symbol} help="Yours to withdraw if the mission ends with no winners." />
-          <Figure label="Promised to winners" value={fmt(reserved)} unit={t.symbol} help="Locked for finalized rewards. Cannot be withdrawn." />
-          <Figure label="Paid out" value={fmt(claimed)} unit={t.symbol} help="Claimed by winners on-chain." />
+          <Figure label="Locked in the vault" value={fmt(locked)} unit={t.symbol} help="Fixed prizes held in escrow until the deadline, then split equally among everyone who solved every secret." />
+          <Figure label="Paid to winners" value={fmt(paid)} unit={t.symbol} help="Sent automatically to winners' NEAR wallets by the prize vault." />
+          <Figure label="Back to you" value={fmt(refunded + owed)} unit={t.symbol} help="Rounding remainders, or the whole prize if nobody solved every secret." />
         </Card>
       )}
     </section>

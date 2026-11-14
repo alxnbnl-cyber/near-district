@@ -43,7 +43,7 @@ describe("RHEA math (mirrors the vault contract)", () => {
 describe("NEP-413", () => {
   const priv = ed25519.utils.randomSecretKey();
   const pub = `ed25519:${bs58.encode(ed25519.getPublicKey(priv))}`;
-  const payload = { message: "Sign in to NEAR District", nonce: new Uint8Array(32).fill(9), recipient: "yielvy.app" };
+  const payload = { message: "Sign in to NEAR District", nonce: new Uint8Array(32).fill(9), recipient: "neardistrict.app" };
   const sig = Buffer.from(ed25519.sign(nep413Hash(payload), priv)).toString("base64");
 
   it("verifies a correctly signed payload", () => {
@@ -65,23 +65,24 @@ describe("NEP-413", () => {
 });
 
 describe("vault events -> ledger", () => {
-  it("parses only yielvy_vault events and maps them to balanced moves", () => {
+  it("parses only prize-vault events and keeps the books balanced", () => {
     const logs = [
       'EVENT_JSON:{"standard":"nep141","version":"1.0.0","event":"ft_transfer","data":[{"amount":"5"}]}',
-      'EVENT_JSON:{"standard":"yielvy_vault","version":"1.0.0","event":"supplied","data":[{"op_id":"1","campaign_id":"1","amount":"1000","shares":"9"}]}',
+      'EVENT_JSON:{"standard":"near_district_prize_vault","version":"1.0.0","event":"reward_paid","data":[{"mission_id":"1","account_id":"a.testnet","amount":"1000","index":0}]}',
       "not an event",
-      'EVENT_JSON:{"standard":"yielvy_vault","event":"broken"',
+      'EVENT_JSON:{"standard":"near_district_prize_vault","event":"broken"',
     ];
     const ev = parseVaultEvents(logs);
     expect(ev).toHaveLength(1);
+    expect(ev[0]!.data.index).toBe("0");
     const moves = ledgerMovesForEvent(ev[0]!);
     expect(moves.reduce((s, m) => s + m.delta, 0n)).toBe(0n);
   });
-  it("finalize returns excess from reserved to the right buckets", () => {
-    const moves = ledgerMovesForEvent({ event: "period_finalized", data: { bonus_returned: "200", yield_returned: "0" } });
-    expect(moves).toEqual([
-      { bucket: "reserved", delta: -200n },
-      { bucket: "bonus_available", delta: 200n },
+  it("funding locks the prize and a refund releases it to the project", () => {
+    expect(ledgerMovesForEvent({ event: "prize_funded", data: { amount: "300" } })).toEqual([{ bucket: "bonus_available", delta: 300n }]);
+    expect(ledgerMovesForEvent({ event: "refund_sent", data: { amount: "1" } })).toEqual([
+      { bucket: "bonus_available", delta: -1n },
+      { bucket: "withdrawn", delta: 1n },
     ]);
   });
 });

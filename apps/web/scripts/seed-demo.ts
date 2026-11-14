@@ -6,14 +6,25 @@
  * companies, with their activity. Every activity is a real testnet contract function, verified
  * on-chain when a player presses "I did it".
  *
- * No vault is deployed locally, so the missions are published without on-chain funding and the
- * map shows their planned prize tagged DEMO (DEMO_REWARDS=1). Nothing here moves funds.
+ * Prizes:
+ *   - With VAULT_CONTRACT_ID set on testnet, every prize is REAL testnet USDC locked in the NEAR District
+ *     prize vault: each company's own testnet wallet (<company>.neardistrict-host.testnet, keys in
+ *     ~/.near-credentials) opens its mission's escrow and deposits the prize, and the mission is then
+ *     published through the normal publish check, which verifies the deposit on-chain.
+ *     A short "warm-up" mission is added that ends a few minutes after seeding (WARMUP_MINUTES, default 8)
+ *     with the Demo Explorer's correct answers locked in, so the worker can settle it and pay the
+ *     Demo Explorer's wallet (neardistrict-player.testnet) on-chain.
+ *   - Without a vault, missions are published unfunded and the map shows their planned prize tagged DEMO.
  *
  *   pnpm --filter @yielvy/web seed:demo
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { campaigns, createDb, organizations, spaces, users, eq, sql } from "@yielvy/db";
+import { homedir } from "node:os";
+import { Account, KeyPairSigner, providers } from "near-api-js";
+import { campaigns, chainTransactions, createDb, organizations, spaces, users, eq, sql } from "@yielvy/db";
+import { parseVaultEvents } from "@yielvy/near";
+import { joinCampaign, submitAnswer } from "../src/server/play";
 import { runMigrations } from "@yielvy/db/migrate";
 import { addQuestion, createDraft, listQuestions, publishCampaign, updateCampaign } from "../src/server/campaigns";
 import { createSpace } from "../src/server/spaces";
@@ -43,6 +54,11 @@ console.log("database wiped and migrated");
 const network = process.env.NEAR_NETWORK === "testnet" ? "testnet" : "mainnet";
 const USDC = (n: number) => (BigInt(n) * 1_000_000n).toString();
 const DAY = 86_400_000;
+const VAULT = process.env.VAULT_CONTRACT_ID ?? "";
+const ONCHAIN = Boolean(VAULT) && network === "testnet";
+const PRIZE_TOKEN = process.env.NEXT_PUBLIC_TESTNET_USDC_CONTRACT ?? "usdc.fakes.testnet";
+const RPC_URL = (process.env.NEAR_RPC_URLS ?? "https://rpc.testnet.fastnear.com").split(",")[0]!.trim();
+const PLAYER_WALLET = "neardistrict-player.testnet";
 
 type Key = "rhea" | "near" | "linear" | "social";
 
@@ -92,7 +108,7 @@ const COMPANIES: Company[] = [
     key: "rhea",
     org: "RHEA Finance",
     slug: "rhea",
-    account: `rhea-demo.${network}`,
+    account: wallet("rhea"),
     category: "defi",
     style: "market",
     tagline: "The liquidity hub of NEAR",
@@ -104,7 +120,7 @@ const COMPANIES: Company[] = [
     key: "near",
     org: "NEAR",
     slug: "near",
-    account: `near-demo.${network}`,
+    account: wallet("near"),
     category: "infrastructure",
     style: "tower",
     tagline: "The blockchain for AI and everyone",
@@ -116,7 +132,7 @@ const COMPANIES: Company[] = [
     key: "linear",
     org: "LiNEAR Protocol",
     slug: "linear",
-    account: `linear-demo.${network}`,
+    account: wallet("linear"),
     category: "defi",
     style: "observatory",
     tagline: "Liquid staking on NEAR",
@@ -128,7 +144,7 @@ const COMPANIES: Company[] = [
     key: "social",
     org: "NEAR Social",
     slug: "near-social",
-    account: `social-demo.${network}`,
+    account: wallet("social"),
     category: "social",
     style: "pavilion",
     tagline: "The open social layer of NEAR",
@@ -137,6 +153,45 @@ const COMPANIES: Company[] = [
     logo: "near-social.png",
   },
 ];
+
+// ---------------------------------------------------------------- on-chain prizes (testnet)
+function wallet(key: string): string {
+  return ONCHAIN ? `${key}.neardistrict-host.testnet` : `${key}-demo.${network}`;
+}
+function accountFor(accountId: string): Account {
+  const cred = JSON.parse(readFileSync(`${homedir()}/.near-credentials/testnet/${accountId}.json`, "utf8")) as { private_key: string };
+  return new Account(accountId, new providers.JsonRpcProvider({ url: RPC_URL }), KeyPairSigner.fromSecretKey(cred.private_key as `ed25519:${string}`));
+}
+async function chainCall(acc: Account, contractId: string, methodName: string, args: object, deposit: bigint, tgas: number) {
+  const out = (await acc.callFunctionRaw({ contractId, methodName, args, gas: BigInt(tgas) * 10n ** 12n, deposit })) as unknown as {
+    transaction: { hash: string; signer_id: string; receiver_id: string };
+    status: { SuccessValue?: string; Failure?: unknown };
+    receipts_outcome: { outcome: { logs: string[]; executor_id: string } }[];
+  };
+  if (out.status.Failure) throw new Error(`${methodName} failed: ${JSON.stringify(out.status.Failure)}`);
+  const logs = out.receipts_outcome.filter((r) => r.outcome.executor_id === VAULT).flatMap((r) => r.outcome.logs);
+  const events = parseVaultEvents(logs);
+  await db.insert(chainTransactions).values({ network, txHash: out.transaction.hash, signerId: out.transaction.signer_id, receiverId: out.transaction.receiver_id, status: "success", events, verifiedAt: new Date() }).onConflictDoNothing();
+  return { hash: out.transaction.hash, events };
+}
+/** The company wallet opens the mission's escrow (deadline = mission deadline) and deposits the prize. */
+async function lockPrize(accountId: string, endsAt: Date, amount: bigint): Promise<{ missionId: bigint; tx: string }> {
+  const acc = accountFor(accountId);
+  const created = await chainCall(acc, VAULT, "create_mission", { deadline_ns: (BigInt(endsAt.getTime()) * 1_000_000n).toString() }, 10n ** 22n, 30);
+  const id = created.events.find((e) => e.event === "mission_created")?.data.mission_id;
+  if (!id) throw new Error("create_mission emitted no mission id");
+  const funded = await chainCall(acc, PRIZE_TOKEN, "ft_transfer_call", { receiver_id: VAULT, amount: amount.toString(), msg: JSON.stringify({ mission_id: id }) }, 1n, 100);
+  if (!funded.events.some((e) => e.event === "prize_funded" && e.data.amount === amount.toString())) throw new Error("prize deposit was not accepted by the vault");
+  // the publish check reads at "final" finality, a couple of blocks behind execution
+  const rpc = new providers.JsonRpcProvider({ url: RPC_URL });
+  for (let i = 0; i < 30; i++) {
+    const r = (await rpc.query({ request_type: "call_function", finality: "final", account_id: VAULT, method_name: "get_mission", args_base64: Buffer.from(JSON.stringify({ mission_id: id })).toString("base64") })) as unknown as { result: number[] };
+    const m = JSON.parse(Buffer.from(r.result).toString()) as { prize: string } | null;
+    if (m && BigInt(m.prize) >= amount) break;
+    await new Promise((res) => setTimeout(res, 1000));
+  }
+  return { missionId: BigInt(id), tx: funded.hash };
+}
 
 interface Secret {
   prompt: string;
@@ -154,6 +209,8 @@ interface Hunt {
   description: string;
   prize: number;
   days: number;
+  /** ends this many minutes after seeding (the on-chain payout warm-up) */
+  minutes?: number;
   secrets: Secret[];
 }
 
@@ -277,6 +334,22 @@ const HUNTS: Hunt[] = [
   },
 ];
 
+if (ONCHAIN) {
+  HUNTS.push({
+    owner: "near",
+    title: "Warm-up: First Steps on NEAR",
+    summary: "A quick two-secret warm-up. Split 20 USD.",
+    description: "A short warm-up mission that ends minutes after it opens, so you can watch the prize vault pay winners automatically.",
+    prize: 20,
+    days: 0,
+    minutes: Number(process.env.WARMUP_MINUTES ?? 8),
+    secrets: [
+      { prompt: "What is the smallest unit of NEAR called? (one word)", answers: ["yoctoNEAR", "yocto"], reveal: "yoctoNEAR: 10^-24 NEAR.", hint: "Its prefix means 10^-24.", activityOf: "near" },
+      { prompt: "NEAR wraps native NEAR into a fungible token. What is that token called? (one word)", answers: ["wNEAR"], reveal: "wNEAR: wrapped NEAR.", hint: "Put a 'w' in front of it.", activityOf: "near" },
+    ],
+  });
+}
+
 async function owner(name: string, account: string): Promise<SessionUser> {
   const [u] = await db.insert(users).values({ displayName: name }).returning();
   await db.execute(
@@ -311,6 +384,7 @@ for (const co of COMPANIES) {
 }
 
 // 2) hunts: three secrets, one hint each (own activity, then two partners)
+let warmup: { id: string; endsAt: Date } | null = null;
 for (const hunt of HUNTS) {
   const o = made.get(hunt.owner)!;
   const c = await createDraft(db, o.me, o.spaceId, { template: "treasure_hunt", title: hunt.title });
@@ -339,22 +413,49 @@ for (const hunt of HUNTS) {
       withdrawalPolicy: "disable",
     });
   }
+  const endsAt = new Date(Date.now() + (hunt.minutes ? hunt.minutes * 60_000 : hunt.days * DAY));
   await updateCampaign(db, o.me, c, {
     summary: hunt.summary,
     description: hunt.description,
     rules: {
-      startsAt: new Date(Date.now() - 60_000).toISOString(),
-      endsAt: new Date(Date.now() + hunt.days * DAY).toISOString(),
-      // no vault locally: published unfunded, shown with its planned prize tagged DEMO
-      fundingSource: "none",
+      startsAt: new Date(Date.now() - (hunt.minutes ? 2 * 3_600_000 : 60_000)).toISOString(),
+      endsAt: endsAt.toISOString(),
+      // on-chain: the prize is locked in the prize vault before publishing; otherwise unfunded and tagged DEMO
+      fundingSource: ONCHAIN ? "direct" : "none",
       plannedDirectBudget: USDC(hunt.prize),
-      reward: { mode: "equal", winnersCount: 10_000, minPayout: "0", tieBreak: "earliest_completion" },
+      reward: { mode: "equal", winnersCount: 10_000, minPayout: "1", tieBreak: "earliest_completion" },
     },
   });
+  let lockTx = "";
+  if (ONCHAIN) {
+    const { missionId, tx } = await lockPrize(o.me.payoutAccountId!, endsAt, BigInt(USDC(hunt.prize)));
+    await db.update(campaigns).set({ vaultCampaignId: missionId }).where(eq(campaigns.id, c.id));
+    lockTx = ` · prize locked on-chain (mission ${missionId}, tx ${tx})`;
+  }
   const [fresh] = await db.select().from(campaigns).where(eq(campaigns.id, c.id));
   await publishCampaign(db, o.me, fresh!);
+  if (hunt.minutes) warmup = { id: c.id, endsAt };
   const partners = hunt.secrets.slice(1).map((s) => COMPANIES.find((x) => x.key === s.activityOf)!.org);
-  console.log(`seeded ${hunt.title} (${hunt.prize} USD) · partners: ${partners.join(", ")}`);
+  console.log(`seeded ${hunt.title} (${hunt.prize} USD) · partners: ${partners.join(", ") || "none"}${lockTx}`);
+}
+
+// 3) the Demo Explorer: plays with a real testnet wallet; in on-chain mode their warm-up answers are locked in
+{
+  const [u] = await db.insert(users).values({ displayName: "Demo Explorer" }).returning();
+  const account = ONCHAIN ? PLAYER_WALLET : `explorer-demo.${network}`;
+  await db.execute(
+    sql`insert into wallet_connections (user_id, network, account_id, public_key, is_payout, verified_at)
+        values (${u!.id}, ${network}, ${account}, 'ed25519:demo-fixture-not-a-real-key', true, now())`,
+  );
+  const player: SessionUser = { sessionId: "seed", userId: u!.id, displayName: "Demo Explorer", email: null, status: "active", walletVerifiedAt: new Date(), payoutAccountId: account, adminRoles: [] };
+  if (warmup) {
+    const [w] = await db.select().from(campaigns).where(eq(campaigns.id, warmup.id));
+    await joinCampaign(db, player, w!.id, null);
+    const qs = await listQuestions(db, w!.id);
+    const answers = ["yoctoNEAR", "wNEAR"];
+    for (const [i, q] of qs.entries()) await submitAnswer(db, player, w!.id, q.id, answers[i]!, null);
+    console.log(`Demo Explorer (${account}) locked in both warm-up answers; the mission ends ${warmup.endsAt.toLocaleTimeString()} and the worker pays out on-chain after that`);
+  } else console.log(`Demo Explorer (${account}) created`);
 }
 
 await h.close();

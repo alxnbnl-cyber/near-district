@@ -317,7 +317,7 @@ export async function requestVerification(db: Db, deps: EngineDeps, req: VerifyR
     .returning({ id: activityVerifications.id });
   if (!r.ok) return { status: "failed", reason: r.reason, unlocked: false };
   const { unlocked } = await db.transaction((tx) =>
-    recordCompletion(tx, { userId: req.userId, hint, leafId: leaf.id, verificationId: row!.id, provider: "yielvy-internal", evidenceRef: r.evidenceRef, exclusiveRef: null, evidence: r.evidence, amount: null, now }),
+    recordCompletion(tx, { userId: req.userId, hint, leafId: leaf.id, verificationId: row!.id, provider: "near-district-internal", evidenceRef: r.evidenceRef, exclusiveRef: null, evidence: r.evidence, amount: null, now }),
   );
   return { status: "verified", reason: null, unlocked };
 }

@@ -1,32 +1,31 @@
-# Yielvy architecture
+# NEAR District architecture
 
-Yielvy has two layers that are deliberately kept apart:
+NEAR District has two layers that are deliberately kept apart:
 
 | Layer | Purpose | Where |
 |---|---|---|
 | **Exploration** | The 2.5D town, Spaces, hunts, contests, participation | `apps/web` (Next.js + PixiJS), Postgres |
-| **Financial** | Custody, lending, yield settlement, reserves, claims | `contracts/vault` (NEAR, Rust), `apps/worker`, RHEA, NEAR Intents |
+| **Financial** | Fixed-prize escrow and automatic equal-share payouts | `contracts/prize-vault` (NEAR, Rust), `apps/worker` |
 
-The database is an operational index. It never decides who owns funds — the vault contract does.
+The database is an operational index. It never decides who owns funds: the prize vault contract does.
 
 ```
- apps/web (Next.js 16)          apps/worker (Node)            contracts/vault (Rust, NEAR)
- ├─ world (PixiJS)              ├─ Postgres job queue         ├─ per-campaign buckets
- ├─ API routes (CSRF, zod)      ├─ reward-period driver ────▶ ├─ RHEA supply / withdraw
- ├─ campaign engine             ├─ vault reconciliation       ├─ periods, Merkle claims
- └─ wallet (user-signed txs) ─┐ ├─ 1Click status polling      └─ timelocked upgrades
-                              │ └─ ledger indexer
- packages/core  (pure domain: money, rewards, randomness, merkle, economics, state machines, world layout)
+ apps/web (Next.js 16)          apps/worker (Node)            contracts/prize-vault (Rust, NEAR)
+ ├─ world (PixiJS)              ├─ Postgres job queue         ├─ per-mission escrow
+ ├─ API routes (CSRF, zod)      ├─ payout driver ───────────▶ ├─ finalize: equal shares
+ ├─ campaign engine             ├─ vault reconciliation       ├─ batched automatic payouts
+ └─ wallet (user-signed txs) ─┐ └─ ledger indexer             └─ refunds to the sponsor
+ packages/core  (pure domain: money, rewards, state machines, world layout)
  packages/db    (Drizzle schema, migrations, append-only triggers)
- packages/near  (RPC, RHEA reader, 1Click client, NEP-413, vault events)
+ packages/near  (RPC, NEAR activity checks, NEP-413, prize vault events)
 ```
 
 ## Key decisions
 
 | Decision | Choice | Why |
 |---|---|---|
-| Vault design | **One shared vault, isolated per-campaign accounting** (Option B) | One audit surface, one upgrade path, no per-campaign 3+ NEAR code-storage cost. Each campaign owns an exact slice of RHEA *shares*, so yield attribution is exact. See `vault.md`. |
-| Upgrades | **Timelocked (≥72 h), owner = multisig** (your choice) | Bugs can be fixed; sponsors see proposals on-chain and can exit first. |
+| Vault design | **One escrow contract, one record per mission** | Fixed prizes only: the deposit is exactly what winners share. Equal shares and payout destinations are enforced on-chain. See `prize-vault.md`. |
+| Upgrades | **No upgrade path in the contract** | Redeploying code keeps state when the layout is unchanged. An audited version is required before mainnet. |
 | Job system | **Postgres queue** (`SKIP LOCKED`) instead of Redis/BullMQ | Jobs commit atomically with the business change; one less stateful service for a solo operator. |
 | World renderer | **PixiJS v8, procedural isometric 2D** | Crisp at any zoom, GPU-cached geometry, tiny downloads, runs on phones. Real 3D adds an asset pipeline for no gameplay benefit. |
 | Auth | Email magic link + NEAR NEP-413 | No embedded wallets, no custodial keys. Ownership = signature + full-access-key check on-chain. |

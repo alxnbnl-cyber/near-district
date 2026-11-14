@@ -7,10 +7,9 @@ import { Badge, Card, EmptyState, Notice, buttonClass } from "@/components/ui";
 import { getSessionUser } from "@/server/session";
 import { db } from "@/server/db";
 import { network, token } from "@/server/near";
-import { env } from "@/server/env";
-import { ClaimButton } from "./ClaimButton";
 
 export const dynamic = "force-dynamic";
+const realTx = (h: string | null | undefined) => Boolean(h && /^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(h));
 export const metadata = { title: "My Rewards" };
 
 export default async function MyRewards() {
@@ -28,7 +27,6 @@ export default async function MyRewards() {
     .orderBy(desc(rewardAllocations.createdAt));
   const t = token();
   const net = network();
-  const now = new Date();
   return (
     <>
       <SiteHeader />
@@ -51,8 +49,6 @@ export default async function MyRewards() {
         ) : (
           <ul className="mt-8 flex flex-col gap-3">
             {rows.map(({ a, p, c, space, claim }) => {
-              const claimable = p.state === "CLAIMABLE" && p.claimableAfter && p.claimableAfter <= now && p.claimDeadline && p.claimDeadline > now;
-              const expired = p.claimDeadline && p.claimDeadline <= now && claim?.state !== "CONFIRMED";
               return (
                 <li key={a.id}>
                   <Card className="flex flex-wrap items-center gap-4 p-4">
@@ -64,19 +60,18 @@ export default async function MyRewards() {
                     </div>
                     {claim?.state === "CONFIRMED" ? (
                       <div className="text-right">
-                        <Badge tone="mint">Claimed</Badge>
-                        {claim.txHash && (
-                          <a className="mt-1 block text-[12.5px] text-orange-ink hover:underline" href={net.explorerTxUrl(claim.txHash)} target="_blank" rel="noopener noreferrer">
+                        <Badge tone="mint">{realTx(claim.txHash) ? "Paid" : "Paid · demo"}</Badge>
+                        {realTx(claim.txHash) && (
+                          <a className="mt-1 block text-[12.5px] text-orange-ink hover:underline" href={net.explorerTxUrl(claim.txHash!)} target="_blank" rel="noopener noreferrer">
                             View transaction ↗
                           </a>
                         )}
+                        {!realTx(claim.txHash) && <p className="mt-1 text-[12px] text-ink-3">Demo simulation, no funds moved</p>}
                       </div>
-                    ) : expired ? (
-                      <Badge tone="danger">Expired</Badge>
-                    ) : claimable && env().VAULT_CONTRACT_ID ? (
-                      <ClaimButton allocationId={a.id} pending={claim?.state === "SUBMITTED"} />
+                    ) : claim?.state === "FAILED" ? (
+                      <Badge tone="gold">Payout retrying</Badge>
                     ) : (
-                      <Badge tone="sky">{p.claimableAfter && p.claimableAfter > now ? `Paying from ${p.claimableAfter.toLocaleDateString()}` : "Finalizing"}</Badge>
+                      <Badge tone="sky">Paid automatically after {p.endsAt.toLocaleDateString()}</Badge>
                     )}
                   </Card>
                 </li>

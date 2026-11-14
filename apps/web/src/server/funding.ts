@@ -13,7 +13,7 @@ export interface TxPlan {
 }
 
 const ONE_YOCTO = "1";
-const CAMPAIGN_STORAGE = "20000000000000000000000"; // 0.02 NEAR, excess refunded by the vault
+const MISSION_STORAGE = "10000000000000000000000"; // 0.01 NEAR, kept by the vault for the mission record
 
 function requireSponsor(user: SessionUser): string {
   if (!user.payoutAccountId) throw new HttpError(403, "Verify your NEAR wallet first.", "wallet_required");
@@ -41,22 +41,28 @@ async function verifiedVaultEvents(db: Db, rpc: NearRpc, network: string, vaultI
   return events;
 }
 
-// ------------------------------------------------------------------ register campaign in the vault
+// ------------------------------------------------------------------ open the mission's escrow in the prize vault
 
-export function planRegister(user: SessionUser, vaultId: string, opts: { maxOperatorReservePerPeriod: bigint; requireSponsorFinalize: boolean; randomEnabled: boolean }): TxPlan {
+/** The on-chain deadline is the mission's own deadline: prizes can only be paid out after it. */
+export function missionDeadline(campaign: typeof campaigns.$inferSelect): Date | null {
+  if (campaign.endsAt) return campaign.endsAt;
+  const draft = (campaign.draftRules ?? {}) as { endsAt?: string };
+  return draft.endsAt ? new Date(draft.endsAt) : null;
+}
+
+export function planRegister(user: SessionUser, vaultId: string, campaign: typeof campaigns.$inferSelect): TxPlan {
+  const deadline = missionDeadline(campaign);
+  if (!deadline || Number.isNaN(deadline.getTime())) throw badRequest("Set the mission's deadline before opening the prize vault.");
+  if (deadline.getTime() <= Date.now()) throw badRequest("The mission's deadline has already passed.");
   return {
     signerId: requireSponsor(user),
     transactions: [
       {
         receiverId: vaultId,
-        methodName: "create_campaign",
-        args: {
-          max_operator_reserve_per_period: opts.maxOperatorReservePerPeriod.toString(),
-          require_sponsor_finalize: opts.requireSponsorFinalize,
-          random_enabled: opts.randomEnabled,
-        },
+        methodName: "create_mission",
+        args: { deadline_ns: (BigInt(deadline.getTime()) * 1_000_000n).toString() },
         gasTgas: 30,
-        depositYocto: CAMPAIGN_STORAGE,
+        depositYocto: MISSION_STORAGE,
       },
     ],
   };
@@ -64,13 +70,13 @@ export function planRegister(user: SessionUser, vaultId: string, opts: { maxOper
 
 export async function confirmRegister(db: Db, rpc: NearRpc, network: string, vaultId: string, user: SessionUser, campaign: typeof campaigns.$inferSelect, txHash: string) {
   const sponsor = requireSponsor(user);
-  if (campaign.vaultCampaignId !== null) throw conflict("This mission is already registered in the vault.");
+  if (campaign.vaultCampaignId !== null) throw conflict("This mission already has a prize vault.");
   const events = await verifiedVaultEvents(db, rpc, network, vaultId, txHash, sponsor);
-  const created = events.find((e) => e.event === "campaign_created" && e.data.sponsor === sponsor);
-  if (!created?.data.campaign_id) throw badRequest("That transaction did not register a mission for your wallet.");
-  await db.update(campaigns).set({ vaultCampaignId: BigInt(created.data.campaign_id), updatedAt: new Date() }).where(eq(campaigns.id, campaign.id));
-  await audit(db, { actorUserId: user.userId, action: "vault.campaign_registered", targetType: "campaign", targetId: campaign.id, metadata: { txHash, vaultCampaignId: created.data.campaign_id } });
-  return { vaultCampaignId: created.data.campaign_id };
+  const created = events.find((e) => e.event === "mission_created" && e.data.sponsor === sponsor);
+  if (!created?.data.mission_id) throw badRequest("That transaction did not open a prize vault for your wallet.");
+  await db.update(campaigns).set({ vaultCampaignId: BigInt(created.data.mission_id), updatedAt: new Date() }).where(eq(campaigns.id, campaign.id));
+  await audit(db, { actorUserId: user.userId, action: "vault.mission_created", targetType: "campaign", targetId: campaign.id, metadata: { txHash, missionId: created.data.mission_id } });
+  return { vaultCampaignId: created.data.mission_id };
 }
 
 // ------------------------------------------------------------------ native deposit
@@ -86,7 +92,7 @@ export async function planDeposit(
   amountHuman: string,
 ): Promise<TxPlan & { orderId: string }> {
   const sponsor = requireSponsor(user);
-  if (campaign.vaultCampaignId === null) throw conflict("Register the mission in the vault first.");
+  if (campaign.vaultCampaignId === null) throw conflict("Open the mission's prize vault first.");
   let amount: bigint;
   try {
     amount = parseUnits(amountHuman, decimals);
@@ -118,7 +124,7 @@ export async function planDeposit(
         args: {
           receiver_id: vaultId,
           amount: amount.toString(),
-          msg: JSON.stringify({ action: kind === "principal" ? "fund_principal" : "fund_bonus", campaign_id: campaign.vaultCampaignId.toString() }),
+          msg: JSON.stringify({ mission_id: campaign.vaultCampaignId.toString() }),
         },
         gasTgas: 100,
         depositYocto: ONE_YOCTO,
@@ -137,8 +143,7 @@ export async function confirmDeposit(db: Db, rpc: NearRpc, network: string, vaul
   if (order.state === "RECEIVED" || order.state === "SUPPLIED") return { state: order.state };
   const [c] = await db.select().from(campaigns).where(eq(campaigns.id, order.campaignId)).limit(1);
   const events = await verifiedVaultEvents(db, rpc, network, vaultId, txHash, order.sponsorAccountId);
-  const want = order.kind === "principal" ? "principal_funded" : "bonus_funded";
-  const ev = events.find((e) => e.event === want && e.data.campaign_id === c!.vaultCampaignId?.toString() && e.data.sponsor === order.sponsorAccountId);
+  const ev = events.find((e) => e.event === "prize_funded" && e.data.mission_id === c!.vaultCampaignId?.toString() && e.data.sponsor === order.sponsorAccountId);
   let next: FundingState;
   let received: bigint | null = null;
   if (!ev) next = "FAILED";
@@ -150,7 +155,7 @@ export async function confirmDeposit(db: Db, rpc: NearRpc, network: string, vaul
   try {
     await db
       .update(fundingOrders)
-      .set({ state: next, nearTxHash: txHash, receivedAmount: received, failureReason: next === "FAILED" ? "No matching vault deposit event in that transaction." : next === "REQUIRES_REVIEW" ? "Received amount differs from the order." : null, updatedAt: new Date() })
+      .set({ state: next, nearTxHash: txHash, receivedAmount: received, failureReason: next === "FAILED" ? "No matching prize deposit in that transaction." : next === "REQUIRES_REVIEW" ? "Received amount differs from the order." : null, updatedAt: new Date() })
       .where(eq(fundingOrders.id, order.id));
   } catch (e) {
     if (String((e as { cause?: { code?: string } }).cause?.code) === "23505") throw conflict("That transaction is already linked to another funding order.");
@@ -162,23 +167,16 @@ export async function confirmDeposit(db: Db, rpc: NearRpc, network: string, vaul
 
 // ------------------------------------------------------------------ cross-chain (NEAR Intents 1Click)
 
-export function planExit(user: SessionUser, vaultId: string, campaign: typeof campaigns.$inferSelect, step: "wind_down" | "redeem" | "withdraw", amounts: { principal: bigint; yield: bigint; bonus: bigint }): TxPlan {
+/**
+ * Getting unused prize back to the project:
+ *   withdraw: sends what the vault owes the sponsor (rounding remainder, or the whole prize if nobody qualified)
+ *   refund_unsettled: safety valve if the mission was never settled, 14 days after the deadline
+ */
+export function planExit(user: SessionUser, vaultId: string, campaign: typeof campaigns.$inferSelect, step: "withdraw" | "refund_unsettled"): TxPlan {
   const sponsor = requireSponsor(user);
-  if (campaign.vaultCampaignId === null) throw conflict("This mission isn't in the vault.");
-  const id = campaign.vaultCampaignId.toString();
-  const tx =
-    step === "wind_down"
-      ? { receiverId: vaultId, methodName: "begin_wind_down", args: { campaign_id: id }, gasTgas: 20, depositYocto: "0" }
-      : step === "redeem"
-        ? { receiverId: vaultId, methodName: "redeem_principal", args: { campaign_id: id, amount: amounts.principal.toString() }, gasTgas: 300, depositYocto: "0" }
-        : {
-            receiverId: vaultId,
-            methodName: "sponsor_withdraw",
-            args: { campaign_id: id, principal: amounts.principal.toString(), yield_amount: amounts.yield.toString(), bonus: amounts.bonus.toString() },
-            gasTgas: 60,
-            depositYocto: "0",
-          };
-  return { signerId: sponsor, transactions: [tx] };
+  if (campaign.vaultCampaignId === null) throw conflict("This mission has no prize vault.");
+  const methodName = step === "withdraw" ? "withdraw_refund" : "refund_unsettled";
+  return { signerId: sponsor, transactions: [{ receiverId: vaultId, methodName, args: { mission_id: campaign.vaultCampaignId.toString() }, gasTgas: 60, depositYocto: "0" }] };
 }
 
 export async function recordWithdrawal(db: Db, user: SessionUser, campaignId: string, destination: string, amounts: { principal: bigint; yield: bigint; bonus: bigint }) {

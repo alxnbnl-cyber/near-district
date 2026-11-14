@@ -1,85 +1,64 @@
-/** Typed reads of the NEAR District vault contract and NEP-297 event parsing. */
+/**
+ * Typed reads of the NEAR District prize vault (contracts/prize-vault) and NEP-297 event parsing.
+ *
+ * The vault is a plain escrow: a project locks a fixed prize per mission, and after the deadline the
+ * operator posts the winners; the contract pays every winner the same share and refunds the rest.
+ */
 import type { NearRpc } from "./rpc";
 
-export interface VaultCampaign {
+export const VAULT_EVENT_STANDARD = "near_district_prize_vault";
+
+export type MissionStatus = "Open" | "Paying" | "Completed" | "Refunded";
+export type PayoutState = "Pending" | "InFlight" | "Paid" | "Failed";
+
+export interface VaultMission {
+  mission_id: string;
   sponsor: string;
-  status: "Active" | "Closing";
-  principal_idle: string;
-  principal_supplied: string;
-  rhea_shares: string;
-  yield_available: string;
-  bonus_available: string;
-  reserved: string;
-  claimed_total: string;
-  yield_realized_total: string;
-  max_operator_reserve_per_period: string;
-  require_sponsor_finalize: boolean;
-  random_enabled: boolean;
-  created_at: string;
+  deadline_ns: string;
+  prize: string;
+  status: MissionStatus;
+  winner_count: number;
+  share: string;
+  next_index: number;
+  paid_count: number;
+  paid_total: string;
+  refund_owed: string;
+  refunded_total: string;
 }
 
-export interface VaultPeriod {
-  status: "Committed" | "Finalized" | "Vetoed" | "Closed";
-  eligibility_root: string;
-  eligible_count: number;
-  committed_height: string;
-  seed: string | null;
-  reserved_yield: string;
-  reserved_bonus: string;
-  allocation_root: string | null;
-  allocated_total: string;
-  claimed_amount: string;
-  claimable_after: string;
-  claim_deadline: string;
+export interface VaultWinner {
+  index: number;
+  account_id: string;
+  state: PayoutState;
 }
 
 export interface VaultConfig {
   owner_id: string;
   operator_id: string;
-  guardian_id: string;
   token_id: string;
-  lending_id: string;
-  extra_decimals: number;
-  fee_bps: number;
-  fee_recipient: string;
-  safety_buffer_bps: number;
-  dispute_window_ns: string;
-  upgrade_timelock_ns: string;
-  pending_upgrade: { code_hash: string; eta: string } | null;
-  pause: { inflows: boolean; all: boolean };
+  missions: string;
+  refund_grace_ns: string;
 }
 
-export interface VaultTotals {
-  campaigns: string;
-  total_rhea_shares: string;
-  liquid_tracked: string;
-  fees_accrued: string;
-  pending_op: { op_id: string; campaign_id: string; purpose: string; amount: string; started_at: string; started_height: string } | null;
-}
+/** Storage the vault charges, in yoctoNEAR (mirrors the contract constants). */
+export const VAULT_MISSION_STORAGE = 10_000_000_000_000_000_000_000n; // 0.01 NEAR
+export const VAULT_WINNER_STORAGE = 1_500_000_000_000_000_000_000n; // 0.0015 NEAR per winner
+export const VAULT_MAX_PAYOUTS_PER_CALL = 10;
 
 export class VaultClient {
   constructor(private readonly rpc: NearRpc, readonly contractId: string) {}
   config() {
     return this.rpc.view<VaultConfig>(this.contractId, "get_config");
   }
-  totals() {
-    return this.rpc.view<VaultTotals>(this.contractId, "get_totals");
+  mission(id: bigint) {
+    return this.rpc.view<VaultMission | null>(this.contractId, "get_mission", { mission_id: id.toString() });
   }
-  campaign(id: bigint) {
-    return this.rpc.view<VaultCampaign | null>(this.contractId, "get_campaign", { campaign_id: id.toString() });
-  }
-  period(campaignId: bigint, periodId: number) {
-    return this.rpc.view<VaultPeriod | null>(this.contractId, "get_period", { campaign_id: campaignId.toString(), period_id: periodId });
-  }
-  isClaimed(campaignId: bigint, periodId: number, accountId: string) {
-    return this.rpc.view<boolean>(this.contractId, "is_claimed", { campaign_id: campaignId.toString(), period_id: periodId, account_id: accountId });
-  }
-  invariants() {
-    return this.rpc.view<{ ok: boolean; liquid_sum: string; liquid_tracked: string; shares_sum: string; total_rhea_shares: string }>(
-      this.contractId,
-      "check_invariants",
-      { limit: 500 },
-    );
+  async winners(id: bigint, count: number): Promise<VaultWinner[]> {
+    const out: VaultWinner[] = [];
+    for (let from = 0; from < count; from += 100) {
+      out.push(...(await this.rpc.view<VaultWinner[]>(this.contractId, "get_winners", { mission_id: id.toString(), from_index: from, limit: 100 })));
+    }
+    return out;
   }
 }
 
@@ -88,15 +67,15 @@ export interface VaultEvent {
   data: Record<string, string>;
 }
 
-/** Parses `EVENT_JSON:` logs emitted by the vault. Ignores logs from any other standard. */
+/** Parses `EVENT_JSON:` logs emitted by the prize vault. Ignores logs from any other standard. */
 export function parseVaultEvents(logs: string[]): VaultEvent[] {
   const out: VaultEvent[] = [];
   for (const log of logs) {
     if (!log.startsWith("EVENT_JSON:")) continue;
     try {
-      const j = JSON.parse(log.slice("EVENT_JSON:".length)) as { standard?: string; event?: string; data?: Record<string, string>[] };
-      if (j.standard !== "yielvy_vault" || !j.event || !Array.isArray(j.data)) continue;
-      for (const d of j.data) out.push({ event: j.event, data: d });
+      const j = JSON.parse(log.slice("EVENT_JSON:".length)) as { standard?: string; event?: string; data?: Record<string, unknown>[] };
+      if (j.standard !== VAULT_EVENT_STANDARD || !j.event || !Array.isArray(j.data)) continue;
+      for (const d of j.data) out.push({ event: j.event, data: Object.fromEntries(Object.entries(d).map(([k, v]) => [k, String(v)])) });
     } catch {
       // malformed logs are ignored, never guessed at
     }
@@ -109,66 +88,25 @@ export type LedgerMove = { bucket: string; delta: bigint };
 /**
  * Translates a vault event into ledger bucket movements. This is the ONLY way ledger rows
  * are created: from verified on-chain events, never from API input.
+ *   bonus_available = prize locked in escrow, claimed = paid to winners, withdrawn = refunded to the project
  */
 export function ledgerMovesForEvent(e: VaultEvent): LedgerMove[] {
   const a = (k: string) => BigInt(e.data[k] ?? "0");
   switch (e.event) {
-    case "principal_funded":
-      return [{ bucket: "principal_idle", delta: a("amount") }];
-    case "bonus_funded":
+    case "prize_funded":
       return [{ bucket: "bonus_available", delta: a("amount") }];
-    case "supplied":
+    case "reward_paid":
       return [
-        { bucket: "principal_idle", delta: -a("amount") },
-        { bucket: "principal_supplied", delta: a("amount") },
-      ];
-    case "withdraw_settled": {
-      const moves: LedgerMove[] = [];
-      if (a("principal") > 0n) {
-        moves.push({ bucket: "principal_supplied", delta: -a("principal") }, { bucket: "principal_idle", delta: a("principal") });
-      }
-      if (a("loss") > 0n) moves.push({ bucket: "principal_supplied", delta: -a("loss") });
-      if (a("yield") > 0n) moves.push({ bucket: "yield_available", delta: a("yield") });
-      if (a("fee") > 0n) moves.push({ bucket: "fees", delta: a("fee") });
-      return moves;
-    }
-    case "funds_reserved":
-      return [
-        { bucket: "yield_available", delta: -a("from_yield") },
-        { bucket: "bonus_available", delta: -a("from_bonus") },
-        { bucket: "reserved", delta: a("from_yield") + a("from_bonus") },
-      ].filter((m) => m.delta !== 0n);
-    case "claim_confirmed":
-      return [
-        { bucket: "reserved", delta: -a("amount") },
+        { bucket: "bonus_available", delta: -a("amount") },
         { bucket: "claimed", delta: a("amount") },
       ];
-    case "period_finalized":
-    case "period_closed": {
-      const b = a("bonus_returned");
-      const y = a("yield_returned");
+    case "refund_sent":
       return [
-        { bucket: "reserved", delta: -(b + y) },
-        { bucket: "bonus_available", delta: b },
-        { bucket: "yield_available", delta: y },
-      ].filter((m) => m.delta !== 0n);
-    }
-    case "sponsor_withdraw_confirmed": {
-      const p = a("principal");
-      const y = a("yield");
-      const b = a("bonus");
-      return [
-        { bucket: "principal_idle", delta: -p },
-        { bucket: "yield_available", delta: -y },
-        { bucket: "bonus_available", delta: -b },
-        { bucket: "withdrawn", delta: p + y + b },
-      ].filter((m) => m.delta !== 0n);
-    }
-    case "fees_withdrawn":
-      return [{ bucket: "fees", delta: -a("amount") }];
+        { bucket: "bonus_available", delta: -a("amount") },
+        { bucket: "withdrawn", delta: a("amount") },
+      ];
     default:
-      // claim_started/claim_failed and sponsor_withdraw_started/failed net to zero within
-      // one transaction; only the confirmed outcome moves the ledger.
+      // mission_created, winners_finalized, reward_failed, refund_failed, mission_completed move no tokens
       return [];
   }
 }

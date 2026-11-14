@@ -65,7 +65,7 @@ export function UserMenu({ user, avatar, dark = false }: { user: { displayName: 
           {!dark && [
             ["/me/rewards", "My rewards"],
             ["/me/profile", "Wallet & profile"],
-            ["/organizer", "My vault"],
+            ["/organizer", "Host"],
             ...(user.isAdmin ? [["/admin", "Admin"]] : []),
           ].map(([href, label]) => (
             <Link key={href} role="menuitem" href={href!} onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-[14px] hover:bg-paper-2">

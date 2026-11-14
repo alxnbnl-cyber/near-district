@@ -1,7 +1,7 @@
 /**
  * Queue semantics run on real Postgres (PGlite). The reward driver runs against a FAKE in-memory
- * vault + signer: it verifies the driver's state machine, idempotency and allocation logic only.
- * Real contract behaviour is covered by contracts/vault tests; real chain runs by the testnet/
+ * prize vault + signer: it verifies the driver's state machine, idempotency and payout bookkeeping only.
+ * Real contract behaviour is covered by contracts/prize-vault tests; real chain runs by the testnet/
  * mainnet procedures in docs/operations.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -13,16 +13,20 @@ import {
   eq,
   jobs,
   organizations,
+  participantEntries,
   qualifications,
+  sealedAnswers,
+  treasureQuestions,
   rewardAllocations,
+  rewardClaims,
   rewardPeriods,
   spaces,
   users,
   walletConnections,
   type DbHandle,
 } from "@yielvy/db";
-import { buildMerkleTree, verifyProof, type CampaignRules } from "@yielvy/core";
-import type { VaultClient, VaultPeriod, VaultCampaign } from "@yielvy/near";
+import type { CampaignRules } from "@yielvy/core";
+import type { VaultClient, VaultMission, VaultWinner } from "@yielvy/near";
 import { backoffSeconds, claim, complete, enqueue, fail } from "./queue";
 import { processPeriod } from "./rewards";
 import { RetryLater } from "./queue";
@@ -71,101 +75,146 @@ describe("job queue", () => {
   });
 });
 
-// ------------------------------------------------------------------ fake vault
+// ------------------------------------------------------------------ fake prize vault
 
-function fakeVault(bonus: bigint, cap: bigint) {
-  const periods = new Map<number, VaultPeriod>();
-  const camp: VaultCampaign = {
-    sponsor: "sponsor.near", status: "Active", principal_idle: "0", principal_supplied: "0", rhea_shares: "0",
-    yield_available: "0", bonus_available: bonus.toString(), reserved: "0", claimed_total: "0", yield_realized_total: "0",
-    max_operator_reserve_per_period: cap.toString(), require_sponsor_finalize: false, random_enabled: false, created_at: "0",
+/** Mirrors contracts/prize-vault: finalize fixes equal shares, payout pays in batches of 10, remainder refunds. */
+function fakeVault(prize: bigint, opts: { failFirstPayoutFor?: string } = {}) {
+  const deadlinePast = ((BigInt(Date.now()) - 1000n) * 1_000_000n).toString();
+  const m: VaultMission = {
+    mission_id: "7", sponsor: "sponsor.near", deadline_ns: deadlinePast, prize: prize.toString(), status: "Open", winner_count: 0,
+    share: "0", next_index: 0, paid_count: 0, paid_total: "0", refund_owed: "0", refunded_total: "0",
   };
+  let winners: VaultWinner[] = [];
+  const registered = new Set<string>();
   const calls: string[] = [];
+  let failed = false;
+  const logEv = (event: string, data: object) => `EVENT_JSON:${JSON.stringify({ standard: "near_district_prize_vault", version: "1.0.0", event, data: [data] })}`;
+  const pay = (w: VaultWinner, logs: string[]) => {
+    if (opts.failFirstPayoutFor === w.account_id && !failed) {
+      failed = true;
+      w.state = "Failed";
+      logs.push(logEv("reward_failed", { mission_id: "7", account_id: w.account_id, amount: m.share, index: w.index }));
+      return;
+    }
+    w.state = "Paid";
+    m.paid_count++;
+    m.paid_total = (BigInt(m.paid_total) + BigInt(m.share)).toString();
+    logs.push(logEv("reward_paid", { mission_id: "7", account_id: w.account_id, amount: m.share, index: w.index }));
+    if (m.paid_count === m.winner_count) m.status = "Completed";
+  };
   const vault = {
     contractId: "vault.near",
-    async totals() { return { campaigns: "1", total_rhea_shares: "0", liquid_tracked: "0", fees_accrued: "0", pending_op: null }; },
-    async campaign() { return camp; },
-    async period(_c: bigint, id: number) { return periods.get(id) ?? null; },
+    async mission() { return { ...m }; },
+    async winners() { return winners.map((w) => ({ ...w })); },
   } as unknown as VaultClient;
   const signer: OperatorSigner = {
     accountId: "operator.near",
-    async call(_contract, c) {
+    async call(contract, c) {
       calls.push(c.methodName);
-      const a = c.args as Record<string, string>;
-      const pid = Number(a.period_id);
-      if (c.methodName === "commit_period") {
-        periods.set(pid, { status: "Committed", eligibility_root: a.eligibility_root!, eligible_count: Number(a.eligible_count), committed_height: "1", seed: null, reserved_yield: "0", reserved_bonus: "0", allocation_root: null, allocated_total: "0", claimed_amount: "0", claimable_after: "0", claim_deadline: "0" });
-      } else if (c.methodName === "reserve_for_period") {
-        const p = periods.get(pid)!;
-        const b = BigInt(a.from_bonus!);
-        if (b > BigInt(camp.max_operator_reserve_per_period)) throw new Error("ERR_OPERATOR_RESERVE_CAP");
-        p.reserved_bonus = b.toString();
-        camp.bonus_available = (BigInt(camp.bonus_available) - b).toString();
-      } else if (c.methodName === "finalize_period") {
-        const p = periods.get(pid)!;
-        p.status = "Finalized";
-        p.allocation_root = a.allocation_root!;
-        p.allocated_total = a.allocated_total!;
-        const now = BigInt(Date.now()) * 1_000_000n;
-        p.claimable_after = (now - 1n).toString();
-        p.claim_deadline = (now + 86_400_000_000_000n).toString();
+      const a = c.args as { winners?: string[]; indexes?: number[]; account_id?: string };
+      const logs: string[] = [];
+      if (c.methodName === "storage_deposit") registered.add(a.account_id!);
+      else if (c.methodName === "finalize") {
+        if (m.status !== "Open") throw new Error("Mission already finalized");
+        const n = a.winners!.length;
+        if (c.depositYocto !== 1_500_000_000_000_000_000_000n * BigInt(n)) throw new Error("wrong storage deposit");
+        if (n === 0) { m.status = "Refunded"; m.refund_owed = m.prize; }
+        else {
+          const share = prize / BigInt(n);
+          m.status = "Paying"; m.winner_count = n; m.share = share.toString(); m.refund_owed = (prize - share * BigInt(n)).toString();
+          winners = a.winners!.map((acc, index) => ({ index, account_id: acc, state: "Pending" }));
+        }
+      } else if (c.methodName === "payout") {
+        while (m.next_index < m.winner_count && logs.length < 10) pay(winners[m.next_index++]!, logs);
+      } else if (c.methodName === "retry_payouts") {
+        for (const i of a.indexes!) pay(winners[i]!, logs);
+      } else if (c.methodName === "withdraw_refund") {
+        m.refunded_total = (BigInt(m.refunded_total) + BigInt(m.refund_owed)).toString();
+        logs.push(logEv("refund_sent", { mission_id: "7", sponsor: "sponsor.near", amount: m.refund_owed }));
+        m.refund_owed = "0";
       }
-      return { txHash: `tx${calls.length}`, success: true, logs: [] };
+      void contract;
+      return { txHash: `TxHash${String(calls.length).padStart(38, "1")}`, success: true, logs };
     },
   };
-  return { vault, signer, calls, periods };
+  const rpc = { async view<T>(_c: string, method: string, args?: { account_id?: string }) { return (method === "storage_balance_of" ? (registered.has(args!.account_id!) ? { total: "1" } : null) : null) as T; } };
+  return { vault, signer, calls, rpc, mission: m };
 }
 
-describe("reward period driver", () => {
-  it("freezes, commits, reserves, allocates and finalizes exactly once", async () => {
-    const [u] = await h.db.insert(users).values({ displayName: "org" }).returning();
-    const [o] = await h.db.insert(organizations).values({ name: "o", slug: "o", createdBy: u!.id, status: "approved" }).returning();
-    const [s] = await h.db.insert(spaces).values({ organizationId: o!.id, name: "s", slug: "s", category: "puzzle", moderation: "approved" }).returning();
-    const rules: CampaignRules = {
-      template: "treasure_hunt", startsAt: new Date(Date.now() - 2 * 86_400_000).toISOString(), endsAt: new Date(Date.now() - 1000).toISOString(),
-      eligibility: { requireVerifiedPayout: true, blockedJurisdictions: [] }, fundingSource: "direct",
-      reward: { mode: "equal", winnersCount: 1, tieBreak: "earliest_completion", minPayout: "1" }, periods: 1, claimWindowDays: 30,
-    };
-    const [c] = await h.db.insert(campaigns).values({ spaceId: s!.id, template: "treasure_hunt", title: "t", slug: "t", network: "mainnet", createdBy: u!.id, status: "ENDED", currentVersion: 1, vaultCampaignId: 7n }).returning();
-    await h.db.insert(campaignVersions).values({ campaignId: c!.id, version: 1, rules, rulesHash: "x", createdBy: u!.id });
-    const [p] = await h.db.insert(rewardPeriods).values({ campaignId: c!.id, periodNumber: 1, startsAt: new Date(rules.startsAt), endsAt: new Date(rules.endsAt) }).returning();
-    // three qualified players, one without a payout wallet (excluded honestly)
-    for (const [name, wallet] of [["a", "alice.near"], ["b", "bob.near"], ["c", null]] as const) {
-      const [pl] = await h.db.insert(users).values({ displayName: name }).returning();
-      await h.db.insert(qualifications).values({ campaignId: c!.id, userId: pl!.id, score: 100, qualifiedAt: new Date(), status: "qualified" });
-      if (wallet) await h.db.insert(walletConnections).values({ userId: pl!.id, network: "mainnet", accountId: wallet, publicKey: "ed25519:x", isPayout: true, verifiedAt: new Date() });
-    }
+let nextVaultId = 7n;
+async function seedMission(network: string, slug: string, players: [string, string | null][]) {
+  const [u] = await h.db.insert(users).values({ displayName: `org-${slug}` }).returning();
+  const [o] = await h.db.insert(organizations).values({ name: slug, slug, createdBy: u!.id, status: "approved" }).returning();
+  const [s] = await h.db.insert(spaces).values({ organizationId: o!.id, name: slug, slug, category: "puzzle", moderation: "approved" }).returning();
+  const rules: CampaignRules = {
+    template: "treasure_hunt", startsAt: new Date(Date.now() - 2 * 86_400_000).toISOString(), endsAt: new Date(Date.now() - 1000).toISOString(),
+    eligibility: { requireVerifiedPayout: true, blockedJurisdictions: [] }, fundingSource: "direct",
+    reward: { mode: "equal", winnersCount: 1, tieBreak: "earliest_completion", minPayout: "1" }, periods: 1, claimWindowDays: 30,
+  };
+  const [c] = await h.db.insert(campaigns).values({ spaceId: s!.id, template: "treasure_hunt", title: slug, slug, network, createdBy: u!.id, status: "ENDED", currentVersion: 1, vaultCampaignId: nextVaultId++, startsAt: new Date(rules.startsAt), endsAt: new Date(rules.endsAt) }).returning();
+  await h.db.insert(campaignVersions).values({ campaignId: c!.id, version: 1, rules, rulesHash: "x", createdBy: u!.id });
+  const [p] = await h.db.insert(rewardPeriods).values({ campaignId: c!.id, periodNumber: 1, startsAt: new Date(rules.startsAt), endsAt: new Date(rules.endsAt) }).returning();
+  for (const [name, wallet] of players) {
+    const [pl] = await h.db.insert(users).values({ displayName: name }).returning();
+    await h.db.insert(qualifications).values({ campaignId: c!.id, userId: pl!.id, score: 100, qualifiedAt: new Date(), status: "qualified" });
+    if (wallet) await h.db.insert(walletConnections).values({ userId: pl!.id, network, accountId: wallet, publicKey: "ed25519:x", isPayout: true, verifiedAt: new Date() });
+  }
+  return { rules, period: p! };
+}
 
-    const { vault, signer, calls } = fakeVault(1_000_001n, 10_000_000n);
-    const ctx = { db: h.db, vault, signer, network: "mainnet", rulesFor: async () => rules };
-    expect(await processPeriod(ctx, p!.id)).toBe("frozen");
-    expect(await processPeriod(ctx, p!.id)).toBe("no harvest needed");
-    expect(await processPeriod(ctx, p!.id)).toBe("reserved");
-    expect(await processPeriod(ctx, p!.id)).toBe("finalized");
-    expect(await processPeriod(ctx, p!.id)).toBe("claimable");
-    await expect(processPeriod(ctx, p!.id)).rejects.toBeInstanceOf(RetryLater); // claim window open
-
-    expect(calls).toEqual(["commit_period", "reserve_for_period", "finalize_period"]);
-    const allocs = await h.db.select().from(rewardAllocations).where(eq(rewardAllocations.rewardPeriodId, p!.id));
+describe("prize payout driver", () => {
+  it("freezes winners, finalizes equal shares, pays everyone and refunds the remainder", async () => {
+    const { rules, period } = await seedMission("mainnet", "m1", [["a", "alice.near"], ["b", "bob.near"], ["c", null]]);
+    const fv = fakeVault(1_000_001n, { failFirstPayoutFor: "bob.near" });
+    const ctx = { db: h.db, vault: fv.vault, signer: fv.signer, network: "mainnet", token: { contractId: "usdc.near", storageDepositYocto: 1n }, rpc: fv.rpc, rulesFor: async () => rules };
+    expect(await processPeriod(ctx, period.id)).toBe("frozen with 2 winner(s)"); // player c has no payout wallet: excluded
+    expect(await processPeriod(ctx, period.id)).toBe("finalized 2 winner(s), 500000 each");
+    // first batch: alice paid, bob's transfer fails, then the driver retries it
+    await expect(processPeriod(ctx, period.id)).rejects.toBeInstanceOf(RetryLater);
+    expect(await processPeriod(ctx, period.id)).toBe("completed: 2 paid");
+    expect(fv.calls).toEqual(["storage_deposit", "storage_deposit", "finalize", "payout", "retry_payouts", "withdraw_refund"]);
+    expect(fv.mission.refunded_total).toBe("1"); // 1,000,001 split two ways: 1 unit back to the project
+    const allocs = await h.db.select().from(rewardAllocations).where(eq(rewardAllocations.rewardPeriodId, period.id));
     expect(allocs.map((a) => a.accountId).sort()).toEqual(["alice.near", "bob.near"]);
-    expect(allocs.every((a) => a.amount === 500_000n)).toBe(true); // 1,000,001 split two ways, 1 unit of dust stays
-    const [period] = await h.db.select().from(rewardPeriods).where(eq(rewardPeriods.id, p!.id));
-    for (const a of allocs) {
-      expect(verifyProof({ campaignId: "7", periodId: "1", accountId: a.accountId, amount: a.amount }, a.proof, period!.allocationRoot!)).toBe(true);
-    }
-    // the same root the contract would verify
-    expect(buildMerkleTree(allocs.map((a) => ({ campaignId: "7", periodId: "1", accountId: a.accountId, amount: a.amount }))).root).toBe(period!.allocationRoot);
+    expect(allocs.every((a) => a.amount === 500_000n)).toBe(true);
+    const claims = await h.db.select().from(rewardClaims);
+    const mine = claims.filter((cl) => allocs.some((a) => a.id === cl.allocationId));
+    expect(mine.every((cl) => cl.state === "CONFIRMED" && cl.txHash?.startsWith("TxHash"))).toBe(true);
+    const [after] = await h.db.select().from(rewardPeriods).where(eq(rewardPeriods.id, period.id));
+    expect(after!.state).toBe("COMPLETED");
     const ops = await h.db.select().from(blockchainOperations);
     expect(ops.every((o) => o.status === "succeeded")).toBe(true);
   });
 
+  it("scores sealed answers itself, so a winner is never missed if the payout runs before the campaign tick", async () => {
+    // no qualification rows yet: the player's sealed answers are only scored at the deadline
+    const { rules, period } = await seedMission("testnet", "m3", []);
+    const [player] = await h.db.insert(users).values({ displayName: "early" }).returning();
+    await h.db.insert(walletConnections).values({ userId: player!.id, network: "testnet", accountId: "early.testnet", publicKey: "ed25519:x", isPayout: true, verifiedAt: new Date() });
+    const [q] = await h.db.insert(treasureQuestions).values({ campaignId: period.campaignId, position: 1, type: "short_text", prompt: "?" }).returning();
+    const [e] = await h.db.insert(participantEntries).values({ campaignId: period.campaignId, userId: player!.id, rulesVersion: 1 }).returning();
+    await h.db.insert(sealedAnswers).values({ entryId: e!.id, questionId: q!.id, answerCipher: "x", correct: true, submissionDigest: "d" });
+    const fv = fakeVault(20n);
+    const ctx = { db: h.db, vault: fv.vault, signer: fv.signer, network: "testnet", token: { contractId: "usdc.near", storageDepositYocto: 1n }, rpc: fv.rpc, rulesFor: async () => rules };
+    expect(await processPeriod(ctx, period.id)).toBe("frozen with 1 winner(s)");
+    expect(await processPeriod(ctx, period.id)).toBe("finalized 1 winner(s), 20 each");
+  });
+
+  it("refunds the whole prize when nobody qualified", async () => {
+    const { rules, period } = await seedMission("testnet", "m2", [["d", null]]);
+    const fv = fakeVault(300n);
+    const ctx = { db: h.db, vault: fv.vault, signer: fv.signer, network: "testnet", token: { contractId: "usdc.near", storageDepositYocto: 1n }, rpc: fv.rpc, rulesFor: async () => rules };
+    expect(await processPeriod(ctx, period.id)).toBe("frozen with 0 winner(s)");
+    expect(await processPeriod(ctx, period.id)).toBe("no winners, refunded");
+    expect(fv.calls).toEqual(["finalize", "withdraw_refund"]);
+    expect(fv.mission.refunded_total).toBe("300");
+  });
+
   it("does not resubmit when a step already took effect on-chain", async () => {
-    const { vault, signer, calls, periods } = fakeVault(10n, 10n);
-    periods.set(9, { status: "Committed", eligibility_root: "abc", eligible_count: 1, committed_height: "1", seed: null, reserved_yield: "0", reserved_bonus: "5", allocation_root: null, allocated_total: "0", claimed_amount: "0", claimable_after: "0", claim_deadline: "0" });
+    const { signer, calls } = fakeVault(10n);
     const { runOnce } = await import("./operator");
-    const r = await runOnce(h.db, signer, "test:already", "reserve_for_period", null, "vault.near", { methodName: "reserve_for_period", args: {}, gasTgas: 1 }, async () => true);
+    const r = await runOnce(h.db, signer, "test:already", "finalize", null, "vault.near", { methodName: "finalize", args: {}, gasTgas: 1 }, async () => true);
     expect(r.skipped).toBe(true);
     expect(calls).toEqual([]);
-    void vault;
   });
 });

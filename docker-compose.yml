@@ -16,15 +16,15 @@ services:
       interval: 5s
       retries: 10
 
-  # Runs the vault contract test-suite in Linux (no local Rust linker setup needed):
+  # Runs the prize vault contract test-suite in Linux (no local Rust linker setup needed):
   #   docker compose run --rm contract-tests
   contract-tests:
     image: rust:1
     working_dir: /work
     volumes:
-      - ./contracts/vault:/work
-      - yielvy-cargo-registry:/usr/local/cargo/registry
-      - yielvy-cargo-target:/target
+      - ./contracts/prize-vault:/work
+      - near-district-cargo-registry:/usr/local/cargo/registry
+      - near-district-cargo-target:/target
     environment:
       CARGO_TARGET_DIR: /target
     command: ["cargo", "test"]
@@ -32,5 +32,5 @@ services:
 
 volumes:
   yielvy-pgdata:
-  yielvy-cargo-registry:
-  yielvy-cargo-target:
+  near-district-cargo-registry:
+  near-district-cargo-target:

@@ -1,21 +1,24 @@
 /**
- * Reward-period driver (funded campaigns only). Each run advances a period by at most one
- * state, re-reading both the database and the vault contract so retries are always safe.
+ * Prize payout driver for funded missions (contracts/prize-vault). Each run advances a period by at
+ * most one step, re-reading both the database and the vault, so retries are always safe.
  *
- *  SCHEDULED ──(period over)──▶ ELIGIBILITY_FROZEN   snapshot frozen + commit_period on-chain
- *  ELIGIBILITY_FROZEN ────────▶ YIELD_SETTLEMENT_PENDING  harvest_yield (yield-funded only)
- *  YIELD_SETTLEMENT_PENDING ──▶ FUNDS_RESERVED       reconcile_pending, then reserve_for_period
- *  FUNDS_RESERVED ────────────▶ WINNERS_FINALIZED    allocations + finalize_period
- *  WINNERS_FINALIZED ─────────▶ CLAIMABLE            after the on-chain dispute window
- *  CLAIMABLE ─────────────────▶ COMPLETED            close_period after the claim deadline
+ *  SCHEDULED ──(deadline passed)──▶ ELIGIBILITY_FROZEN   winners snapshot (everyone who solved every secret)
+ *  ELIGIBILITY_FROZEN ────────────▶ FUNDS_RESERVED       finalize(mission, winners): equal shares fixed on-chain
+ *                                 ╰▶ NO_WINNERS          finalize(mission, []) → the whole prize goes back to the project
+ *  FUNDS_RESERVED ────────────────▶ COMPLETED            payout batches until every share is paid; remainder refunded
+ *
+ * The contract guarantees the money rules (only after the deadline, equal shares, winners or sponsor only).
+ * This driver only decides who qualified, which can't be checked on-chain because answers are sealed.
  */
 import {
   and,
   campaigns,
+  chainTransactions,
   creativeSubmissions,
   DEMO_REWARD_PERIOD,
   eligibilitySnapshots,
   eq,
+  finalizeSealedHunt,
   inArray,
   notifications,
   qualifications,
@@ -25,17 +28,9 @@ import {
   walletConnections,
   type Db,
 } from "@yielvy/db";
-import {
-  allocateRewards,
-  buildMerkleTree,
-  eligibilityCommitment,
-  rewardPeriodMachine,
-  type CampaignRules,
-  type Candidate,
-  type RewardPeriodState,
-} from "@yielvy/core";
-import type { VaultClient, VaultPeriod } from "@yielvy/near";
-import { runOnce, type OperatorSigner } from "./operator";
+import { eligibilityCommitment, rewardPeriodMachine, type CampaignRules, type Candidate, type RewardPeriodState } from "@yielvy/core";
+import { parseVaultEvents, VAULT_MAX_PAYOUTS_PER_CALL, VAULT_WINNER_STORAGE, type VaultClient, type VaultMission } from "@yielvy/near";
+import { runOnce, OperatorNotConfigured, type OperatorSigner } from "./operator";
 import { RetryLater } from "./queue";
 
 export interface RewardsCtx {
@@ -43,6 +38,8 @@ export interface RewardsCtx {
   vault: VaultClient | null;
   signer: OperatorSigner | null;
   network: string;
+  token: { contractId: string; storageDepositYocto: bigint };
+  rpc: { view<T>(contractId: string, method: string, args?: object): Promise<T> };
   rulesFor(campaign: typeof campaigns.$inferSelect): Promise<CampaignRules>;
 }
 
@@ -51,6 +48,7 @@ type Period = typeof rewardPeriods.$inferSelect;
 async function setState(db: Db, p: Period, to: RewardPeriodState, extra: Partial<typeof rewardPeriods.$inferInsert> = {}) {
   rewardPeriodMachine.assert(p.state as RewardPeriodState, to);
   await db.update(rewardPeriods).set({ state: to, updatedAt: new Date(), ...extra }).where(eq(rewardPeriods.id, p.id));
+  p.state = to;
 }
 
 /** Builds the frozen candidate list for a period. Pure DB reads; no side effects. */
@@ -67,10 +65,9 @@ export async function eligibleCandidates(db: Db, c: typeof campaigns.$inferSelec
       .select({ userId: qualifications.userId, score: qualifications.score, at: qualifications.qualifiedAt })
       .from(qualifications)
       .where(and(eq(qualifications.campaignId, c.id), eq(qualifications.status, "qualified")));
-    // Multi-period hunts: a qualification counts in the period in which it happened.
     rows = rules.periods > 1 ? q.filter((r) => r.at >= p.startsAt && r.at < p.endsAt) : q;
   }
-  // a player already paid through a local demo simulation is not paid again
+  // a player already paid through the per-player demo simulation is not paid again
   const demoPaid = await db
     .select({ userId: rewardAllocations.userId })
     .from(rewardAllocations)
@@ -86,9 +83,18 @@ export async function eligibleCandidates(db: Db, c: typeof campaigns.$inferSelec
     .from(walletConnections)
     .where(and(inArray(walletConnections.userId, rows.map((r) => r.userId)), eq(walletConnections.network, network), eq(walletConnections.isPayout, true)));
   const byUser = new Map(wallets.map((w) => [w.userId, w.accountId]));
+  const seen = new Set<string>();
   return rows
     .filter((r) => byUser.has(r.userId))
-    .map((r) => ({ userId: r.userId, accountId: byUser.get(r.userId)!, score: BigInt(r.score), completedAt: r.at.getTime() }));
+    .map((r) => ({ userId: r.userId, accountId: byUser.get(r.userId)!, score: BigInt(r.score), completedAt: r.at.getTime() }))
+    .filter((x) => (seen.has(x.accountId) ? false : (seen.add(x.accountId), true)));
+}
+
+async function recordTx(db: Db, network: string, txHash: string, signer: string, receiver: string, logs: string[], ok: boolean) {
+  await db
+    .insert(chainTransactions)
+    .values({ network, txHash, signerId: signer, receiverId: receiver, status: ok ? "success" : "failure", events: parseVaultEvents(logs), verifiedAt: new Date() })
+    .onConflictDoNothing();
 }
 
 export async function processPeriod(ctx: RewardsCtx, periodId: string): Promise<string> {
@@ -100,195 +106,155 @@ export async function processPeriod(ctx: RewardsCtx, periodId: string): Promise<
   const rules = await ctx.rulesFor(c);
   if (rules.fundingSource === "none") return "unfunded";
   if (!ctx.vault || c.vaultCampaignId === null) {
-    if (p.state !== "REQUIRES_REVIEW") await setState(db, p, "REQUIRES_REVIEW", { blockedReason: "Vault not configured or campaign not registered" });
+    if (p.state !== "REQUIRES_REVIEW") await setState(db, p, "REQUIRES_REVIEW", { blockedReason: "Prize vault not configured or mission has no vault" });
     return "blocked: no vault";
   }
   const vault = ctx.vault;
-  const vid = c.vaultCampaignId;
-  const onchain = (): Promise<VaultPeriod | null> => vault.period(vid, p.periodNumber);
+  const mid = c.vaultCampaignId;
+  const mission = async (): Promise<VaultMission> => {
+    const m = await vault.mission(mid);
+    if (!m) throw new Error(`prize vault has no mission ${mid}`);
+    return m;
+  };
   const now = new Date();
 
   switch (p.state) {
-    case "SCHEDULED": {
-      if (p.endsAt > now) throw new RetryLater(Math.ceil((p.endsAt.getTime() - now.getTime()) / 1000), "period still running");
-      if (c.template === "creative_contest" && c.status !== "AWAITING_RESULTS" && c.status !== "COMPLETED") {
-        throw new RetryLater(3600, "waiting for organizer to select winners");
-      }
+    case "SCHEDULED":
+    case "REQUIRES_REVIEW": {
+      if (p.endsAt > now) throw new RetryLater(Math.ceil((p.endsAt.getTime() - now.getTime()) / 1000), "mission still running");
+      if (c.template === "creative_contest" && c.status !== "AWAITING_RESULTS" && c.status !== "COMPLETED") throw new RetryLater(3600, "waiting for organizer to select winners");
+      const m = await mission();
+      const chainDeadline = Number(BigInt(m.deadline_ns) / 1_000_000n);
+      if (chainDeadline > now.getTime()) throw new RetryLater(Math.ceil((chainDeadline - now.getTime()) / 1000), "vault deadline not reached");
+      // score sealed answers first (idempotent), so winners never depend on the separate campaign tick having run
+      if (c.template === "treasure_hunt") await finalizeSealedHunt(db, c.id, now);
       const cands = await eligibleCandidates(db, c, p, ctx.network, rules);
-      if (cands.length === 0) {
-        await setState(db, p, "NO_WINNERS", { blockedReason: "No eligible participants with a verified payout wallet" });
-        return "no winners";
-      }
       const ids = cands.map((x) => x.accountId);
-      const commitment = eligibilityCommitment(vid.toString(), String(p.periodNumber), ids);
       const [existing] = await db.select().from(eligibilitySnapshots).where(eq(eligibilitySnapshots.rewardPeriodId, p.id)).limit(1);
-      const snap =
-        existing ??
-        (
-          await db
-            .insert(eligibilitySnapshots)
-            .values({
-              rewardPeriodId: p.id,
-              commitment,
-              participantCount: cands.length,
-              participants: cands.map((x) => ({ userId: x.userId, accountId: x.accountId, score: Number(x.score), completedAt: new Date(x.completedAt).toISOString() })),
-            })
-            .returning()
-        )[0]!;
-      const r = await runOnce(
-        db,
-        ctx.signer,
-        `period:${p.id}:commit`,
-        "commit_period",
-        c.id,
-        vault.contractId,
-        { methodName: "commit_period", args: { campaign_id: vid.toString(), period_id: p.periodNumber, eligibility_root: snap.commitment, eligible_count: snap.participantCount }, gasTgas: 30, depositYocto: 10n ** 22n },
-        async () => (await onchain())?.eligibility_root === snap.commitment,
-      );
-      if (r.txHash && !snap.commitTxHash) await db.update(eligibilitySnapshots).set({ commitTxHash: r.txHash }).where(eq(eligibilitySnapshots.id, snap.id));
-      await setState(db, p, "ELIGIBILITY_FROZEN");
-      return "frozen";
+      if (!existing) {
+        await db.insert(eligibilitySnapshots).values({
+          rewardPeriodId: p.id,
+          commitment: eligibilityCommitment(mid.toString(), String(p.periodNumber), ids),
+          participantCount: cands.length,
+          participants: cands.map((x) => ({ userId: x.userId, accountId: x.accountId, score: Number(x.score), completedAt: new Date(x.completedAt).toISOString() })),
+        });
+      }
+      await setState(db, p, "ELIGIBILITY_FROZEN", { blockedReason: null });
+      return `frozen with ${cands.length} winner(s)`;
     }
 
     case "ELIGIBILITY_FROZEN": {
-      // Fixed prizes only: nothing to harvest, go straight to reserving the prize.
-      await setState(db, p, "YIELD_SETTLEMENT_PENDING");
-      return "no harvest needed";
-    }
-
-    case "YIELD_SETTLEMENT_PENDING": {
-      const totals = await vault.totals();
-      if (totals.pending_op && totals.pending_op.campaign_id === vid.toString()) {
-        await runOnce(db, ctx.signer, `period:${p.id}:reconcile:${totals.pending_op.op_id}`, "reconcile_pending", c.id, vault.contractId, { methodName: "reconcile_pending", args: {}, gasTgas: 100 }, async () => false);
-        throw new RetryLater(30, "reconciled pending op; re-checking");
+      const [snap] = await db.select().from(eligibilitySnapshots).where(eq(eligibilitySnapshots.rewardPeriodId, p.id)).limit(1);
+      if (!snap) throw new Error("eligibility snapshot missing");
+      const ids = snap.participants.map((x) => x.accountId);
+      // winners must be registered with the token before they can receive it; the operator pays that storage
+      for (const acc of ids) {
+        const reg = await ctx.rpc.view<unknown>(ctx.token.contractId, "storage_balance_of", { account_id: acc });
+        if (reg) continue;
+        await runOnce(db, ctx.signer, `token-register:${ctx.token.contractId}:${acc}`, "storage_deposit", c.id, ctx.token.contractId,
+          { methodName: "storage_deposit", args: { account_id: acc, registration_only: true }, gasTgas: 30, depositYocto: ctx.token.storageDepositYocto },
+          async () => Boolean(await ctx.rpc.view<unknown>(ctx.token.contractId, "storage_balance_of", { account_id: acc })));
       }
-      if (totals.pending_op) throw new RetryLater(60, "vault busy with another campaign");
-      const camp = await vault.campaign(vid);
-      if (!camp) throw new Error("vault campaign missing");
-      const onP = await onchain();
-      const alreadyReserved = BigInt(onP?.reserved_yield ?? "0") + BigInt(onP?.reserved_bonus ?? "0");
-      if (alreadyReserved === 0n) {
-        const budgetPerPeriod = rules.plannedDirectBudget ? BigInt(rules.plannedDirectBudget) / BigInt(rules.periods) : BigInt(camp.bonus_available);
-        const fromYield = 0n; // fixed prizes only
-        const fromBonus = minBig(BigInt(camp.bonus_available), budgetPerPeriod);
-        const cap = BigInt(camp.max_operator_reserve_per_period);
-        let y = minBig(fromYield, cap);
-        let b = minBig(fromBonus, cap - y);
-        if (y + b === 0n) {
-          await setState(db, p, "REQUIRES_REVIEW", { blockedReason: cap === 0n ? "Sponsor must reserve funds (operator cap is 0)" : "No prize available to reserve" });
-          await notifySponsor(db, c, "Reward period needs funds", "There are no collected funds available to reserve for this reward period yet.");
-          return "nothing to reserve";
+      const r = await runOnce(db, ctx.signer, `period:${p.id}:finalize`, "finalize", c.id, vault.contractId,
+        { methodName: "finalize", args: { mission_id: mid.toString(), winners: ids }, gasTgas: 100, depositYocto: VAULT_WINNER_STORAGE * BigInt(ids.length) },
+        async () => (await mission()).status !== "Open");
+      if (r.txHash && !snap.commitTxHash) await db.update(eligibilitySnapshots).set({ commitTxHash: r.txHash }).where(eq(eligibilitySnapshots.id, snap.id));
+      const m = await mission();
+      if (m.winner_count === 0) {
+        if (BigInt(m.refund_owed) > 0n) {
+          await runOnce(db, ctx.signer, `period:${p.id}:refund`, "withdraw_refund", c.id, vault.contractId, { methodName: "withdraw_refund", args: { mission_id: mid.toString() }, gasTgas: 60 },
+            async () => BigInt((await mission()).refund_owed) === 0n);
         }
-        await runOnce(
-          db,
-          ctx.signer,
-          `period:${p.id}:reserve`,
-          "reserve_for_period",
-          c.id,
-          vault.contractId,
-          { methodName: "reserve_for_period", args: { campaign_id: vid.toString(), period_id: p.periodNumber, from_yield: y.toString(), from_bonus: b.toString() }, gasTgas: 30 },
-          async () => {
-            const q = await onchain();
-            return BigInt(q?.reserved_yield ?? "0") + BigInt(q?.reserved_bonus ?? "0") > 0n;
-          },
-        );
-        void y;
-        void b;
+        await setState(db, p, "NO_WINNERS", { blockedReason: "Nobody solved every secret; the prize went back to the project" });
+        await notifySponsor(db, c, "No winners this time", "Nobody solved every secret before the deadline, so the full prize was returned to your wallet.");
+        return "no winners, refunded";
       }
-      const after = await onchain();
-      await setState(db, p, "FUNDS_RESERVED", { reservedYield: BigInt(after!.reserved_yield), reservedBonus: BigInt(after!.reserved_bonus) });
-      return "reserved";
+      const share = BigInt(m.share);
+      const byAccount = new Map(snap.participants.map((x) => [x.accountId, x.userId]));
+      await db.transaction(async (tx) => {
+        const have = await tx.select({ id: rewardAllocations.id }).from(rewardAllocations).where(eq(rewardAllocations.rewardPeriodId, p.id));
+        if (have.length) return;
+        for (const acc of ids) {
+          const [row] = await tx.insert(rewardAllocations).values({ rewardPeriodId: p.id, userId: byAccount.get(acc)!, accountId: acc, amount: share, rank: null, proof: [] }).returning();
+          await tx.insert(rewardClaims).values({ allocationId: row!.id, state: "SUBMITTED", submittedAt: new Date() });
+        }
+        await tx.update(rewardPeriods).set({ allocatedTotal: share * BigInt(ids.length) }).where(eq(rewardPeriods.id, p.id));
+      });
+      await setState(db, p, "FUNDS_RESERVED", { reservedBonus: share * BigInt(ids.length) });
+      return `finalized ${ids.length} winner(s), ${share} each`;
     }
 
     case "FUNDS_RESERVED": {
-      const onP = await onchain();
-      if (!onP) throw new Error("on-chain period missing");
-      const [snap] = await db.select().from(eligibilitySnapshots).where(eq(eligibilitySnapshots.rewardPeriodId, p.id)).limit(1);
-      const pool = BigInt(onP.reserved_yield) + BigInt(onP.reserved_bonus);
-      const candidates: Candidate[] = snap!.participants.map((x) => ({ accountId: x.accountId, score: BigInt(x.score), completedAt: Date.parse(x.completedAt) }));
-      const winnersByAccount =
-        rules.reward.mode === "organizer_selected" ? candidates.map((x) => x.accountId) : undefined; // contest snapshot already = selected winners
-      const result = allocateRewards(
-        pool,
-        candidates,
-        { ...rules.reward, perPersonCap: rules.reward.perPersonCap ? BigInt(rules.reward.perPersonCap) : undefined, minPayout: BigInt(rules.reward.minPayout) },
-        { selectedAccountIds: winnersByAccount },
-      );
-      if (result.allocations.length === 0) {
-        await setState(db, p, "REQUIRES_REVIEW", { blockedReason: result.blockedReason ?? "No allocations" });
-        return "blocked";
+      if (!ctx.signer) throw new OperatorNotConfigured();
+      let m = await mission();
+      // 1) dispatch the next batch of payouts (the contract's cursor makes this safe to repeat)
+      if (m.status === "Paying" && m.next_index < m.winner_count) {
+        const res = await ctx.signer.call(vault.contractId, { methodName: "payout", args: { mission_id: mid.toString() }, gasTgas: 20 + 20 * VAULT_MAX_PAYOUTS_PER_CALL });
+        await recordTx(db, ctx.network, res.txHash, ctx.signer.accountId, vault.contractId, res.logs, res.success);
+        await applyPayoutEvents(db, p, res.txHash, res.logs);
+        m = await mission();
+        if (m.next_index < m.winner_count) throw new RetryLater(5, "more payout batches to send");
       }
-      const tree = buildMerkleTree(result.allocations.map((a) => ({ campaignId: vid.toString(), periodId: String(p.periodNumber), accountId: a.accountId, amount: a.amount })));
-      const byAccount = new Map(snap!.participants.map((x) => [x.accountId, x.userId]));
-      await db.transaction(async (tx) => {
-        const existing = await tx.select({ id: rewardAllocations.id }).from(rewardAllocations).where(eq(rewardAllocations.rewardPeriodId, p.id));
-        if (existing.length === 0) {
-          for (const a of result.allocations) {
-            const [row] = await tx
-              .insert(rewardAllocations)
-              .values({ rewardPeriodId: p.id, userId: byAccount.get(a.accountId)!, accountId: a.accountId, amount: a.amount, rank: null, proof: tree.proofs.get(a.accountId)! })
-              .returning();
-            await tx.insert(rewardClaims).values({ allocationId: row!.id, state: "AVAILABLE" });
-          }
+      // 2) retry failed transfers (usually a wallet that wasn't registered with the token)
+      const winners = await vault.winners(mid, m.winner_count);
+      const failed = winners.filter((w) => w.state === "Failed").slice(0, VAULT_MAX_PAYOUTS_PER_CALL);
+      if (failed.length) {
+        for (const w of failed) {
+          const reg = await ctx.rpc.view<unknown>(ctx.token.contractId, "storage_balance_of", { account_id: w.account_id });
+          if (!reg) await ctx.signer.call(ctx.token.contractId, { methodName: "storage_deposit", args: { account_id: w.account_id, registration_only: true }, gasTgas: 30, depositYocto: ctx.token.storageDepositYocto });
         }
-        await tx.update(rewardPeriods).set({ allocationRoot: tree.root, allocatedTotal: result.allocatedTotal }).where(eq(rewardPeriods.id, p.id));
-      });
-      if (c.vaultCampaignId !== null) {
-        const camp = await vault.campaign(vid);
-        if (camp?.require_sponsor_finalize) {
-          await notifySponsor(db, c, "Approve reward results", "Results are computed. Please review and finalize them from your wallet.");
-          throw new RetryLater(3600, "waiting for sponsor to finalize on-chain");
-        }
+        const res = await ctx.signer.call(vault.contractId, { methodName: "retry_payouts", args: { mission_id: mid.toString(), indexes: failed.map((w) => w.index) }, gasTgas: 20 + 20 * failed.length });
+        await recordTx(db, ctx.network, res.txHash, ctx.signer.accountId, vault.contractId, res.logs, res.success);
+        await applyPayoutEvents(db, p, res.txHash, res.logs);
+        throw new RetryLater(30, `retried ${failed.length} failed payout(s)`);
       }
-      await runOnce(
-        db,
-        ctx.signer,
-        `period:${p.id}:finalize:${tree.root}`,
-        "finalize_period",
-        c.id,
-        vault.contractId,
-        { methodName: "finalize_period", args: { campaign_id: vid.toString(), period_id: p.periodNumber, allocation_root: tree.root, allocated_total: result.allocatedTotal.toString(), claim_window_ns: (BigInt(rules.claimWindowDays) * 86_400n * 1_000_000_000n).toString() }, gasTgas: 30 },
-        async () => (await onchain())?.allocation_root === tree.root,
-      );
-      const fin = await onchain();
-      await setState(db, p, "WINNERS_FINALIZED", {
-        claimableAfter: new Date(Number(BigInt(fin!.claimable_after) / 1_000_000n)),
-        claimDeadline: new Date(Number(BigInt(fin!.claim_deadline) / 1_000_000n)),
-      });
-      return "finalized";
-    }
-
-    case "WINNERS_FINALIZED": {
-      const onP = await onchain();
-      if (onP?.status === "Vetoed") {
-        await setState(db, p, "VETOED", { blockedReason: "Result vetoed on-chain during the dispute window" });
-        return "vetoed";
+      // 3) the rounding remainder goes back to the project
+      if (BigInt(m.refund_owed) > 0n) {
+        const res = await ctx.signer.call(vault.contractId, { methodName: "withdraw_refund", args: { mission_id: mid.toString() }, gasTgas: 60 });
+        await recordTx(db, ctx.network, res.txHash, ctx.signer.accountId, vault.contractId, res.logs, res.success);
       }
-      if (!p.claimableAfter || p.claimableAfter > now) throw new RetryLater(Math.max(30, Math.ceil(((p.claimableAfter?.getTime() ?? now.getTime()) - now.getTime()) / 1000)), "dispute window");
+      m = await mission();
+      if (m.status !== "Completed") throw new RetryLater(20, `waiting for payouts to land (${m.paid_count}/${m.winner_count})`);
+      // a payout we didn't see in logs (e.g. a crash mid-run) is still confirmed from chain state
+      const paidAccounts = new Set(winners.filter((w) => w.state === "Paid").map((w) => w.account_id));
+      const open = await db
+        .select({ claim: rewardClaims, a: rewardAllocations })
+        .from(rewardClaims)
+        .innerJoin(rewardAllocations, eq(rewardAllocations.id, rewardClaims.allocationId))
+        .where(and(eq(rewardAllocations.rewardPeriodId, p.id), inArray(rewardClaims.state, ["AVAILABLE", "SUBMITTED", "FAILED"])));
+      for (const o of open) {
+        if (paidAccounts.has(o.a.accountId) || o.claim.txHash) await db.update(rewardClaims).set({ state: "CONFIRMED", confirmedAt: new Date(), updatedAt: new Date() }).where(eq(rewardClaims.id, o.claim.id));
+      }
+      await setState(db, p, "WINNERS_FINALIZED");
       await setState(db, p, "CLAIMABLE");
-      const winners = await db.select({ userId: rewardAllocations.userId }).from(rewardAllocations).where(eq(rewardAllocations.rewardPeriodId, p.id));
-      for (const w of winners) {
+      await setState(db, p, "COMPLETED");
+      const paid = await db.select({ userId: rewardAllocations.userId }).from(rewardAllocations).where(eq(rewardAllocations.rewardPeriodId, p.id));
+      for (const w of paid) {
         await db
           .insert(notifications)
-          .values({ userId: w.userId, kind: "reward_ready", title: "Your reward is ready to claim", body: `A reward from "${c.title}" can now be claimed.`, link: "/me/rewards", dedupeKey: `reward_ready:${p.id}` })
+          .values({ userId: w.userId, kind: "reward_ready", title: "Prize paid to your wallet", body: `Your equal share of "${c.title}" was sent to your NEAR wallet.`, link: "/me/rewards", dedupeKey: `reward_paid:${p.id}` })
           .onConflictDoNothing();
       }
-      return "claimable";
+      return `completed: ${m.paid_count} paid`;
     }
 
-    case "CLAIMABLE": {
-      if (!p.claimDeadline || p.claimDeadline > now) throw new RetryLater(Math.max(60, Math.ceil(((p.claimDeadline?.getTime() ?? now.getTime()) - now.getTime()) / 1000)), "claim window open");
-      await runOnce(db, ctx.signer, `period:${p.id}:close`, "close_period", c.id, vault.contractId, { methodName: "close_period", args: { campaign_id: vid.toString(), period_id: p.periodNumber }, gasTgas: 30 }, async () => (await onchain())?.status === "Closed");
-      await setState(db, p, "COMPLETED");
-      return "completed";
-    }
     default:
       return `no action in ${p.state}`;
   }
 }
 
-function minBig(a: bigint, b: bigint) {
-  return a < b ? a : b;
+/** Marks each winner's claim with the transaction that paid (or failed to pay) them. */
+async function applyPayoutEvents(db: Db, p: Period, txHash: string, logs: string[]) {
+  for (const e of parseVaultEvents(logs)) {
+    if (e.event !== "reward_paid" && e.event !== "reward_failed") continue;
+    const [a] = await db.select({ id: rewardAllocations.id }).from(rewardAllocations).where(and(eq(rewardAllocations.rewardPeriodId, p.id), eq(rewardAllocations.accountId, e.data.account_id!))).limit(1);
+    if (!a) continue;
+    const ok = e.event === "reward_paid";
+    await db
+      .update(rewardClaims)
+      .set({ state: ok ? "CONFIRMED" : "FAILED", txHash, confirmedAt: ok ? new Date() : null, failureReason: ok ? null : "Token transfer failed; retrying", updatedAt: new Date() })
+      .where(eq(rewardClaims.allocationId, a.id));
+  }
 }
 
 async function notifySponsor(db: Db, c: typeof campaigns.$inferSelect, title: string, body: string) {

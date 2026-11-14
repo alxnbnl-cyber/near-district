@@ -6,7 +6,7 @@
 | Vault account | — | **Full-access keys removed after deploy** | The contract upgrades itself only via `apply_upgrade` |
 | **Guardian** | On-call person, hardware wallet | Full access to a separate account | `pause`, `veto_period`, `cancel_upgrade`, `clear_flagged_op` |
 | **Operator** | Worker (secret manager) | Function-call key on the operator account, restricted to the vault contract | Settlement, periods, reconcile |
-| Users / organizers | Their own wallets | — | Yielvy never sees or stores them |
+| Users / organizers | Their own wallets | — | NEAR District never sees or stores them |
 
 Rules
 - No private key is ever committed, logged, or placed in a `NEXT_PUBLIC_*` variable. The web app holds **no** keys.

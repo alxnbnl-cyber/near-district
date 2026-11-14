@@ -1,4 +1,4 @@
-# Yielvy illustration prompts (for ChatGPT / DALL·E or Midjourney)
+# NEAR District illustration prompts (for ChatGPT / DALL·E or Midjourney)
 
 The app ships with hand-made SVG placeholders in `apps/web/src/components/art/Art.tsx`. Use these prompts to
 generate polished replacements in one consistent style. Export each image as a **transparent PNG or SVG,

@@ -1,6 +1,6 @@
 # World map & art pipeline
 
-The explorer map is a dark, flat, top-down 2D fictional city ("Yielvy City").
+The explorer map is a dark, flat, top-down 2D fictional city ("NEAR District").
 
 ## How it works
 - `packages/core/src/world/atlas.ts` generates the city deterministically (seeded): coastline, river, curved arterials, a rotated street grid per district, building footprints and **lots** (marker anchor points). Same output everywhere, `ATLAS_VERSION = 1`.

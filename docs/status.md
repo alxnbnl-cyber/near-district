@@ -13,11 +13,10 @@ Legend: ✅ implemented and tested here · 🟡 implemented, not verified end-to
 | Reward selection rules enforceable | ✅ / 🟡 | Allocation engine unit-tested; on-chain caps/limits contract-tested; live chain run pending |
 | Users authenticate securely | ✅ / 🟡 | Email magic link verified in browser; NEP-413 verification unit-tested; **real wallet sign-in not exercised** (needs a real wallet) |
 | Organizers authenticate and authorize transactions | 🟡 | Step-up + user-signed tx plans + on-chain verification implemented; not exercised with a real wallet |
-| Native NEAR campaign funding works | 🟡 | Contract tested; UI + verification implemented; **vault not deployed** (needs your approval) |
+| On-chain prize funding and payout | ✅ testnet | `contracts/prize-vault` on `neardistrict-vault.testnet`; demo missions funded with testnet USDC; worker settled the warm-up mission and paid the winner on-chain |
 | RHEA integration verified against real contracts | 🟡 | Contract addresses, methods, decimals, views verified live (read-only); supply/withdraw not executed live |
 | Supply and withdrawal workflows work | 🟡 | Contract tests incl. failure paths; live run pending |
-| Financial records reconcile with on-chain state | 🟡 | Reconciliation job + invariants implemented; no live vault to reconcile yet |
-| Actual realized yield accounting correct | 🟡 | Contract tests; live yield needs time + deployment |
+| Financial records reconcile with on-chain state | ✅ testnet | `vault.reconcile` checks the vault token balance covers every mission's unpaid prize |
 | Direct bonus reward funding works | 🟡 | Contract tests; live pending |
 | Rewards cannot exceed reserved funds | ✅ | Contract (`ERR_ALLOCATION_EXCEEDS_RESERVE`, overclaim checks) + engine invariants tested |
 | Double claims prevented | ✅ | Contract tests (double claim, replay, redirect, inflation) |
@@ -50,7 +49,7 @@ Legend: ✅ implemented and tested here · 🟡 implemented, not verified end-to
 | Multi-sponsor expedition prizes | ⛔ Deferred | Needs vault accounting review |
 
 ## Known gaps / next steps
-1. Deploy the vault to **testnet** with a RHEA testnet deployment and run the lifecycle (needs: your accounts, approval).
+1. Independent audit of `contracts/prize-vault` before any mainnet deployment.
 2. Automated Playwright E2E suite (explore → hunt → contest → winners → claim).
 3. Real wallet sign-in test (MyNearWallet redirect + Meteor) on a real account.
 4. 1Click quote-signature verification (public key / payload from official docs).

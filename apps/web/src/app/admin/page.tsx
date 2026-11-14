@@ -39,11 +39,12 @@ export default async function AdminPage() {
 
   const v = vault();
   const t = token();
-  let vaultInfo: { totals: Awaited<ReturnType<NonNullable<typeof v>["totals"]>>; config: Awaited<ReturnType<NonNullable<typeof v>["config"]>> } | null = null;
+  let vaultInfo: { balance: string; config: Awaited<ReturnType<NonNullable<typeof v>["config"]>> } | null = null;
   let vaultError: string | null = null;
   if (v) {
     try {
-      vaultInfo = { totals: await v.totals(), config: await v.config() };
+      const { nearRpc } = await import("@/server/near");
+      vaultInfo = { config: await v.config(), balance: await nearRpc().view<string>(t.contractId, "ft_balance_of", { account_id: v.contractId }) };
     } catch (e) {
       vaultError = String(e);
     }
@@ -61,29 +62,21 @@ export default async function AdminPage() {
         <section>
           <SectionHeader title="Vault & money" />
           {!v ? (
-            <Notice tone="info">No vault contract is configured (VAULT_CONTRACT_ID unset). No funds are held by NEAR District on this deployment.</Notice>
+            <Notice tone="info">No prize vault is configured (VAULT_CONTRACT_ID unset). No funds are held by NEAR District on this deployment.</Notice>
           ) : vaultError ? (
             <Notice tone="danger" title="Vault unreachable">{vaultError}</Notice>
           ) : (
             vaultInfo && (
               <Card className="grid grid-cols-2 gap-6 p-5 md:grid-cols-4">
-                <Figure label="Liquid tracked" value={formatDisplay(BigInt(vaultInfo.totals.liquid_tracked), t.decimals)} unit={t.symbol} />
-                <Figure label="RHEA shares" value={vaultInfo.totals.total_rhea_shares} />
-                <Figure label="Fees accrued" value={formatDisplay(BigInt(vaultInfo.totals.fees_accrued), t.decimals)} unit={t.symbol} />
-                <Figure label="Pause" value={vaultInfo.config.pause.all ? "All" : vaultInfo.config.pause.inflows ? "Inflows" : "None"} help="Guardian/owner pause via the contract, signed by the guardian key." />
-                {vaultInfo.totals.pending_op && (
-                  <div className="col-span-full">
-                    <Notice tone="warn" title={`In-flight RHEA operation #${vaultInfo.totals.pending_op.op_id}`}>
-                      {vaultInfo.totals.pending_op.purpose} for campaign {vaultInfo.totals.pending_op.campaign_id}, started at block {vaultInfo.totals.pending_op.started_height}.
-                    </Notice>
-                  </div>
-                )}
+                <Figure label="Prizes held" value={formatDisplay(BigInt(vaultInfo.balance), t.decimals)} unit={t.symbol} help="Token balance of the prize vault contract." />
+                <Figure label="Missions" value={vaultInfo.config.missions} />
+                <Figure label="Operator" value={vaultInfo.config.operator_id} />
+                <Figure label="Contract" value={v!.contractId} />
               </Card>
             )
           )}
           <p className="mt-2 text-[12.5px] text-ink-3">
-            Last reconciliation: {recon[0] ? `${recon[0].status} at ${recon[0].startedAt.toISOString()}` : "never run"}. Emergency pause is executed with the guardian key against the
-            contract (see docs/operations/incident-response.md); the web app holds no keys.
+            Last reconciliation: {recon[0] ? `${recon[0].status} at ${recon[0].startedAt.toISOString()}` : "never run"}. The prize vault only pays posted winners or refunds the sponsor; the web app holds no keys.
           </p>
         </section>
 

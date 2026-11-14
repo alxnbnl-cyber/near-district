@@ -3,9 +3,17 @@ import { formatDisplay } from "@yielvy/core";
 import { route } from "@/server/http";
 import { db } from "@/server/db";
 import { network, token } from "@/server/near";
-import { env } from "@/server/env";
 
-/** The signed-in explorer's won rewards, for the map's Progress panel (same rules as /me/rewards). */
+const realTx = (h: string | null | undefined) => Boolean(h && /^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(h));
+
+/**
+ * The signed-in explorer's won rewards, for the map's Progress panel (same rules as /me/rewards).
+ * Prizes are paid automatically by the prize vault, so there is nothing to claim:
+ *   paid       on-chain payout confirmed (links to the transaction)
+ *   demo_paid  recorded by the per-player demo simulation; no funds moved
+ *   retrying   the transfer failed (usually an unregistered wallet) and is being retried
+ *   pending    waiting for the deadline / payout
+ */
 export const GET = route(
   async (_req, { user }) => {
     const database = await db();
@@ -21,24 +29,19 @@ export const GET = route(
       .limit(50);
     const t = token();
     const net = network();
-    const now = new Date();
-    const vault = Boolean(env().VAULT_CONTRACT_ID);
     return {
       symbol: t.symbol,
       hasWallet: Boolean(user!.payoutAccountId),
       items: rows.map(({ a, p, c, space, claim }) => {
-        const open = p.state === "CLAIMABLE" && p.claimableAfter && p.claimableAfter <= now && p.claimDeadline && p.claimDeadline > now;
-        const expired = Boolean(p.claimDeadline && p.claimDeadline <= now && claim?.state !== "CONFIRMED");
-        const state = claim?.state === "CONFIRMED" ? "claimed" : expired ? "expired" : open && vault ? "claimable" : "pending";
+        const state = claim?.state === "CONFIRMED" ? (realTx(claim.txHash) ? "paid" : "demo_paid") : claim?.state === "FAILED" ? "retrying" : "pending";
         return {
           id: a.id,
           title: c.title,
           spaceName: space.name,
           amount: formatDisplay(a.amount, t.decimals),
           state,
-          claimPending: claim?.state === "SUBMITTED",
-          claimableFrom: p.claimableAfter && p.claimableAfter > now ? p.claimableAfter.toISOString() : null,
-          txUrl: claim?.txHash ? net.explorerTxUrl(claim.txHash) : null,
+          paysAfter: p.endsAt.toISOString(),
+          txUrl: realTx(claim?.txHash) ? net.explorerTxUrl(claim!.txHash!) : null,
         };
       }),
     };

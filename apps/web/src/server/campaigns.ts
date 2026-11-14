@@ -330,17 +330,20 @@ export async function checkPublishable(db: Db, c: typeof campaigns.$inferSelect)
   if (rules && rules.fundingSource !== "none") {
     funding = { required: true, verified: false, detail: "" };
     const v = vault();
-    if (!v) funding.detail = "The vault contract isn't deployed on this network yet, so rewards can't be funded.";
-    else if (c.vaultCampaignId === null) funding.detail = "Register this campaign in the vault and deposit funds first.";
+    if (!v) funding.detail = "The prize vault isn't deployed on this network yet, so prizes can't be funded.";
+    else if (c.vaultCampaignId === null) funding.detail = "Open the mission's prize vault and deposit the prize first.";
     else {
-      const onchain = await v.campaign(c.vaultCampaignId);
-      if (!onchain) funding.detail = "The vault has no record of this campaign.";
+      const onchain = await v.mission(c.vaultCampaignId);
+      if (!onchain) funding.detail = "The prize vault has no record of this mission.";
       else {
-        const hasBonus = BigInt(onchain.bonus_available) + BigInt(onchain.reserved) > 0n;
+        const prize = BigInt(onchain.prize);
         const planned = rules.plannedDirectBudget ? BigInt(rules.plannedDirectBudget) : 0n;
-        if (!hasBonus) funding.detail = "The prize hasn't been deposited yet.";
-        else if (planned > 0n && BigInt(onchain.bonus_available) + BigInt(onchain.reserved) < planned) funding.detail = "The deposited prize is below the amount you set.";
-        else funding = { required: true, verified: true, detail: "Funding confirmed on-chain." };
+        const chainDeadline = Number(BigInt(onchain.deadline_ns) / 1_000_000n);
+        if (onchain.status !== "Open") funding.detail = "This mission's prize vault is already settled.";
+        else if (prize === 0n) funding.detail = "The prize hasn't been deposited yet.";
+        else if (planned > 0n && prize < planned) funding.detail = "The deposited prize is below the amount you set.";
+        else if (Math.abs(chainDeadline - Date.parse(rules.endsAt)) > 60_000) funding.detail = "The deadline changed after the prize vault was opened. Set it back to the vault's deadline.";
+        else funding = { required: true, verified: true, detail: "Prize locked on-chain." };
       }
     }
     if (!funding.verified) problems.push(funding.detail);

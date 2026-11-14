@@ -19,7 +19,7 @@
 | Admin balance edits | No endpoint edits balances; ledger is append-only (trigger); corrections need proposer ≠ approver | migrations, schema |
 | Spreadsheet injection | CSV export neutralizes `= + - @` prefixes | `server/contest.ts` |
 | Duplicate workers | `FOR UPDATE SKIP LOCKED`, globally unique idempotency keys, chain-state checks before every operator tx | `apps/worker` |
-| Contract: unauthorized withdrawal | Token outflows only to sponsor, proven claimant, RHEA, or fee recipient (fees) | `contracts/vault` |
+| Contract: unauthorized withdrawal | Prize tokens leave only to posted winners (one equal share each) or back to the sponsor | `contracts/prize-vault` |
 | Contract: double claim / replay | Claim key (campaign, period, account) + Merkle leaf bound to predecessor | `periods.rs` |
 | Contract: callback forgery | `#[private]` callbacks; op-id matching | `lending.rs` |
 | Contract: rogue upgrade | Owner-only proposal, ≥72 h timelock, guardian can cancel, hash-pinned code | `upgrade.rs` |
@@ -27,7 +27,7 @@
 
 ## Before public mainnet funds
 
-- [ ] Independent smart-contract audit of `contracts/vault` (scope: all files; focus on async callbacks, share accounting, claim logic, upgrade path)
+- [ ] Independent smart-contract audit of `contracts/prize-vault` (focus: ft_on_transfer checks, share maths, payout and refund callbacks)
 - [ ] Testnet run of the full lifecycle against a real RHEA deployment
 - [ ] Owner = multisig (e.g. Sputnik DAO / multisig contract), guardian = separate key, operator = function-call key
 - [ ] Dependency + secret scanning in CI (`pnpm audit`, `cargo audit`, gitleaks)

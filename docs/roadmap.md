@@ -1,4 +1,4 @@
-# Yielvy roadmap
+# NEAR District roadmap
 
 Product roadmap for the testnet demo and beyond. Operations, legal and hosting tasks live in [`todo.md`](../todo.md).
 
@@ -23,7 +23,7 @@ Product roadmap for the testnet demo and beyond. Operations, legal and hosting t
 ## 🚧 Now: testnet demo
 
 - [ ] Build the vault with `cargo near build` (current toolchain output traps on testnet)
-- [ ] Deploy + initialise the vault on testnet (accounts `yielvy-*-31c867.testnet` already created)
+- [x] Deploy the prize vault on testnet (`neardistrict-vault.testnet`, operator `neardistrict-ops.testnet`)
 - [ ] Mint test USDC.e for funding
 - [ ] Seed the three demo missions
   - [ ] **RHEA**: treasure hunt, growing reward from a $10,000 yield deposit, RHEA swap / lending hints

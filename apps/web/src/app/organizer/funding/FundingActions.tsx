@@ -35,7 +35,7 @@ export function FundingActions({ campaignId, registered, vaultDeployed, token }:
         return;
       }
       const r = await api<{ state?: string }>("/api/organizer/funding", { method: "POST", body: confirm(h, plan) });
-      setMsg({ tone: r.state === "FAILED" ? "danger" : "ok", text: r.state === "FAILED" ? "The vault did not accept that deposit. Any tokens were returned by the token contract." : "Confirmed on-chain." });
+      setMsg({ tone: r.state === "FAILED" ? "danger" : "ok", text: r.state === "FAILED" ? "The prize vault did not accept that deposit, so the token contract returned your tokens." : "Confirmed on-chain." });
       router.refresh();
     } catch (e) {
       if (e instanceof ApiError && e.code === "step_up_required") setStepUp(true);
@@ -64,7 +64,7 @@ export function FundingActions({ campaignId, registered, vaultDeployed, token }:
             <Button
               disabled={busy || !walletId}
               onClick={() =>
-                run({ action: "plan_register", campaignId, maxOperatorReservePerPeriod: "0", requireSponsorFinalize: true }, (txHash) => ({ action: "confirm_register", campaignId, txHash }))
+                run({ action: "plan_register", campaignId }, (txHash) => ({ action: "confirm_register", campaignId, txHash }))
               }
             >
               Set up the prize vault

@@ -232,7 +232,7 @@ function PrizePool({ data }: { data: MissionData }) {
 }
 
 /** Starts → answers lock → results → rewards paid, with the current stage lit. */
-function MissionTimeline({ startsAt, endsAt, claimDays, funded, demo, campaignId, signedIn, me }: { startsAt: string | null; endsAt: string | null; claimDays: number; funded: boolean; demo?: boolean; campaignId?: string; signedIn?: boolean; me?: { joined: boolean; demoEnded: boolean } }) {
+function MissionTimeline({ startsAt, endsAt, claimDays, funded, demo, onchain, campaignId, signedIn, me }: { startsAt: string | null; endsAt: string | null; claimDays: number; funded: boolean; demo?: boolean; onchain?: boolean; campaignId?: string; signedIn?: boolean; me?: { joined: boolean; demoEnded: boolean } }) {
   const [sim, setSim] = useState<{ busy: string | null; msg: string | null }>({ busy: null, msg: null });
   const simulate = async (action: "deadline" | "reward") => {
     setSim({ busy: action, msg: null });
@@ -281,7 +281,7 @@ function MissionTimeline({ startsAt, endsAt, claimDays, funded, demo, campaignId
           <div className="mt-2 flex flex-wrap gap-1.5">
             {([
               ["deadline", "Simulate deadline reached", !me?.joined || Boolean(me?.demoEnded) || Boolean(end && end <= now)],
-              ["reward", "Simulate reward received", !(me?.demoEnded || (end && end <= now))],
+              ...(onchain ? [] : ([["reward", "Simulate reward received", !(me?.demoEnded || (end && end <= now))]] as const)),
             ] as const).map(([action, label, disabled]) => (
               <button
                 key={action}
@@ -295,6 +295,7 @@ function MissionTimeline({ startsAt, endsAt, claimDays, funded, demo, campaignId
               </button>
             ))}
           </div>
+          {onchain && <p className="mt-2 font-sans text-[12px] text-[rgb(214_219_225/.6)]">This prize is locked on-chain. Winners are paid automatically to their NEAR wallet after the real deadline.</p>}
           {sim.msg && <p className="mt-2 font-sans text-[12px] text-[rgb(214_219_225/.6)]">{sim.msg}</p>}
         </div>
       )}
@@ -424,7 +425,7 @@ export function MissionModal({ slug, campaign, onClose, onOpen, onPartnerJump, a
                     {/* side: prize, timeline, story, rules */}
                     <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
                       <PrizePool data={data} />
-                      <MissionTimeline startsAt={data.campaign.startsAt} endsAt={data.campaign.endsAt} claimDays={data.rules.claimWindowDays} funded={data.rules.funded} demo={data.demo} campaignId={data.campaign.id} signedIn={data.signedIn} me={data.me} />
+                      <MissionTimeline startsAt={data.campaign.startsAt} endsAt={data.campaign.endsAt} claimDays={data.rules.claimWindowDays} funded={data.rules.funded} demo={data.demo} onchain={data.rules.funded && !data.prize?.demo} campaignId={data.campaign.id} signedIn={data.signedIn} me={data.me} />
                       {data.campaign.description && (
                         <section className="bg-[rgb(10_13_18/.6)] px-4 py-4 font-mono" style={frame(12, `${INK} / .12)`)}>
                           <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange">The story</p>

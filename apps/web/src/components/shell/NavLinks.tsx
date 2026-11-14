@@ -7,7 +7,7 @@ import { IconCompass, IconPlus } from "@/components/explore/icons";
 /** Two destinations only: play (the map) or host (your vault). Everything else lives inside them. */
 const NAV = [
   { href: "/explore", label: "Explore", icon: IconCompass, match: (p: string) => p === "/" || p.startsWith("/explore") || p.startsWith("/s/") || p.startsWith("/x/") || p.startsWith("/me") },
-  { href: "/organizer", label: "My vault", icon: IconPlus, match: (p: string) => p.startsWith("/host") || p.startsWith("/organizer") },
+  { href: "/organizer", label: "Host", icon: IconPlus, match: (p: string) => p.startsWith("/host") || p.startsWith("/organizer") },
 ];
 
 export function NavLinks() {

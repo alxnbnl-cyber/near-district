@@ -6,7 +6,7 @@ import { getSessionUser } from "@/server/session";
 import { db } from "@/server/db";
 import { myOrganization } from "@/server/spaces";
 import { env } from "@/server/env";
-import { network, token } from "@/server/near";
+import { network, token, vault } from "@/server/near";
 import { buttonClass } from "@/components/ui";
 import { GameIcon } from "@/components/host/GameIcon";
 import { OrganizerFinanceSummary } from "../OrganizerFinanceSummary";
@@ -25,6 +25,20 @@ export default async function FundingPage() {
   const t = token();
   const net = network();
   const vaultDeployed = Boolean(env().VAULT_CONTRACT_ID);
+  // each mission's escrow, read live from the prize vault (the chain is the source of truth, not our records)
+  const v = vault();
+  const onchain = new Map<string, { prize: bigint; status: string; missionId: string }>();
+  if (v) {
+    for (const c of camps) {
+      if (c.vaultCampaignId === null) continue;
+      try {
+        const m = await v.mission(c.vaultCampaignId);
+        if (m) onchain.set(c.id, { prize: BigInt(m.prize), status: m.status, missionId: m.mission_id });
+      } catch {
+        // chain unreachable: steps fall back to our deposit records
+      }
+    }
+  }
   const funded = camps.filter((c) => ((c.draftRules as CampaignRules | null)?.fundingSource ?? "none") !== "none" || c.vaultCampaignId !== null);
 
   return (
@@ -60,8 +74,8 @@ export default async function FundingPage() {
             const rules = c.draftRules as CampaignRules | null;
             const steps = [
               ["Set up", c.vaultCampaignId !== null],
-              ["Deposit", orders.some((o) => o.campaignId === c.id && ["RECEIVED", "SUPPLIED", "SUPPLY_PENDING"].includes(o.state))],
-              ["Confirmed", orders.some((o) => o.campaignId === c.id && ["RECEIVED", "SUPPLIED"].includes(o.state))],
+              ["Deposit", (onchain.get(c.id)?.prize ?? 0n) > 0n || orders.some((o) => o.campaignId === c.id && ["RECEIVED", "SUPPLIED", "SUPPLY_PENDING"].includes(o.state))],
+              ["Confirmed", (onchain.get(c.id)?.prize ?? 0n) > 0n || orders.some((o) => o.campaignId === c.id && ["RECEIVED", "SUPPLIED"].includes(o.state))],
             ] as const;
             return (
               <li key={c.id} className="rounded-[20px] border border-line bg-card p-5">
@@ -84,6 +98,16 @@ export default async function FundingPage() {
                     ))}
                   </ol>
                 </div>
+                {onchain.get(c.id) && (onchain.get(c.id)!.prize > 0n) && (
+                  <p className="mt-3 text-[13px] text-mint-ink">
+                    {`✓ ${formatDisplay(onchain.get(c.id)!.prize, t.decimals)} ${t.symbol} locked on-chain in the prize vault (mission #${onchain.get(c.id)!.missionId}, ${onchain.get(c.id)!.status.toLowerCase()})`}
+                    {v && (
+                      <a className="ml-2 text-orange-ink hover:underline" href={net.explorerAccountUrl(v.contractId)} target="_blank" rel="noopener noreferrer">
+                        View vault ↗
+                      </a>
+                    )}
+                  </p>
+                )}
                 <FundingActions campaignId={c.id} registered={c.vaultCampaignId !== null} vaultDeployed={vaultDeployed} token={{ symbol: t.symbol, decimals: t.decimals }} />
               </li>
             );

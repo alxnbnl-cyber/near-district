@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ViewerStats } from "@/world/types";
 import { api, ApiError } from "@/lib/api";
-import { ClaimButton } from "@/app/me/rewards/ClaimButton";
 import { GameIcon } from "@/components/host/GameIcon";
 import { frame, plate } from "./frame";
 
@@ -35,9 +34,8 @@ interface Reward {
   title: string;
   spaceName: string;
   amount: string;
-  state: "claimed" | "claimable" | "pending" | "expired";
-  claimPending: boolean;
-  claimableFrom: string | null;
+  state: "paid" | "demo_paid" | "retrying" | "pending";
+  paysAfter: string;
   txUrl: string | null;
 }
 
@@ -90,7 +88,7 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
   const rank = RANKS[rankIdx]!;
   const next = RANKS[rankIdx + 1];
   const pct = next ? ((done - rank.at) / (next.at - rank.at)) * 100 : 100;
-  const toClaim = rewards?.items.filter((r) => r.state === "claimable").length ?? 0;
+  const paidCount = rewards?.items.filter((r) => r.state === "paid").length ?? 0;
   const parse = (href: string) => href.match(/^\/s\/([a-z0-9-]+)\/c\/([a-z0-9-]+)$/);
 
   return (
@@ -134,9 +132,9 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
           </div>
         ) : (
           <ul className="flex flex-col gap-2">
-            {toClaim > 0 && (
+            {paidCount > 0 && (
               <li className="yv-pop bg-[rgb(255_194_75/.12)] px-3 py-2 text-[10.5px] font-black uppercase tracking-[0.2em] text-reward" style={frame(8, "rgb(255 194 75 / .5)")}>
-                ★ {toClaim} reward{toClaim === 1 ? "" : "s"} ready to claim
+                ★ {paidCount} prize{paidCount === 1 ? "" : "s"} paid on-chain
               </li>
             )}
             {!rewards.hasWallet && (
@@ -145,7 +143,7 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
               </li>
             )}
             {rewards.items.map((r) => (
-              <li key={r.id} className="bg-[rgb(10_13_18/.6)] p-3" style={frame(10, r.state === "claimable" ? "rgb(255 194 75 / .55)" : `${INK} / .12)`)}>
+              <li key={r.id} className="bg-[rgb(10_13_18/.6)] p-3" style={frame(10, r.state === "paid" ? "rgb(255 194 75 / .55)" : `${INK} / .12)`)}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-[9.5px] font-bold uppercase tracking-[0.2em] text-[rgb(214_219_225/.5)]">{r.spaceName}</p>
@@ -156,18 +154,15 @@ export function ProgressPanel({ viewer, signedIn, onFocusSpace, onPlay }: { view
                   </p>
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-2">
-                  {r.state === "claimed" ? (
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-mint-ink">
-                      ✓ Paid to your wallet
-                    </span>
-                  ) : r.state === "expired" ? (
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-danger">Expired</span>
-                  ) : r.state === "pending" ? (
-                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky">{r.claimableFrom ? `Paying from ${new Date(r.claimableFrom).toLocaleDateString()}` : "Finalizing"}</span>
+                  {r.state === "paid" ? (
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-mint-ink">✓ Paid to your wallet</span>
+                  ) : r.state === "demo_paid" ? (
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-mint-ink">✓ Paid · demo, no funds moved</span>
+                  ) : r.state === "retrying" ? (
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gold">Payout retrying</span>
                   ) : (
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-reward">Ready</span>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky">Paid automatically after {new Date(r.paysAfter).toLocaleDateString()}</span>
                   )}
-                  {r.state === "claimable" && <ClaimButton allocationId={r.id} pending={r.claimPending} />}
                   {r.txUrl && (
                     <a href={r.txUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold uppercase tracking-[0.16em] text-orange hover:underline">
                       Transaction ↗
