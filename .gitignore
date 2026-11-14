@@ -3,7 +3,7 @@ node_modules/
 dist/
 coverage/
 .data/
-uploads/
+/uploads/
 *.log
 .env
 .env.*
