@@ -17,12 +17,17 @@
  *   - Without a vault, missions are published unfunded and the map shows their planned prize tagged DEMO.
  *
  *   pnpm --filter @yielvy/web seed:demo
+ *
+ * LIVE (hosted) mode, add-only: never wipes, refuses to run twice, logos point at /public/assets/demo-logos.
+ * Put the hosted database URL in .env.railway (DATABASE_URL=..., git-ignored), then:
+ *   pnpm --filter @yielvy/web seed:demo -- --live
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { Account, KeyPairSigner, providers } from "near-api-js";
-import { campaigns, chainTransactions, createDb, organizations, spaces, users, eq, sql } from "@yielvy/db";
+import { createHash } from "node:crypto";
+import { campaigns, chainTransactions, createDb, organizations, spaces, uploads, users, eq, sql } from "@yielvy/db";
 import { parseVaultEvents } from "@yielvy/near";
 import { joinCampaign, submitAnswer } from "../src/server/play";
 import { runMigrations } from "@yielvy/db/migrate";
@@ -33,23 +38,43 @@ import { storeImage } from "../src/server/uploads";
 import type { SessionUser } from "../src/server/session";
 import type { QuestionInput } from "../src/lib/campaign-schemas";
 
-if (!process.env.DATABASE_URL) process.loadEnvFile(fileURLToPath(new URL("../../../.env.local", import.meta.url)));
+const LIVE = process.argv.includes("--live");
+if (!process.env.DATABASE_URL || LIVE) process.loadEnvFile(fileURLToPath(new URL("../../../.env.local", import.meta.url)));
+if (LIVE) {
+  // the hosted database URL lives in its own git-ignored file so it never replaces the local one by accident
+  const live = fileURLToPath(new URL("../../../.env.railway", import.meta.url));
+  const m = /^DATABASE_URL=(.+)$/m.exec(readFileSync(live, "utf8"));
+  if (!m) throw new Error(".env.railway must contain DATABASE_URL=<hosted Postgres public URL>");
+  process.env.DATABASE_URL = m[1]!.trim();
+}
 const url = process.env.DATABASE_URL ?? "";
 const host = new URL(url).hostname;
-if (process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1"].includes(host)) {
-  console.error("seed-demo refuses to run outside a local development database.");
+const isLocal = ["localhost", "127.0.0.1"].includes(host);
+if (!LIVE && (process.env.NODE_ENV === "production" || !isLocal)) {
+  console.error("seed-demo refuses to run outside a local development database (use --live for the hosted one).");
   process.exit(1);
 }
 
 const h = await createDb(url, { max: 1 });
 const db = h.db;
 
-// wipe: drop every table and re-run migrations from scratch
-await db.execute(sql`drop schema if exists public cascade`);
-await db.execute(sql`drop schema if exists drizzle cascade`);
-await db.execute(sql`create schema public`);
-await runMigrations(db, url);
-console.log("database wiped and migrated");
+if (LIVE) {
+  await runMigrations(db, url);
+  const [existing] = await db.select({ id: spaces.id }).from(spaces).where(eq(spaces.slug, "rhea")).limit(1);
+  if (existing) {
+    console.error(`live seed: the demo companies already exist on ${host}; nothing was changed.`);
+    await h.close();
+    process.exit(1);
+  }
+  console.log(`live seed: adding the demo to ${host} (nothing is deleted)`);
+} else {
+  // wipe: drop every table and re-run migrations from scratch
+  await db.execute(sql`drop schema if exists public cascade`);
+  await db.execute(sql`drop schema if exists drizzle cascade`);
+  await db.execute(sql`create schema public`);
+  await runMigrations(db, url);
+  console.log("database wiped and migrated");
+}
 
 const network = process.env.NEAR_NETWORK === "testnet" ? "testnet" : "mainnet";
 const USDC = (n: number) => (BigInt(n) * 1_000_000n).toString();
@@ -377,7 +402,15 @@ for (const co of COMPANIES) {
     socials: {},
     buildingStyle: co.style,
   });
-  const logo = await storeImage(db, { userId: me.userId, organizationId: space.organizationId, purpose: "logo", data: readFileSync(fileURLToPath(new URL(`./demo-logos/${co.logo}`, import.meta.url))) });
+  const logoBytes = readFileSync(fileURLToPath(new URL(`./demo-logos/${co.logo}`, import.meta.url)));
+  const logo = LIVE
+    ? (
+        await db
+          .insert(uploads)
+          .values({ ownerUserId: me.userId, organizationId: space.organizationId, purpose: "logo", storageKey: `static:/assets/demo-logos/${co.logo}`, mimeType: "image/png", byteSize: logoBytes.length, sha256: createHash("sha256").update(logoBytes).digest("hex"), moderation: "approved" })
+          .returning()
+      )[0]!
+    : await storeImage(db, { userId: me.userId, organizationId: space.organizationId, purpose: "logo", data: logoBytes });
   await db.update(spaces).set({ moderation: "approved", logoUploadId: logo.id }).where(eq(spaces.id, space.id));
   await db.update(organizations).set({ status: "approved" }).where(eq(organizations.id, space.organizationId));
   made.set(co.key, { me, spaceId: space.id, orgId: space.organizationId });
