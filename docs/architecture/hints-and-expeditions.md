@@ -99,12 +99,15 @@ server-side. An unlock is written in the same transaction as the completion that
   entry that has reached the hint's question, and are rate-limited per user and per requirement.
 - **Organizer APIs:** `/api/organizer/campaigns/:id/hints`, `…/hint-options`, `/api/organizer/partners`,
   `/api/organizer/offerings`, `/api/organizer/reviews`, `/api/organizer/expeditions`.
-- **Abuse controls in place:** server-side answers and evidence, per-question attempt limits, verified wallet
-  ownership, `final` finality, unique evidence per campaign, requirement time windows, rate limits, audited reviews,
-  abuse reporting (existing), and fast-completion holds (existing qualification logic).
+- **Abuse controls in place:** server-side answers and evidence, sealed answers, verified wallet ownership,
+  `final` finality, unique evidence per campaign (one transaction satisfies one requirement), requirement time
+  windows, rate limits, audited reviews, and abuse reporting. The full participation design is summarized in the
+  [README](../../README.md#3-designed-for-meaningful-participation).
 
 ## 7. Fairness and compliance
 
 In a funded mission, every hint that needs a financial activity must also have a free path (enforced at publish).
-Activities unlock clues only: more transactions never mean a bigger reward. Trading volume is not proof of a
+Activities unlock clues only: an activity grants no points, entries or prize allocation, and repeating it never
+means a bigger reward. A verified call proves the qualifying function call, not the full business outcome of a
+swap or bridge. Trading volume is not proof of a
 unique human, and the UI never says it is.

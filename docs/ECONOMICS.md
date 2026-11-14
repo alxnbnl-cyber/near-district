@@ -18,6 +18,7 @@ NEAR District is an ecosystem discovery and engagement product. Projects fund pr
 - **Real activity:** hint activities are actual contract calls at the project's own contracts.
 - **Cross-project reach:** partner hints send other projects' players to you, and yours to them.
 - **Trust:** the prize is visibly locked in a smart contract before the mission launches.
+- **Quality of engagement:** because activities unlock clues rather than rewards, a sponsor's prize goes to players who solved the mystery, not to those who repeated the most transactions.
 - **No payout operations:** settlement and payouts are automatic.
 
 ## How the reward model works
@@ -40,7 +41,7 @@ During the mission the prize is locked. The contract only allows it to leave aft
 - **Missions:** every player who correctly solved **all** secrets before the deadline, with a verified payout wallet.
 - **Creative Challenges:** the winners selected by the project's team.
 
-Speed, wallet size and number of transactions do not affect eligibility or share size.
+Speed, wallet size and number of transactions do not affect eligibility or share size, and the mission reward has no random draw. Hint activities unlock clues only; they grant no points, entries or extra allocation. How the gameplay discourages reward farming: [README](../README.md#3-designed-for-meaningful-participation).
 
 ### Equal-share distribution
 

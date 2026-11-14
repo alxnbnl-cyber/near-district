@@ -5,9 +5,9 @@ Scope: the web app, worker and `contracts/prize-vault` as deployed on NEAR Testn
 | Threat | Control | Where |
 |---|---|---|
 | Answer leakage | Answers stored as HMAC digests (text/choice) inside AES-256-GCM ciphertext; numeric targets encrypted; never sent to clients | `server/campaigns.ts`, `core/answers.ts` |
-| Brute-force answers | Per-user, per-question and per-IP rate limits; max attempts; optional cooldown; row-locked progress | `server/play.ts` |
-| Skipping questions / editing client state | Server-authoritative progress; answer must target the current question | `server/play.ts` |
-| Bots & scripted completion | Implausibly fast completions are **held** for manual review; attempt digests enable shared-answer analysis | `server/play.ts`, admin portal |
+| Brute-force answers | Sealed answers: correctness is never returned before the deadline. Saves throttled per user, per secret and per IP; row-locked entries | `server/play.ts` |
+| Editing client state | Server-authoritative entries and scoring; answers locked once the deadline passes; scoring runs server-side after the deadline | `server/play.ts`, `db/sealed.ts` |
+| Bots and scripted or shared answers | Every save is logged with an answer digest and IP hash for shared-answer analysis; admins can revoke a qualification or suspend an account before winners are finalized. Automatic holds for implausibly fast completions are not applied to sealed missions yet. **Reduced, not eliminated.** | `server/play.ts`, admin portal |
 | Sybil / multi-account | Payout requires a verified NEAR wallet (one wallet ↔ one profile); rules state one entry per person; manual review & revocation. **Sybil attacks are reduced, not eliminated.** | auth, admin |
 | Organizer self-dealing | Organizer team members cannot join their own campaigns; eligibility snapshot frozen + committed on-chain; winners can't change after finalize | `assertNotOrganizer`, contract |
 | CSRF | SameSite=Lax cookies + strict Origin/Referer + `Sec-Fetch-Site` checks on every mutation | `server/http.ts` |

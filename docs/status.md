@@ -12,7 +12,7 @@ Legend: ✅ implemented and tested · 🟡 implemented, not fully verified · �
 | Company onboarding, profile and admin approval | ✅ | Wallet-gated host console; integration tests |
 | Missions (Decrypt Secrets) with sealed answers | ✅ | Answers editable until the deadline, scored after it; integration tests and live play |
 | Creative Challenges (submissions, review, team-selected winners) | ✅ | Integration tests |
-| Participation stored and enforced server-side | ✅ | Row-locked progress, attempt limits and cooldowns |
+| Participation stored and enforced server-side | ✅ | Row-locked entries, per-user, per-secret and per-IP save throttles, audited answer log |
 | NEAR wallet sign-in (NEP-413, MyNearWallet and Meteor) | ✅ | Signature and full-access-key checks unit-tested; CSRF origin checks |
 | Organizer-signed transactions (escrow, deposit, refunds) | ✅ testnet | Transaction plans signed in the project's wallet; outcomes re-read from the chain |
 | Progress panel (rank, joined missions, paid rewards with tx links) | ✅ | Live on testnet |
@@ -55,3 +55,4 @@ Legend: ✅ implemented and tested · 🟡 implemented, not fully verified · �
 3. Dedicated device testing on phones and low-end laptops.
 4. Sanctions screening for sponsor and winner wallets before mainnet payouts.
 5. Teammate invitations (editor and reviewer roles exist in the schema and authorization; no UI yet).
+6. Automatic review holds for implausibly fast sealed-mission completions (the threshold is defined in `server/play.ts` but not yet applied when sealed answers are scored).

@@ -6,6 +6,8 @@
 
 <p align="center"><strong>Explore. Play. Earn.</strong></p>
 
+<p align="center"><strong>Connected Discovery</strong> · <strong>Verified On-chain Hints</strong> · <strong>Fair Rewards</strong></p>
+
 <p align="center">
   NEAR District turns ecosystem discovery into connected, playable missions. NEAR projects host mysteries on an interactive map, link their missions together through verified on-chain hints, and fund fixed prize pools that are paid out in equal shares by a smart contract.
 </p>
@@ -56,6 +58,16 @@ NEAR District does not simply display a list of sponsored tasks. It connects mul
 
 ## What makes NEAR District different
 
+Sponsored missions and cross-project quests are familiar ideas in Web3. NEAR District's contribution is how it combines them:
+
+1. **Connected NEAR project discovery** through collaborative missions.
+2. **Mystery-solving gameplay** instead of ordinary task checklists.
+3. **Optional on-chain activities that reveal clues**, rather than producing rewards directly.
+4. **Sealed answers** that remove instant right-or-wrong feedback.
+5. **Equal-share prizes** for every eligible explorer who solves the mystery.
+
+Cross-project collaboration is the heart of the product; the rest of the design makes sure that collaboration produces genuine discovery.
+
 ### 1. Cross-project discovery
 
 A project can publish an **activity offering**: a specific on-chain action at its own contract, such as wrapping NEAR into wNEAR. Partner projects can attach that offering to a hint inside their own mystery.
@@ -65,22 +77,54 @@ When a player reaches that secret, the map moves them across the district to the
 > **Example.** A player starts a mystery hosted by Project A. Secret 2 has an optional hint linked to Project B. The player follows the connection across the map, makes a qualifying contract call at Project B, and NEAR District verifies the transaction through its indexer and RPC checks. The hint unlocks and helps them continue Project A's mystery. At the deadline, solving every secret qualifies them for an equal share of the prize.
 
 - **Project A** delivers a richer, more engaging campaign.
-- **Project B** gains discovery and real, relevant on-chain activity.
+- **Project B** gains discovery and real, relevant on-chain activity at its own contract.
 - **Players** experience several NEAR applications through one connected adventure.
+- **The ecosystem** gains paths between applications: every partnership adds a route that players actually travel.
 
-Partnerships are explicit: a project can only use offerings from partners who have accepted its invitation, and if a partner withdraws an offering, the hint follows the policy the host published with the mission.
+Partnerships are explicit: a project can only use offerings from partners who have accepted its invitation, and if a partner withdraws an offering, the hint follows the policy the host published with the mission. Several missions from different projects can also be chained into an **expedition**, where each chapter opens once the previous ones are complete.
 
-### 2. On-chain activities unlock hints, not rewards
+### 2. Mysteries, not checklists
 
-NEAR District verifies that the player's own wallet made a qualifying smart contract function call: the right contract, the right method, a successful and final transaction. A successful verification unlocks an optional clue. It never pays the player or changes their share of the prize.
+Each mission is a story with a set of secrets. The answers come from the project, its product and the wider ecosystem, so solving them means actually exploring. Hints are optional help along the way, often hosted by a partner project.
 
-More trading, higher volume and repeated contract calls do not increase a player's reward. On-chain interaction becomes part of solving the mystery rather than a way to farm points. The general-purpose verifier confirms a qualifying function call; it does not claim to verify the full business outcome of a swap or bridge.
+### 3. Designed for Meaningful Participation
 
-### 3. Solve together, share equally
+Task-based campaigns often reward repetition: more clicks, more transactions, more entries. NEAR District's mission mechanics are deliberately built so that the way to win is to solve the mystery. The design reduces simple trial-and-error abuse and discourages repetitive reward farming; like any open game, it does not make bots, multiple wallets or answer sharing impossible.
 
-Players lock in answers without seeing whether they are right. Answers stay sealed until the deadline, and players can change them until then. When the mission ends, every eligible player who solved **all** secrets receives the same share of the fixed prize.
+**A. Sealed answers**
 
-There are no speed bonuses, no trading-volume multipliers and no random draws in the mission reward model. Withholding correctness feedback removes the simplest trial-and-error strategy. Together with rate limits, per-question attempt limits and review holds for implausibly fast completions, it keeps the game about solving.
+- Players lock in answers without seeing whether they are right.
+- Answers stay sealed until the mission deadline and are scored only after it.
+- Players can revise an answer any time before the deadline, but they never get an instant right-or-wrong response to test guesses against.
+- This removes the most straightforward brute-force guessing strategy.
+
+**B. On-chain activities unlock hints, not rewards**
+
+- A verified NEAR contract-function call unlocks an optional hint.
+- The activity grants no reward points, no bonus entries and no extra prize allocation.
+- Repeating the transaction does not increase a player's reward.
+- The purpose is project discovery and meaningful interaction, not transaction volume. The general-purpose verifier confirms the qualifying function call; it does not claim to verify the full business outcome of a swap or bridge.
+
+**C. Equal opportunity, equal shares**
+
+- Every eligible explorer can join, free of charge.
+- Everyone who correctly solves **every** secret before the deadline qualifies for an equal share of the fixed prize.
+- Finishing faster does not increase the reward.
+- A larger wallet balance does not increase the reward.
+- Higher transaction volume does not increase the reward.
+- There are no random draws in the Decrypt Secrets reward mechanism.
+
+**D. Additional participation controls**
+
+| Control | How it works |
+|---|---|
+| Server-side answer validation | Answers are checked on the server against HMAC digests inside encrypted rules; correct answers are never sent to the browser |
+| Rate limiting | Answer saves are throttled per user, per secret and per IP; hint verifications and reveals are throttled per user and per requirement |
+| Answer save controls | Each secret keeps one sealed answer per player; every save is logged with a digest, which supports shared-answer analysis |
+| Participation review | Admins can revoke a qualification or suspend an account before winners are finalized, with every decision audited; players can report abuse |
+| Verified wallet ownership | Sign-in requires a NEP-413 signature from a full-access key; each NEAR account links to one profile, and funded missions require a verified payout wallet |
+| One entry per person | Each player has a single entry per mission; a project's own team cannot join its missions |
+| Transaction-proof reuse limits | A hint only counts a transaction signed by the player's verified wallet, and one transaction can satisfy only one requirement per mission |
 
 ## How it works
 
@@ -169,9 +213,20 @@ NEAR District serves NEAR projects that want exposure, engagement and discovery.
 
 Projects pay for a campaign because they want exposure and measurable engagement. New missions, partner activities and connected journeys create recurring reasons for explorers to return and for projects to run campaigns. Future revenue would fund infrastructure, verification services, campaign operations and development. See [Economics](docs/ECONOMICS.md).
 
-## How NEAR is used
+## Why NEAR
 
-NEAR provides the identity, the activity evidence and the settlement layer of the product.
+NEAR District's core product (connected discovery, verifiable gameplay and transparent rewards) depends on NEAR's account model and on-chain evidence. It is not a wallet button added to a quest list: identity, hint verification, prize custody and payouts all run on NEAR primitives.
+
+- **One account across the ecosystem.** NEAR accounts such as `alice.near` are shared by every NEAR application. The account a player signs in with is the same account that calls Project B's contract and receives Project A's prize, so cross-project activity connects without separate identities or account-linking steps.
+- **Transactions as evidence.** A contract-function call on NEAR records the signer, the receiver contract, the method and the outcome. That record lets NEAR District check a player's interaction with a partner project without the partner building an integration or API.
+- **Independent verification.** NearBlocks indexing finds a player's candidate transactions, and NEAR RPC returns the final execution outcome. Anyone can repeat the same check, including the partner, which sees the activity at its own contract.
+- **Existing wallets for sign-in.** NEP-413 signed messages let players authenticate with the NEAR wallet they already use. The server also confirms on-chain that the signing key is a full-access key of the account.
+- **Transparent fixed-prize escrow.** A NEAR smart contract holds each mission's prize, enforces the deadline and equal shares, and logs every deposit and payout as NEP-297 events.
+- **Direct rewards.** NEP-141 tokens are transferred straight to each winner's NEAR account. There is no claim step and no off-platform payout.
+
+Together, this means a project's prize, a player's qualifying activity and every payout are public, checkable facts on NEAR, and the connections between projects rest on the same accounts players already use across the ecosystem.
+
+### How NEAR is used
 
 | Capability | How NEAR District uses it |
 |---|---|

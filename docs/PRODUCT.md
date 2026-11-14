@@ -100,6 +100,23 @@ Partnerships are explicit and revocable. A project can only use offerings from p
 | Fastest or most active wins | Everyone who solves every secret shares equally |
 | Rewards handled off-platform | Prize locked in and paid by a NEAR smart contract |
 
+Company-sponsored missions and cross-project quests exist elsewhere; NEAR District's model is the combination: connected discovery as the core, mysteries instead of checklists, activities that reveal clues rather than rewards, sealed answers, and equal shares.
+
+### Designed for meaningful participation
+
+The mission mechanics are built so that the way to win is to solve the mystery:
+
+- **Sealed answers** remove instant right-or-wrong feedback, so guesses can't be tested one by one.
+- **Activities unlock hints, not rewards**, so repeating transactions earns nothing extra.
+- **Equal shares** for everyone who solves every secret: speed, wallet size and transaction volume make no difference, and there is no random draw.
+- **Server-side controls** back this up: rate limits, one entry per person, verified wallet ownership, one-use transaction evidence, and admin review of qualifications.
+
+This reduces simple trial-and-error abuse and discourages reward farming; it does not make bots, multiple wallets or answer sharing impossible. Details: [README](../README.md#3-designed-for-meaningful-participation).
+
+### Why NEAR
+
+The design relies on NEAR specifically. One NEAR account works across every NEAR application, so the wallet a player signs in with (NEP-413) is the one that calls a partner's contract and the one that receives the prize. Contract-function calls are public evidence that NearBlocks and NEAR RPC can verify without any partner integration, and the prize is held and paid in NEP-141 tokens by a NEAR escrow contract. Details: [README](../README.md#why-near).
+
 ## Mission types
 
 | Type | Status | How winners are decided |
