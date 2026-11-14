@@ -6,6 +6,8 @@
  *   - publish the camera so the HTML marker layer can follow without React re-renders
  * Project data, markers, selection and search live in React components.
  */
+// Production CSP forbids eval; this module swaps PixiJS's shader/uniform code generation for eval-free versions.
+import "pixi.js/unsafe-eval";
 import { Application, Assets, Container, Graphics, Sprite, type FederatedPointerEvent } from "pixi.js";
 import { coastXAt, distToPolyline, type Atlas, type Pt } from "@yielvy/core/world";
 import { MAP_THEME } from "./theme";
