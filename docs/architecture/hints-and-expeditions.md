@@ -1,9 +1,11 @@
-# Hint Quests & Cooperative Expeditions
+# Hint quests and cooperative expeditions
+
+Product overview: [PRODUCT.md](../PRODUCT.md) · Reward rules: [ECONOMICS.md](../ECONOMICS.md)
 
 Explore → complete activities → unlock hints → solve the hunt → qualify under the hunt's published rules.
 
-Activities never pay anything by themselves. They only unlock clues. Rewards still come exclusively from
-the existing campaign reward engine (qualifications → eligibility snapshot → vault allocation).
+Activities never pay anything by themselves. They only unlock clues. Rewards still come only from the
+mission's funded prize: qualified players → frozen winner list → equal shares paid by the [prize vault](prize-vault.md).
 
 ## 1. Integration assessment (what already existed)
 
@@ -28,9 +30,12 @@ the existing campaign reward engine (qualifications → eligibility snapshot →
 | `internal_question_sequence` | **Implemented** | Hunt `progress ≥ N` (first N questions solved). |
 | `internal_contest_entry` | **Implemented** | Submission exists and isn't withdrawn or rejected. |
 | `manual_review` | **Implemented** | Player submits text/link → the *activity owner's* reviewers approve or reject; the decision is audited. |
-| `near_rhea_swap` | **Implemented** | Final tx on mainnet, signed by the user's verified wallet; a **successful** receipt executed by `v2.ref-finance.near` logging `Swapped <in> <token_in> for <out> <token_out>`. Exact token contract ids, minimum input amount, time window. |
-| `near_rhea_lending_supply` | **Implemented** | Final tx signed by the user's wallet; a successful receipt by `contract.main.burrow.near` emitting NEP-297 `{"standard":"burrow","event":"deposit"}` for that account and token; amount converted from Burrow internal units with the live `extra_decimals`; optional holding period re-checked against `get_account` after it elapses. |
-| Liquidity provision, asset holding, NFT ownership, generic contract interaction | Not supported | No adapter yet; disabled in the builder. |
+| `near_contract_call` | **Implemented** | The player's verified wallet successfully called a specific method on a specific contract (e.g. `wrap.testnet::near_deposit`). Candidates come from the NearBlocks indexer; the final outcome is checked on archival RPC (signer, receiver, method, success). |
+| `near_stake` | **Implemented** | A finalized `deposit_and_stake` with a validator pool (factory sub-accounts such as `*.pool.f863973.m0` on testnet). |
+| `meteor_wallet_signin` | **Implemented** | Ownership proven by NEP-413 signature; the wallet app is reported by the wallet itself. |
+| `near_rhea_swap` | **Implemented** | Final tx signed by the user's verified wallet; a **successful** receipt executed by the RHEA exchange (`v2.ref-finance.near`, testnet `ref-finance-101.testnet`) logging `Swapped <in> <token_in> for <out> <token_out>`. Exact token contract ids, minimum input amount, time window. |
+| `near_rhea_lending_supply` | **Implemented** | Final tx signed by the user's wallet; a successful receipt by RHEA Lending (`contract.main.burrow.near`, testnet `contract.1638481328.burrow.testnet`) emitting NEP-297 `{"standard":"burrow","event":"deposit"}` for that account and token; amount converted from Burrow internal units with the live `extra_decimals`; optional holding period re-checked against `get_account` after it elapses. |
+| Liquidity provision, asset holding, NFT ownership | Not supported | No adapter yet; disabled in the builder. |
 | Partner API (signed events) | Not supported | Needs a per-partner key-exchange and consent trust model; disabled. |
 | "Swap using Meteor" | **Not supported** | A Meteor in-wallet swap routes through other DEXes and leaves no attribution we can verify. We offer the generic RHEA swap quest instead. |
 | USD-denominated thresholds | Not supported | No defensible execution-time price source is integrated; token-denominated only. |
@@ -81,16 +86,15 @@ server-side. An unlock is written in the same transaction as the completion that
   Chapter N opens when chapters 1…N-1 are complete.
 - **Rewards:** V1 supports a single organizer-funded expedition. The primary organizer can designate one of
   its own campaigns as the *reward chapter*. Joining that campaign requires a completed expedition. Its prize
-  is funded and paid by the existing vault and reward engine. Multi-sponsor reserves are deferred until the
-  vault accounting is reviewed for shared principal.
+  is funded and paid by the prize vault like any other mission. Multi-sponsor prizes are not supported.
 
 ## 6. Operations
 
 - **Worker:** `hints.reconcile` runs every 60 s and re-checks pending on-chain verifications (not final yet,
   holding period, RPC outage) with the same engine the web app uses. It gives up after 60 attempts and marks
   the verification failed with a reason; nothing stays pending forever.
-- **Mainnet only for RHEA:** wallet ownership is proven per network, so on-chain activities are selectable only
-  when `NEAR_NETWORK=mainnet`. On testnet they're shown as unavailable in the builder.
+- **Per-network verification:** on-chain activities are verified on the deployment's own network
+  (`NEAR_NETWORK`), against that network's contracts. The live demo runs on testnet.
 - **Player APIs:** `POST /api/campaigns/:id/hints/:hintId/verify` and `…/reveal`. They require a joined, in-progress
   entry that has reached the hint's question, and are rate-limited per user and per requirement.
 - **Organizer APIs:** `/api/organizer/campaigns/:id/hints`, `…/hint-options`, `/api/organizer/partners`,
@@ -101,5 +105,6 @@ server-side. An unlock is written in the same transaction as the completion that
 
 ## 7. Fairness and compliance
 
-Every paid or financial activity hint should sit next to a free alternative. The builder warns when a hint
-has only on-chain paths. Trading volume is not proof of a unique human, and the UI never says it is.
+In a funded mission, every hint that needs a financial activity must also have a free path (enforced at publish).
+Activities unlock clues only: more transactions never mean a bigger reward. Trading volume is not proof of a
+unique human, and the UI never says it is.

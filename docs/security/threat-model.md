@@ -1,4 +1,6 @@
-# Threat model & controls
+# Threat model and controls
+
+Scope: the web app, worker and `contracts/prize-vault` as deployed on NEAR Testnet. Controls reduce risk; they do not make the system bot-proof.
 
 | Threat | Control | Where |
 |---|---|---|
@@ -14,21 +16,24 @@
 | Malicious links | http(s) only, no credentials, `rel="noopener noreferrer nofollow ugc"`, reporting | schemas, UI |
 | Session theft | httpOnly, Secure (prod), hashed tokens in DB, revocation, "sign out everywhere"; finance actions need a wallet signature ≤12 h old | `server/session.ts`, `authz.ts` |
 | Fake wallet ownership | NEP-413 signature over a single-use 32-byte nonce + RPC check that the key is a **full-access** key of the account | `near/nep413.ts` |
-| Forged tx success | Every client-reported tx hash is re-fetched (`wait_until: FINAL`); signer, receiver, success and the vault's own events must match | `server/claims.ts`, `server/funding.ts` |
+| Forged tx success | Every client-reported tx hash is re-fetched (`wait_until: FINAL`); signer, receiver, success and the vault's own events must match | `server/funding.ts`, `server/hints.ts` |
 | Float money bugs | bigint everywhere; numeric(78,0) in Postgres; `parseUnits` rejects excess precision | `core/money.ts` |
 | Admin balance edits | No endpoint edits balances; ledger is append-only (trigger); corrections need proposer ≠ approver | migrations, schema |
 | Spreadsheet injection | CSV export neutralizes `= + - @` prefixes | `server/contest.ts` |
 | Duplicate workers | `FOR UPDATE SKIP LOCKED`, globally unique idempotency keys, chain-state checks before every operator tx | `apps/worker` |
 | Contract: unauthorized withdrawal | Prize tokens leave only to posted winners (one equal share each) or back to the sponsor | `contracts/prize-vault` |
-| Contract: double claim / replay | Claim key (campaign, period, account) + Merkle leaf bound to predecessor | `periods.rs` |
-| Contract: callback forgery | `#[private]` callbacks; op-id matching | `lending.rs` |
-| Contract: rogue upgrade | Owner-only proposal, ≥72 h timelock, guardian can cancel, hash-pinned code | `upgrade.rs` |
-| Contract: operator key compromise | Can't transfer funds; reservations capped per period by sponsor; results vetoable for 24 h; guardian pause | contract |
+| Contract: double payout | Winners posted once per mission with duplicates rejected; each winner index is paid once and marked paid in the callback | `lib.rs` (`finalize`, `on_share_sent`) |
+| Contract: early or partial settlement | `finalize` only after the on-chain deadline; share fixed as `floor(prize / winners)` | `lib.rs` |
+| Contract: wrong token or sender | `ft_on_transfer` accepts only the configured token, from the mission's sponsor, before the deadline; otherwise panics so the token refunds | `lib.rs` |
+| Contract: callback forgery | `#[private]` payout and refund callbacks | `lib.rs` |
+| Contract: operator key compromise | The operator can only post a winner list once per mission after the deadline; it can't change share size or send funds elsewhere. The owner rotates it with `set_operator`. Residual risk: a compromised operator could post a wrong winner list for a mission past its deadline | `lib.rs` |
+| Contract: operator never settles | Sponsor reclaims the full prize with `refund_unsettled` 14 days after the deadline | `lib.rs` |
+| Contract: code change | No upgrade method; redeploying requires the vault account's key | deployment |
 
 ## Before public mainnet funds
 
 - [ ] Independent smart-contract audit of `contracts/prize-vault` (focus: ft_on_transfer checks, share maths, payout and refund callbacks)
-- [ ] Testnet run of the full lifecycle against a real RHEA deployment
-- [ ] Owner = multisig (e.g. Sputnik DAO / multisig contract), guardian = separate key, operator = function-call key
+- [ ] Owner = multisig (e.g. a Sputnik DAO or multisig contract); operator = a separate account whose key lives only in the secret manager
+- [ ] Consider an on-chain dispute window before payouts for high-value missions
 - [ ] Dependency + secret scanning in CI (`pnpm audit`, `cargo audit`, gitleaks)
 - [ ] Bug bounty scope published

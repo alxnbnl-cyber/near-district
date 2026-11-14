@@ -1,24 +1,26 @@
 # Incident response
 
+The prize vault has no pause switch: its guarantees (funds go only to posted winners or back to the sponsor, nothing before the deadline) hold without operator action. Incidents are handled by stopping the worker, rotating keys and using the sponsor refund paths.
+
 ## Severity
-- **SEV1** — funds at risk (reconciliation shortfall, unexpected outflow, flagged RHEA op, RHEA paused/exploited, key compromise)
-- **SEV2** — payouts or funding blocked (worker dead, RPC outage, 1Click outage)
-- **SEV3** — degraded UX
+- **SEV1**: funds at risk (reconciliation shortfall, unexpected outflow, operator key compromise)
+- **SEV2**: payouts or funding blocked (worker down, RPC or indexer outage, dead payout jobs)
+- **SEV3**: degraded experience (map, hints or uploads failing)
 
 ## SEV1 playbook
-1. **Pause** with the guardian key (no app involvement):
+1. **Stop the worker** so no new `finalize` or `payout` calls are sent.
+2. **Operator key suspected?** The owner calls `set_operator` with a fresh account, then deletes the old key:
    ```bash
-   near contract call-function as-transaction $VAULT pause json-args '{"all":true}' prepaid-gas '10 Tgas' attached-deposit '0 NEAR' sign-as $GUARDIAN network-config mainnet sign-with-keychain send
+   near contract call-function as-transaction $VAULT set_operator json-args '{"operator_id":"<new-operator>"}' prepaid-gas '10 Tgas' attached-deposit '0 NEAR' sign-as $OWNER network-config testnet sign-with-keychain send
    ```
-   `all:false` keeps claims and sponsor withdrawals open (preferred if only inflows/operator are suspect).
-2. Veto any finalized-but-not-yet-claimable period that looks wrong: `veto_period`.
-3. Operator key suspected? Owner multisig calls `set_operator` to a fresh account; delete the old function-call key.
-4. Snapshot evidence: `get_totals`, `check_invariants`, RHEA `get_account`, latest reconciliation run, audit log export.
-5. Communicate status honestly on the site banner and to affected organizers within 24 h.
-6. Unpause only via the owner multisig after root cause is fixed and reconciliation is `ok`.
+   Update `OPERATOR_ACCOUNT_ID` and `OPERATOR_PRIVATE_KEY` on the worker before restarting it.
+3. **Snapshot evidence:** `get_config`, `get_mission` and `get_winners` for affected missions, the token balance of the vault, the latest `vault.reconcile` result, and an audit log export.
+4. **Unsettled missions** stay safe in the vault. If settlement can't resume, each sponsor can reclaim its prize with `refund_unsettled` 14 days after the deadline.
+5. Communicate status honestly on the site and to affected projects within 24 h.
+6. Restart the worker only after the cause is fixed and reconciliation is `ok`.
 
-## Flagged RHEA operation (`op_flagged`)
-The vault keeps the lock and pauses inflows. Investigate RHEA state and the tx. If nothing should be credited, guardian calls `clear_flagged_op` (it can never credit funds). If funds should have been credited, that requires a reviewed contract upgrade — never a manual balance edit.
+## Failed payouts
+A failed transfer is recorded as `reward_failed`. The worker registers the winner with the token if needed and calls `retry_payouts`. Anyone can call `payout` or `retry_payouts`; funds still go only to the posted winners.
 
-## Worker / RPC outage
-Jobs are durable; nothing is lost. Restart the worker; add a fallback RPC in `NEAR_RPC_URLS`. Dead jobs appear in the admin portal; requeue after fixing the cause.
+## Worker, RPC or indexer outage
+Jobs are durable; nothing is lost. Restart the worker; add a fallback RPC in `NEAR_RPC_URLS`. Hint verifications waiting on the indexer or RPC are re-checked by `hints.reconcile`. Dead jobs appear in the admin portal; requeue them after fixing the cause.

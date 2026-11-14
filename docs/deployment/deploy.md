@@ -27,7 +27,7 @@ Migrations are additive-first; destructive changes ship in a later release after
 ## Rollback
 - App: redeploy the previous image (both services). Migrations are backwards-compatible within one release.
 - Database: restore PITR snapshot to a new instance, verify, then switch `DATABASE_URL`. Chain state is authoritative — after restore, run the worker's ledger indexer and reconciliation to catch up.
-- Contract: no instant rollback by design. Propose the previous code hash via the timelock, or pause.
+- Contract: the prize vault has no upgrade method. Redeploying earlier code (with the vault account key) keeps state only if the storage layout is unchanged; funded missions stay protected by the sponsor refund paths. Prefer a new vault account for incompatible changes.
 
 ## Backups
 - Managed daily snapshots + point-in-time recovery (≥7 days).

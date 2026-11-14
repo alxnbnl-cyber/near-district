@@ -1,7 +1,7 @@
 /**
  * Explicit token allowlist. Similarly named assets are NOT interchangeable.
  * Mainnet values verified 2026-11-07 against on-chain ft_metadata, RHEA get_asset
- * and the live 1Click /v0/tokens list. See docs/architecture/external-verification.md.
+ * and the live 1Click /v0/tokens list. See docs/archive/external-verification.md.
  */
 export type NetworkId = "mainnet" | "testnet";
 

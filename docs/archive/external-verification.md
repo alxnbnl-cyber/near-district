@@ -1,3 +1,5 @@
+> **Archived.** Read-only checks of external contracts made during early development. It describes earlier designs (some no longer in the product) and is kept for history only. Current docs: [README](../../README.md), [PRODUCT](../PRODUCT.md), [ECONOMICS](../ECONOMICS.md), [architecture](../architecture/overview.md).
+
 # External facts — verified, not assumed
 
 Re-run any time: `pnpm verify:live` (read-only; signs nothing, moves nothing).

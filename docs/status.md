@@ -1,58 +1,57 @@
-# Release status (honest)
+# Release status
 
-Legend: ✅ implemented and tested here · 🟡 implemented, not verified end-to-end against live chain · ⛔ not done / blocked
+NEAR District runs as a working **NEAR Testnet** deployment at https://neardistrict.quest/. All prize amounts are testnet USDC with no monetary value. Evidence: [DEMO.md](DEMO.md).
 
-| Acceptance criterion | Status | Evidence / blocker |
+Legend: ✅ implemented and tested · 🟡 implemented, not fully verified · ⛔ not built
+
+## Core product
+
+| Area | Status | Evidence |
 |---|---|---|
-| Public exploration world renders and works | ✅ | PixiJS world with districts, buildings, signs, open plots, search/filter, panel, keyboard, list view; verified in browser |
-| Real Spaces appear as interactive buildings | ✅ | Approved Spaces only; deterministic, collision-free plots (unit-tested) |
-| Organizations can create and manage Spaces | ✅ | Wallet-gated onboarding, settings, uploads, admin approval; integration + browser tested |
-| Treasure Hunt can be created and completed | ✅ | Builder (3 question types, reorder, preview), publish, play; tested + full browser run |
-| Creative Contest accepts and reviews submissions | ✅ | Submit, weighted review history, shortlist/reject, winners after deadline, CSV; integration tested |
-| Participation stored and verified server-side | ✅ | Row-locked progress, current-question enforcement, attempts/cooldowns |
-| Reward selection rules enforceable | ✅ / 🟡 | Allocation engine unit-tested; on-chain caps/limits contract-tested; live chain run pending |
-| Users authenticate securely | ✅ / 🟡 | Email magic link verified in browser; NEP-413 verification unit-tested; **real wallet sign-in not exercised** (needs a real wallet) |
-| Organizers authenticate and authorize transactions | 🟡 | Step-up + user-signed tx plans + on-chain verification implemented; not exercised with a real wallet |
-| On-chain prize funding and payout | ✅ testnet | `contracts/prize-vault` on `neardistrict-vault.testnet`; demo missions funded with testnet USDC; worker settled the warm-up mission and paid the winner on-chain |
-| RHEA integration verified against real contracts | 🟡 | Contract addresses, methods, decimals, views verified live (read-only); supply/withdraw not executed live |
-| Supply and withdrawal workflows work | 🟡 | Contract tests incl. failure paths; live run pending |
-| Financial records reconcile with on-chain state | ✅ testnet | `vault.reconcile` checks the vault token balance covers every mission's unpaid prize |
-| Direct bonus reward funding works | 🟡 | Contract tests; live pending |
-| Rewards cannot exceed reserved funds | ✅ | Contract (`ERR_ALLOCATION_EXCEEDS_RESERVE`, overclaim checks) + engine invariants tested |
-| Double claims prevented | ✅ | Contract tests (double claim, replay, redirect, inflation) |
-| Real reward claims work on NEAR | 🟡 | Claim tx builder + on-chain confirmation implemented; live pending |
-| At least one cross-chain funding route works | 🟡 | Live 1Click token list + **real dry quote** (Base USDC→NEAR USDC) verified; no real bridged deposit executed |
-| Failed/refunded/pending operations handled | ✅ / 🟡 | State machines + contract failure tests + worker retries/dead-letter; live pending |
-| Sponsor exit flow within disclosed constraints | 🟡 | Contract tested; tx plans in UI; live pending |
-| Organizer dashboard displays real data | ✅ | Records labelled "Recorded", chain figures labelled "On-chain", honest "not deployed" state |
-| Admin has operational controls | ✅ | Approvals, holds, reports, suspensions, vault status, dead jobs, audit log |
-| Responsive desktop and mobile | ✅ / 🟡 | List-first on phones, touch pan/pinch; checked at desktop size in browser; dedicated device testing pending |
-| Security tests implemented | ✅ | Contract permission/claim tests, CSRF/replay checks, DB append-only tests, engine abuse tests |
-| End-to-end tests pass | 🟡 | Full hunt flow driven manually in the browser; automated Playwright suite not written yet |
-| Deployment setup documented | ✅ | `docs/deployment`, Dockerfiles, compose, env example, health checks |
-| Real-money verification procedure documented | ✅ | `docs/operations/mainnet-verification.md` |
-| No fake financial data presented as real | ✅ | No seeded balances; estimates labelled; dev seed refuses non-local DBs |
-| No unfinished features advertised as live | ✅ | Product Explorer / More experiences shown as "Coming soon", non-interactive |
-| External security review requirements documented | ✅ | `docs/security/threat-model.md` |
-| Jurisdiction/compliance launch gates documented | ✅ | `docs/compliance/launch-gates.md` |
+| District map with company destinations and mission pins | ✅ | PixiJS map; live on testnet; layout unit-tested |
+| Company onboarding, profile and admin approval | ✅ | Wallet-gated host console; integration tests |
+| Missions (Decrypt Secrets) with sealed answers | ✅ | Answers editable until the deadline, scored after it; integration tests and live play |
+| Creative Challenges (submissions, review, team-selected winners) | ✅ | Integration tests |
+| Participation stored and enforced server-side | ✅ | Row-locked progress, attempt limits and cooldowns |
+| NEAR wallet sign-in (NEP-413, MyNearWallet and Meteor) | ✅ | Signature and full-access-key checks unit-tested; CSRF origin checks |
+| Organizer-signed transactions (escrow, deposit, refunds) | ✅ testnet | Transaction plans signed in the project's wallet; outcomes re-read from the chain |
+| Progress panel (rank, joined missions, paid rewards with tx links) | ✅ | Live on testnet |
+| Responsive layout | ✅ / 🟡 | List-first on phones, touch pan and pinch; no dedicated device testing yet |
 
-## Hint quests & cooperation (2026-11-09)
-| Item | Status | Evidence |
+## Prize vault and rewards
+
+| Area | Status | Evidence |
+|---|---|---|
+| Fixed-prize escrow per mission | ✅ testnet | `neardistrict-vault.testnet`; 15 contract tests |
+| Publish blocked until the prize is on-chain | ✅ | Publish check reads `get_mission` (amount and deadline) |
+| Equal-share settlement and automatic payout | ✅ testnet | Worker paid warm-up mission 22: 20 testnet USDC, tx `FYjZA8bnawFjxuruGiSeN4FkVzrK6LSXrPtxzMS3aq53` |
+| Retries, remainder refund, no-winner refund | ✅ | Contract tests; worker suite against a simulated vault |
+| Sponsor reclaim of an unsettled prize (14 days) | ✅ | Contract tests |
+| Reconciliation of vault balance against unpaid prizes | ✅ testnet | `vault.reconcile` job |
+| Ledger built only from vault events | ✅ | `packages/near/src/vault.ts` tests |
+
+## Hints and cooperation
+
+| Area | Status | Evidence |
 |---|---|---|
 | Hint engine (ANY / ALL, nested groups, versioned unlocks) | ✅ | `packages/core/src/activities.test.ts`, `packages/db/src/hint-engine.ts` |
-| Internal verifiers (campaign, quiz, question sequence, contest entry) | ✅ | `apps/web/src/server/cooperation.test.ts` |
-| Manual review (owner's team, no self-review, audited) | ✅ | same, plus checked in the local app |
-| RHEA swap + lending supply verifiers | ✅ (mainnet deployments) | Decoders tested against real finalized mainnet txs (`packages/near/src/fixtures`); live RPC refusal checked locally |
-| Partner hints (invitations, offerings, withdrawal policy) | ✅ | Acceptance scenario steps 1–20 in `cooperation.test.ts` |
-| Shared expeditions (approval, order, progress, reward chapter, map route) | ✅ | Expedition scenario in `cooperation.test.ts`; route checked on the local map |
-| Partner API, LP, holding, NFT, Meteor attribution, USD thresholds | ⛔ Not supported | Disabled in the builder with the reason shown |
-| Multi-sponsor expedition prizes | ⛔ Deferred | Needs vault accounting review |
+| Internal verifiers (mission completion, quiz, question sequence, challenge entry) | ✅ | `apps/web/src/server/cooperation.test.ts` |
+| Manual review (owner's team, no self-review, audited) | ✅ | Same suite |
+| On-chain verifiers: contract call, RHEA swap, RHEA Lending supply, staking, Meteor sign-in | ✅ | Decoders tested against real finalized transactions (`packages/near/src/fixtures`); contract-call hint live on testnet |
+| Partner hints (invitations, offerings, withdrawal policy) | ✅ | `cooperation.test.ts` |
+| Free path required for financial hints in funded missions | ✅ | Publish check in `apps/web/src/server/hints.ts` |
+| Expeditions (multi-project chapters, reward chapter, map route) | ✅ | `cooperation.test.ts` |
+| Liquidity, holding, NFT, partner API, Meteor-swap activities | ⛔ | Shown as unavailable in the builder, with the reason |
+| Multi-sponsor prizes | ⛔ | Not supported by the vault |
 
-## Known gaps / next steps
+## Tests
+
+135 automated tests: 15 contract tests (`docker compose run --rm contract-tests`) and 120 TypeScript tests (`pnpm test`): core 32, near 31, db 5, web 44, worker 8.
+
+## Known gaps
+
 1. Independent audit of `contracts/prize-vault` before any mainnet deployment.
-2. Automated Playwright E2E suite (explore → hunt → contest → winners → claim).
-3. Real wallet sign-in test (MyNearWallet redirect + Meteor) on a real account.
-4. 1Click quote-signature verification (public key / payload from official docs).
-5. Sanctions screening for sponsor/winner wallets before payouts.
-6. Teammate invitations (editor/reviewer roles exist in the schema and authz, UI not built).
-7. Visible-pane FPS measurement on target devices (scene logic measured at ~0.1 ms/frame with 30 buildings).
+2. Automated browser end-to-end suite (explore → mission → hint → results → payout).
+3. Dedicated device testing on phones and low-end laptops.
+4. Sanctions screening for sponsor and winner wallets before mainnet payouts.
+5. Teammate invitations (editor and reviewer roles exist in the schema and authorization; no UI yet).

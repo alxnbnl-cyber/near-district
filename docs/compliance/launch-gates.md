@@ -5,7 +5,7 @@ Using decentralized technology does not make NEAR District compliant anywhere. R
 | Area | Questions to answer | Status |
 |---|---|---|
 | Operator structure | Which entity operates NEAR District, where, and under which terms? | Open |
-| Digital assets | Does holding/routing sponsor USDC through a vault we upgrade count as custody or a regulated service (e.g. MiCA CASP, US state MTL, MAS DPT)? | Open |
+| Digital assets | Does holding/routing sponsor USDC through a prize escrow contract count as custody or a regulated service (e.g. MiCA CASP, US state MTL, MAS DPT)? | Open |
 | Custody obligations | Disclosures, segregation, insurance, incident reporting | Open |
 | AML / sanctions | Sponsor KYB above thresholds; sanctions screening of sponsor and winner wallets; travel rule applicability | Open — wallet screening hook not built |
 | KYC for winners | Thresholds per jurisdiction for prize payouts | Open |

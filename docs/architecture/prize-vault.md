@@ -3,6 +3,8 @@
 A small escrow contract on NEAR that holds every mission's fixed prize and pays it out in equal shares after the deadline.
 There is no lending, yield or fee logic: the prize a project deposits is exactly what winners share.
 
+Reward rules and fees: [ECONOMICS.md](../ECONOMICS.md) · Live evidence: [DEMO.md](../DEMO.md)
+
 **Testnet deployment:** `neardistrict-vault.testnet`, operator `neardistrict-ops.testnet`, prize token `usdc.fakes.testnet` (testnet USDC, 6 decimals).
 
 ## Lifecycle
@@ -16,7 +18,10 @@ payout(mission)                   anyone, up to 10 transfers per call           
 retry_payouts(mission, indexes)   anyone, re-sends transfers that failed
 withdraw_refund(mission)          anyone, sends what is owed to the sponsor     rounding remainder, or the whole prize
 refund_unsettled(mission)         sponsor, 14 days after the deadline if never finalized
+set_operator(account)             owner, rotates the operator key
 ```
+
+Views: `get_config`, `get_mission(mission_id)`, `get_winners(mission_id, from_index, limit)`.
 
 When every share has landed the mission is `Completed`.
 

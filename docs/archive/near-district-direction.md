@@ -1,3 +1,5 @@
+> **Archived.** The product-direction review written when NEAR District narrowed to a NEAR-only, fixed-prize design. It describes earlier designs (some no longer in the product) and is kept for history only. Current docs: [README](../../README.md), [PRODUCT](../PRODUCT.md), [ECONOMICS](../ECONOMICS.md), [architecture](../architecture/overview.md).
+
 # NEAR District — new direction review
 
 **One-line product:** a game map of the NEAR ecosystem. NEAR projects host missions with a fixed prize; players sign in with a NEAR wallet, solve the mission before the deadline, and everyone who answered correctly splits the prize, paid straight to their NEAR wallet.

@@ -11,6 +11,8 @@
 | Prize token | `usdc.fakes.testnet` (testnet USDC, symbol `USDC.e`, 6 decimals) |
 | Proof of a live payout | tx `FYjZA8bnawFjxuruGiSeN4FkVzrK6LSXrPtxzMS3aq53`: the vault paid 20 USDC to the winner of the warm-up mission |
 
+This is the technical reference. For the product story see [PRODUCT.md](PRODUCT.md), for the reward economy and business model see [ECONOMICS.md](ECONOMICS.md), and for the reviewer walkthrough see [DEMO.md](DEMO.md).
+
 ---
 
 ## 1. The product
@@ -71,7 +73,7 @@
 | `packages/near` | NEAR RPC client, NEP-413 signature verification, contract-call activity verifier (NearBlocks and archival RPC), prize vault client and events |
 | `contracts/prize-vault` | The prize escrow smart contract (Rust, near-sdk 5) |
 | `docs/` | Architecture, security, operations, deployment, status |
-| `video/` | Hackathon video production (not committed) |
+| `video/` | Demo video production (not committed) |
 
 ### Key data (Postgres)
 
@@ -244,7 +246,7 @@ Deadline ─▶ worker scores answers ─▶ finalize(winners) ─▶ payout ─
 
 ### Platform revenue
 
-Currently **none**: the contract takes no cut, and the prize is 100 % for winners. Possible models for later, none implemented: a listing or featured-placement fee for projects, paid partner-hint placements, or a small hosting fee charged outside the prize.
+Currently **none**: the contract takes no cut, and the prize is 100 % for winners. Planned options (campaign hosting fees charged outside the prize, featured discovery placements, premium organizer tools, ecosystem campaigns) are described in [ECONOMICS.md](ECONOMICS.md).
 
 ### Demo data (testnet)
 
@@ -327,5 +329,5 @@ pnpm --filter @near-district/web seed:demo               # local demo (wipes the
 - **Still to do:**
   - wallet sign-in tested end to end on the live domain;
   - multi-sponsor expedition prizes;
-  - a platform revenue model;
+  - the commercial model in [ECONOMICS.md](ECONOMICS.md);
   - optional custom domain for `www` (needs a Railway plan upgrade).
