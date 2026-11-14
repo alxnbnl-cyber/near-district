@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull, notifications } from "@yielvy/db";
+import { and, count, desc, eq, isNull, notifications } from "@near-district/db";
 import { route } from "@/server/http";
 import { db } from "@/server/db";
 

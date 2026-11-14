@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { ActivityDef, RuleNode } from "@yielvy/core";
+import type { ActivityDef, RuleNode } from "@near-district/core";
 import { Notice, inputClass, textareaClass } from "@/components/ui";
 import { frame } from "@/components/explore/frame";
 import { api, ApiError } from "@/lib/api";

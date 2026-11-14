@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { describeActivity, hasFreePath, toTokenUnits, type ActivityDef, type ActivityToken, type RuleNode } from "@yielvy/core";
+import { describeActivity, hasFreePath, toTokenUnits, type ActivityDef, type ActivityToken, type RuleNode } from "@near-district/core";
 import { Badge, Button, Field, Notice, inputClass, textareaClass } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 

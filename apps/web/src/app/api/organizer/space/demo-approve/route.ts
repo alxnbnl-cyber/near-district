@@ -1,4 +1,4 @@
-import { eq, organizations, spaces } from "@yielvy/db";
+import { eq, organizations, spaces } from "@near-district/db";
 import { notFound, route } from "@/server/http";
 import { db } from "@/server/db";
 import { myOrganization } from "@/server/spaces";

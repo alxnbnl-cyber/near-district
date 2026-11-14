@@ -3,7 +3,7 @@
  * uses so the UI can show the SAME numbers the contract will act on.
  * Verified against contract.main.burrow.near on 2026-11-07.
  */
-import { mulDivFloor, parseIntegerString, type AllowedToken } from "@yielvy/core";
+import { mulDivFloor, parseIntegerString, type AllowedToken } from "@near-district/core";
 import type { NearRpc } from "./rpc";
 
 export interface RheaAsset {

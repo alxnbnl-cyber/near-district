@@ -1,6 +1,6 @@
 import "server-only";
-import { getNetwork, primaryToken } from "@yielvy/core";
-import { NearRpc, RheaClient, VaultClient } from "@yielvy/near";
+import { getNetwork, primaryToken } from "@near-district/core";
+import { NearRpc, RheaClient, VaultClient } from "@near-district/near";
 import { env } from "./env";
 
 let rpc: NearRpc | undefined;

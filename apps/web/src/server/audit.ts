@@ -1,5 +1,5 @@
 import "server-only";
-import { auditLogs, type Db, type Tx } from "@yielvy/db";
+import { auditLogs, type Db, type Tx } from "@near-district/db";
 
 export async function audit(
   db: Db | Tx,

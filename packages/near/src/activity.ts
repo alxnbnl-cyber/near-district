@@ -15,7 +15,7 @@
  *     EVENT_JSON:{"standard":"burrow","event":"deposit","data":[{"account_id","amount","token_id"}]}
  *   with `amount` in Burrow internal units (token decimals + extra_decimals).
  */
-import { activityToken, RHEA_CONTRACTS, RHEA_MAINNET, STAKING_POOL_SUFFIXES, type ActivityDef, type ActivityNetwork } from "@yielvy/core";
+import { activityToken, RHEA_CONTRACTS, RHEA_MAINNET, STAKING_POOL_SUFFIXES, type ActivityDef, type ActivityNetwork } from "@near-district/core";
 import { RpcError, type NearRpc, type ReceiptOutcome, type TxOutcome } from "./rpc";
 import { verifyContractCall, type ContractCallDef, type ContractCallInput, type TxIndexer } from "./contract-call";
 

@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies, headers } from "next/headers";
-import { and, eq, gt, isNull, sessions, users, walletConnections, adminRoles, type Db } from "@yielvy/db";
+import { and, eq, gt, isNull, sessions, users, walletConnections, adminRoles, type Db } from "@near-district/db";
 import { db } from "./db";
 import { env } from "./env";
 import { ipHash, randomToken, sha256Hex } from "./crypto";

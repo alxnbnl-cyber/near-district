@@ -15,12 +15,12 @@ import {
   adminRoles,
   type Db,
   finalizeSealedHunt,
-} from "@yielvy/db";
-import { campaignMachine, type CampaignRules, type CampaignState } from "@yielvy/core";
-import { ledgerMovesForEvent, type NearRpc, type RheaClient, type VaultClient, type VaultEvent } from "@yielvy/near";
-import type { AllowedToken } from "@yielvy/core";
-import { duePendingVerifications, processVerification, type EngineDeps } from "@yielvy/db";
-import { NearActivityVerifier, NearBlocksIndexer, NearRpc as ArchiveRpc, archivalRpcUrls, dispatchOnchain } from "@yielvy/near";
+} from "@near-district/db";
+import { campaignMachine, type CampaignRules, type CampaignState } from "@near-district/core";
+import { ledgerMovesForEvent, type NearRpc, type RheaClient, type VaultClient, type VaultEvent } from "@near-district/near";
+import type { AllowedToken } from "@near-district/core";
+import { duePendingVerifications, processVerification, type EngineDeps } from "@near-district/db";
+import { NearActivityVerifier, NearBlocksIndexer, NearRpc as ArchiveRpc, archivalRpcUrls, dispatchOnchain } from "@near-district/near";
 import { enqueue, RetryLater } from "./queue";
 import { processPeriod } from "./rewards";
 import type { OperatorSigner } from "./operator";
@@ -161,9 +161,9 @@ export async function indexLedger(ctx: JobCtx): Promise<string> {
 }
 
 export async function pruneRateLimits(ctx: JobCtx): Promise<string> {
-  const { rateLimits } = await import("@yielvy/db");
+  const { rateLimits } = await import("@near-district/db");
   await ctx.db.delete(rateLimits).where(lt(rateLimits.windowStart, new Date(Date.now() - 86_400_000)));
-  const { jobs } = await import("@yielvy/db");
+  const { jobs } = await import("@near-district/db");
   // keep finished jobs for a week of operational history; dead jobs stay until handled
   await ctx.db.delete(jobs).where(and(eq(jobs.status, "done"), lt(jobs.updatedAt, new Date(Date.now() - 7 * 86_400_000))));
   return "pruned";

@@ -3,7 +3,7 @@
  * semantics (PGlite, fully migrated). Uses the same services the API routes call; no fake completions.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createTestDb } from "@yielvy/db/testing";
+import { createTestDb } from "@near-district/db/testing";
 import {
   activityCompletions,
   and,
@@ -21,8 +21,8 @@ import {
   type DbHandle,
   type EngineDeps,
   finalizeSealedHunt,
-} from "@yielvy/db";
-import type { RuleNode } from "@yielvy/core";
+} from "@near-district/db";
+import type { RuleNode } from "@near-district/core";
 import { addQuestion, checkPublishable, createDraft, listQuestions, publishCampaign, updateCampaign } from "./campaigns";
 import { getPlayState, joinCampaign, submitAnswer } from "./play";
 import { createSpace } from "./spaces";
@@ -290,7 +290,7 @@ describe("on-chain hint evidence (engine rules with an injected chain port)", ()
     expect(r).toMatchObject({ status: "pending", reason: "not_final" });
     expect((await hintCards(h.db, users_.player3!.userId, (await listQuestions(h.db, hunt))[0]!.id))[0]!.status).toBe("PENDING_VERIFICATION");
     verdict = "verified";
-    const { duePendingVerifications } = await import("@yielvy/db");
+    const { duePendingVerifications } = await import("@near-district/db");
     const due = await duePendingVerifications(h.db, new Date());
     expect(due).toHaveLength(1);
     expect(await processVerification(h.db, deps, due[0]!)).toMatchObject({ status: "verified", unlocked: true });

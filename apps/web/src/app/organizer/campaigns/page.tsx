@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { campaigns, campaignVersions, desc, eq, and } from "@yielvy/db";
-import type { CampaignRules } from "@yielvy/core";
+import { campaigns, campaignVersions, desc, eq, and } from "@near-district/db";
+import type { CampaignRules } from "@near-district/core";
 import { db } from "@/server/db";
 import { getSessionUser } from "@/server/session";
 import { myOrganization } from "@/server/spaces";

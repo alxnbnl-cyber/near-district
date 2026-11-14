@@ -16,21 +16,21 @@
  *     Demo Explorer's wallet (neardistrict-player.testnet) on-chain.
  *   - Without a vault, missions are published unfunded and the map shows their planned prize tagged DEMO.
  *
- *   pnpm --filter @yielvy/web seed:demo
+ *   pnpm --filter @near-district/web seed:demo
  *
  * LIVE (hosted) mode, add-only: never wipes, refuses to run twice, logos point at /public/assets/demo-logos.
  * Put the hosted database URL in .env.railway (DATABASE_URL=..., git-ignored), then:
- *   pnpm --filter @yielvy/web seed:demo -- --live
+ *   pnpm --filter @near-district/web seed:demo -- --live
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { Account, KeyPairSigner, providers } from "near-api-js";
 import { createHash } from "node:crypto";
-import { campaigns, chainTransactions, createDb, organizations, spaces, uploads, users, eq, sql } from "@yielvy/db";
-import { parseVaultEvents } from "@yielvy/near";
+import { campaigns, chainTransactions, createDb, organizations, spaces, uploads, users, eq, sql } from "@near-district/db";
+import { parseVaultEvents } from "@near-district/near";
 import { joinCampaign, submitAnswer } from "../src/server/play";
-import { runMigrations } from "@yielvy/db/migrate";
+import { runMigrations } from "@near-district/db/migrate";
 import { addQuestion, createDraft, listQuestions, publishCampaign, updateCampaign } from "../src/server/campaigns";
 import { createSpace } from "../src/server/spaces";
 import { saveHint } from "../src/server/hints";

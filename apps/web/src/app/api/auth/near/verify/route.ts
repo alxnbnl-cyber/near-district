@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { and, authChallenges, eq, gt, isNull, userIdentities, users, walletConnections } from "@yielvy/db";
-import { verifyAccountOwnership } from "@yielvy/near";
+import { and, authChallenges, eq, gt, isNull, userIdentities, users, walletConnections } from "@near-district/db";
+import { verifyAccountOwnership } from "@near-district/near";
 import { badRequest, body, conflict, forbidden, route } from "@/server/http";
 import { db } from "@/server/db";
 import { env } from "@/server/env";

@@ -5,7 +5,7 @@
  * mainnet procedures in docs/operations.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createTestDb } from "@yielvy/db/testing";
+import { createTestDb } from "@near-district/db/testing";
 import {
   blockchainOperations,
   campaigns,
@@ -24,9 +24,9 @@ import {
   users,
   walletConnections,
   type DbHandle,
-} from "@yielvy/db";
-import type { CampaignRules } from "@yielvy/core";
-import type { VaultClient, VaultMission, VaultWinner } from "@yielvy/near";
+} from "@near-district/db";
+import type { CampaignRules } from "@near-district/core";
+import type { VaultClient, VaultMission, VaultWinner } from "@near-district/near";
 import { backoffSeconds, claim, complete, enqueue, fail } from "./queue";
 import { processPeriod } from "./rewards";
 import { RetryLater } from "./queue";

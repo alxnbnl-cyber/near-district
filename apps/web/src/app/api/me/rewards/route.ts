@@ -1,5 +1,5 @@
-import { campaigns, desc, eq, rewardAllocations, rewardClaims, rewardPeriods, spaces } from "@yielvy/db";
-import { formatDisplay } from "@yielvy/core";
+import { campaigns, desc, eq, rewardAllocations, rewardClaims, rewardPeriods, spaces } from "@near-district/db";
+import { formatDisplay } from "@near-district/core";
 import { route } from "@/server/http";
 import { db } from "@/server/db";
 import { network, token } from "@/server/near";

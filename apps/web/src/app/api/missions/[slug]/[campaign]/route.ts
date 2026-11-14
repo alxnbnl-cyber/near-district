@@ -1,4 +1,4 @@
-import { and, campaigns, count, desc, eq, inArray, ne, organizations, participantEntries, spaces } from "@yielvy/db";
+import { and, campaigns, count, desc, eq, inArray, ne, organizations, participantEntries, spaces } from "@near-district/db";
 
 import { notFound, route } from "@/server/http";
 import { db } from "@/server/db";

@@ -1,6 +1,6 @@
 import "server-only";
-import { and, campaigns, count, eq, finalizeSealedHunt, organizationMembers, participantEntries, qualifications, questionAttempts, sealedAnswers, spaces, sql, treasureAnswerRules, treasureQuestions, type Db } from "@yielvy/db";
-import { answerDigest, checkAnswer, normalizeText, DEFAULT_TEXT_NORMALIZATION, type AnswerRule, type CampaignRules } from "@yielvy/core";
+import { and, campaigns, count, eq, finalizeSealedHunt, organizationMembers, participantEntries, qualifications, questionAttempts, sealedAnswers, spaces, sql, treasureAnswerRules, treasureQuestions, type Db } from "@near-district/db";
+import { answerDigest, checkAnswer, normalizeText, DEFAULT_TEXT_NORMALIZATION, type AnswerRule, type CampaignRules } from "@near-district/core";
 import { decryptJson, encryptJson } from "./crypto";
 import { env } from "./env";
 import { audit } from "./audit";

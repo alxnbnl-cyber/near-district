@@ -6,7 +6,7 @@
  * Every submission is recorded in blockchain_operations under an idempotency key BEFORE it is
  * sent, and callers re-read chain state before deciding to (re)send.
  */
-import { blockchainOperations, eq, sql, type Db } from "@yielvy/db";
+import { blockchainOperations, eq, sql, type Db } from "@near-district/db";
 
 export interface OperatorCall {
   methodName: string;

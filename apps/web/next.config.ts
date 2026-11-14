@@ -4,7 +4,7 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   devIndicators: false,
-  transpilePackages: ["@yielvy/core", "@yielvy/db", "@yielvy/near"],
+  transpilePackages: ["@near-district/core", "@near-district/db", "@near-district/near"],
   serverExternalPackages: ["@electric-sql/pglite", "pg"],
   images: { unoptimized: true },
   async headers() {

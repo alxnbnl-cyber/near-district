@@ -1,6 +1,6 @@
 import "server-only";
 import { headers } from "next/headers";
-import { analyticsEvents } from "@yielvy/db";
+import { analyticsEvents } from "@near-district/db";
 import { db } from "./db";
 import { dailyVisitorHash } from "./crypto";
 

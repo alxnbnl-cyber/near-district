@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, organizationMembers, spaces, campaigns, type Db } from "@yielvy/db";
+import { and, eq, organizationMembers, spaces, campaigns, type Db } from "@near-district/db";
 import { forbidden, HttpError, notFound } from "./http";
 import { hasFreshWalletProof, type SessionUser } from "./session";
 

@@ -191,6 +191,6 @@ ALTER TABLE "activity_offerings" ADD CONSTRAINT "activity_offerings_status_chk" 
 ALTER TABLE "expedition_chapters" ADD CONSTRAINT "expedition_chapters_pos_chk" CHECK ("position" >= 0);--> statement-breakpoint
 -- Verified evidence and unlocks are immutable once written (deletes only cascade from account removal).
 CREATE TRIGGER activity_completions_immutable BEFORE UPDATE ON "activity_completions"
-  FOR EACH ROW EXECUTE FUNCTION yielvy_forbid_mutation();--> statement-breakpoint
+  FOR EACH ROW EXECUTE FUNCTION near_district_forbid_mutation();--> statement-breakpoint
 CREATE TRIGGER hint_unlocks_immutable BEFORE UPDATE ON "hint_unlocks"
-  FOR EACH ROW EXECUTE FUNCTION yielvy_forbid_mutation();
+  FOR EACH ROW EXECUTE FUNCTION near_district_forbid_mutation();

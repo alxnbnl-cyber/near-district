@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { analyticsEvents, and, campaigns, count, creativeSubmissions, desc, eq, inArray, participantEntries, qualifications, rewardAllocations, rewardClaims, rewardPeriods } from "@yielvy/db";
+import { analyticsEvents, and, campaigns, count, creativeSubmissions, desc, eq, inArray, participantEntries, qualifications, rewardAllocations, rewardClaims, rewardPeriods } from "@near-district/db";
 import { getSessionUser } from "@/server/session";
 import { db } from "@/server/db";
 import { myOrganization } from "@/server/spaces";

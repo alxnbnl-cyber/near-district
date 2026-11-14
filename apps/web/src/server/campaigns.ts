@@ -13,7 +13,7 @@ import {
   treasureAnswerRules,
   treasureQuestions,
   type Db,
-} from "@yielvy/db";
+} from "@near-district/db";
 import {
   buildChoiceRule,
   buildNumericRule,
@@ -24,7 +24,7 @@ import {
   validateRewardConfig,
   type CampaignRules,
   type CampaignState,
-} from "@yielvy/core";
+} from "@near-district/core";
 import { rulesInput, type QuestionInput, type RulesInput } from "@/lib/campaign-schemas";
 import { slugify } from "@/lib/schemas";
 import { encryptJson } from "./crypto";

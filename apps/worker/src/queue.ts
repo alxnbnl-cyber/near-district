@@ -10,7 +10,7 @@
  *  - bounded exponential backoff, then `dead` (surfaced in the admin portal)
  *  - idempotency keys de-duplicate pending/running jobs
  */
-import { jobs, sql, type Db, type Tx } from "@yielvy/db";
+import { jobs, sql, type Db, type Tx } from "@near-district/db";
 
 export interface EnqueueOptions {
   runAt?: Date;

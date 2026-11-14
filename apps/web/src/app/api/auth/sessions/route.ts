@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { eq, sessions } from "@yielvy/db";
+import { eq, sessions } from "@near-district/db";
 import { route } from "@/server/http";
 import { db } from "@/server/db";
 import { SESSION_COOKIE } from "@/server/session";

@@ -1,30 +1,30 @@
 -- Append-only enforcement: financial event log and audit log can never be edited or deleted.
-CREATE OR REPLACE FUNCTION yielvy_forbid_mutation() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION near_district_forbid_mutation() RETURNS trigger AS $$
 BEGIN
   RAISE EXCEPTION 'table % is append-only', TG_TABLE_NAME USING ERRCODE = 'insufficient_privilege';
 END;
 $$ LANGUAGE plpgsql;
 --> statement-breakpoint
 CREATE TRIGGER ledger_entries_append_only BEFORE UPDATE OR DELETE ON "ledger_entries"
-  FOR EACH ROW EXECUTE FUNCTION yielvy_forbid_mutation();
+  FOR EACH ROW EXECUTE FUNCTION near_district_forbid_mutation();
 --> statement-breakpoint
 CREATE TRIGGER audit_logs_append_only BEFORE UPDATE OR DELETE ON "audit_logs"
-  FOR EACH ROW EXECUTE FUNCTION yielvy_forbid_mutation();
+  FOR EACH ROW EXECUTE FUNCTION near_district_forbid_mutation();
 --> statement-breakpoint
 CREATE TRIGGER vault_positions_append_only BEFORE UPDATE OR DELETE ON "vault_positions"
-  FOR EACH ROW EXECUTE FUNCTION yielvy_forbid_mutation();
+  FOR EACH ROW EXECUTE FUNCTION near_district_forbid_mutation();
 --> statement-breakpoint
 CREATE TRIGGER submission_reviews_append_only BEFORE UPDATE OR DELETE ON "submission_reviews"
-  FOR EACH ROW EXECUTE FUNCTION yielvy_forbid_mutation();
+  FOR EACH ROW EXECUTE FUNCTION near_district_forbid_mutation();
 --> statement-breakpoint
 CREATE TRIGGER campaign_versions_append_only BEFORE UPDATE OR DELETE ON "campaign_versions"
-  FOR EACH ROW EXECUTE FUNCTION yielvy_forbid_mutation();
+  FOR EACH ROW EXECUTE FUNCTION near_district_forbid_mutation();
 --> statement-breakpoint
 -- An eligibility snapshot is frozen the moment it is written.
 CREATE TRIGGER eligibility_snapshots_frozen BEFORE DELETE ON "eligibility_snapshots"
-  FOR EACH ROW EXECUTE FUNCTION yielvy_forbid_mutation();
+  FOR EACH ROW EXECUTE FUNCTION near_district_forbid_mutation();
 --> statement-breakpoint
-CREATE OR REPLACE FUNCTION yielvy_snapshot_only_tx_hash() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION near_district_snapshot_only_tx_hash() RETURNS trigger AS $$
 BEGIN
   IF NEW.participants IS DISTINCT FROM OLD.participants
      OR NEW.commitment IS DISTINCT FROM OLD.commitment
@@ -37,7 +37,7 @@ END;
 $$ LANGUAGE plpgsql;
 --> statement-breakpoint
 CREATE TRIGGER eligibility_snapshots_immutable BEFORE UPDATE ON "eligibility_snapshots"
-  FOR EACH ROW EXECUTE FUNCTION yielvy_snapshot_only_tx_hash();
+  FOR EACH ROW EXECUTE FUNCTION near_district_snapshot_only_tx_hash();
 --> statement-breakpoint
 -- Money columns must never be negative (ledger deltas excepted).
 ALTER TABLE "funding_orders" ADD CONSTRAINT funding_orders_amount_pos CHECK (amount > 0);

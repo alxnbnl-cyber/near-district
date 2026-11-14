@@ -1,4 +1,4 @@
-import { DISTRICTS } from "@yielvy/core/world";
+import { DISTRICTS } from "@near-district/core/world";
 import { Badge } from "@/components/ui";
 import type { ActivityFlag } from "@/world/types";
 

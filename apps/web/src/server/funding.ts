@@ -1,8 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { and, campaigns, chainTransactions, eq, fundingOrders, withdrawalRequests, type Db } from "@yielvy/db";
-import { fundingMachine, parseUnits, type FundingState } from "@yielvy/core";
-import { allLogs, parseVaultEvents, txSucceeded, type NearRpc, type VaultEvent } from "@yielvy/near";
+import { and, campaigns, chainTransactions, eq, fundingOrders, withdrawalRequests, type Db } from "@near-district/db";
+import { fundingMachine, parseUnits, type FundingState } from "@near-district/core";
+import { allLogs, parseVaultEvents, txSucceeded, type NearRpc, type VaultEvent } from "@near-district/near";
 import { audit } from "./audit";
 import { badRequest, conflict, forbidden, HttpError } from "./http";
 import type { SessionUser } from "./session";

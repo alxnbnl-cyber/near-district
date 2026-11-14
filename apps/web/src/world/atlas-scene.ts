@@ -9,7 +9,7 @@
 // Production CSP forbids eval; this module swaps PixiJS's shader/uniform code generation for eval-free versions.
 import "pixi.js/unsafe-eval";
 import { Application, Assets, Container, Graphics, Sprite, type FederatedPointerEvent } from "pixi.js";
-import { coastXAt, distToPolyline, type Atlas, type Pt } from "@yielvy/core/world";
+import { coastXAt, distToPolyline, type Atlas, type Pt } from "@near-district/core/world";
 import { MAP_THEME } from "./theme";
 
 export interface Camera {

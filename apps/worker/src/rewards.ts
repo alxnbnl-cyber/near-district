@@ -27,9 +27,9 @@ import {
   rewardPeriods,
   walletConnections,
   type Db,
-} from "@yielvy/db";
-import { eligibilityCommitment, rewardPeriodMachine, type CampaignRules, type Candidate, type RewardPeriodState } from "@yielvy/core";
-import { parseVaultEvents, VAULT_MAX_PAYOUTS_PER_CALL, VAULT_WINNER_STORAGE, type VaultClient, type VaultMission } from "@yielvy/near";
+} from "@near-district/db";
+import { eligibilityCommitment, rewardPeriodMachine, type CampaignRules, type Candidate, type RewardPeriodState } from "@near-district/core";
+import { parseVaultEvents, VAULT_MAX_PAYOUTS_PER_CALL, VAULT_WINNER_STORAGE, type VaultClient, type VaultMission } from "@near-district/near";
 import { runOnce, OperatorNotConfigured, type OperatorSigner } from "./operator";
 import { RetryLater } from "./queue";
 

@@ -4,7 +4,7 @@
 
 **On-chain prizes (NEAR testnet):** projects lock each prize in the NEAR District prize vault (`neardistrict-vault.testnet`). After the deadline, the contract pays every winner an equal share straight to their NEAR wallet, and refunds any remainder to the project. Prizes use testnet USDC (`usdc.fakes.testnet`). See [`docs/architecture/prize-vault.md`](docs/architecture/prize-vault.md).
 
-> Status: hackathon build on NEAR testnet. Mainnet needs an audit of `contracts/prize-vault` first. Internal workspace packages are still named `@yielvy/*`.
+> Status: hackathon build on NEAR testnet. Mainnet needs an audit of `contracts/prize-vault` first. Internal workspace packages are still named `@near-district/*`.
 
 ## Repository
 
@@ -24,7 +24,7 @@ docs/             Architecture, security, operations, deployment, compliance, as
 pnpm install
 cp .env.example apps/web/.env.local      # fill secrets (see comments)
 POSTGRES_PASSWORD=... docker compose up -d postgres
-DATABASE_URL=postgres://yielvy:...@127.0.0.1:54329/yielvy pnpm db:migrate
+DATABASE_URL=postgres://neardistrict:...@127.0.0.1:54329/neardistrict pnpm db:migrate
 pnpm dev                                  # web on http://localhost:3210
 pnpm dev:worker                           # worker (same env vars)
 ```
@@ -32,7 +32,7 @@ pnpm dev:worker                           # worker (same env vars)
 Email sign-in prints the magic link to the server log in development. Grant yourself admin after signing in once:
 
 ```bash
-DATABASE_URL=... pnpm --filter @yielvy/db grant-admin -- --email you@example.com
+DATABASE_URL=... pnpm --filter @near-district/db grant-admin -- --email you@example.com
 ```
 
 ## Tests

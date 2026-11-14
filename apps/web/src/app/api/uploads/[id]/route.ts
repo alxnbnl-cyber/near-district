@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { eq, uploads } from "@yielvy/db";
+import { eq, uploads } from "@near-district/db";
 import { db } from "@/server/db";
 import { localStorageAdapter } from "@/server/uploads";
 

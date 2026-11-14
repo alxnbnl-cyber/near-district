@@ -47,7 +47,7 @@ The web app reads the vault and verifies deposits. The worker signs `finalize`, 
 ## 4. Demo data with real on-chain prizes
 
 ```bash
-pnpm --filter @yielvy/web seed:demo            # WARMUP_MINUTES=8 by default
+pnpm --filter @near-district/web seed:demo            # WARMUP_MINUTES=8 by default
 ```
 
 With `VAULT_CONTRACT_ID` set, the seed:

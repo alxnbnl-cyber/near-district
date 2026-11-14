@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { SPACE_CATEGORIES } from "@yielvy/core/world";
+import { SPACE_CATEGORIES } from "@near-district/core/world";
 import { Field, Notice, inputClass } from "@/components/ui";
 import { WalletChooser } from "@/components/auth/WalletChooser";
 import { GameIcon } from "@/components/host/GameIcon";

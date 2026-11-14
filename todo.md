@@ -1,4 +1,4 @@
-# Yielvy — todo
+# NEAR District — todo
 
 ## Accounts & keys (only you can do these)
 - [ ] Create NEAR **testnet** accounts: vault, owner (multisig), operator, guardian, sponsor test wallet, winner test wallet
@@ -24,7 +24,7 @@
 - [ ] Decide which countries (if any) allow random draws → `RANDOM_DRAW_ALLOWED_COUNTRIES`
 
 ## Product & brand
-- [ ] Trademark + domain clearance for "Yielvy"
+- [ ] Trademark + domain clearance for "NEAR District"
 - [ ] Commission building / prop / mascot art (specs in `docs/assets/world-art.md`)
 - [ ] Final platform fee (currently 10% of collected yield in the economics estimate)
 

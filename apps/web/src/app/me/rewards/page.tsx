@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { campaigns, desc, eq, rewardAllocations, rewardClaims, rewardPeriods, spaces } from "@yielvy/db";
-import { formatDisplay } from "@yielvy/core";
+import { campaigns, desc, eq, rewardAllocations, rewardClaims, rewardPeriods, spaces } from "@near-district/db";
+import { formatDisplay } from "@near-district/core";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { Badge, Card, EmptyState, Notice, buttonClass } from "@/components/ui";
 import { getSessionUser } from "@/server/session";

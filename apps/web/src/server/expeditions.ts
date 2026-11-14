@@ -14,8 +14,8 @@ import {
   spaces,
   verifyInternal,
   type Db,
-} from "@yielvy/db";
-import { definitionHash } from "@yielvy/core";
+} from "@near-district/db";
+import { definitionHash } from "@near-district/core";
 import { slugify } from "@/lib/schemas";
 import { audit } from "./audit";
 import { requireOrgRole } from "./authz";

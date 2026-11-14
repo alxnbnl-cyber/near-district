@@ -1,11 +1,11 @@
 import "server-only";
-import { and, campaigns, campaignVersions, count, desc, eq, inArray, organizations, participantEntries, rewardAllocations, rewardClaims, spaces, treasureHints, vaultPositions, worldBuildings } from "@yielvy/db";
-import { leaves, type RuleNode } from "@yielvy/core";
-import { formatDisplay } from "@yielvy/core";
+import { and, campaigns, campaignVersions, count, desc, eq, inArray, organizations, participantEntries, rewardAllocations, rewardClaims, spaces, treasureHints, vaultPositions, worldBuildings } from "@near-district/db";
+import { leaves, type RuleNode } from "@near-district/core";
+import { formatDisplay } from "@near-district/core";
 import { token } from "./near";
 import { demoEnabled, demoLogo, demoPrize } from "./demo";
-import { lotPosition, type DistrictId } from "@yielvy/core/world";
-import type { CampaignRules } from "@yielvy/core";
+import { lotPosition, type DistrictId } from "@near-district/core/world";
+import type { CampaignRules } from "@near-district/core";
 import { db } from "./db";
 import { effectiveStatus } from "./campaigns";
 import { publicExpeditions } from "./expeditions";

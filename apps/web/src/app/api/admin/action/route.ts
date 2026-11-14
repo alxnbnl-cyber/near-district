@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, moderationReports, organizations, qualifications, sessions, spaces, users, campaigns } from "@yielvy/db";
+import { eq, moderationReports, organizations, qualifications, sessions, spaces, users, campaigns } from "@near-district/db";
 import { body, notFound, route } from "@/server/http";
 import { db } from "@/server/db";
 import { requireAdmin } from "@/server/authz";

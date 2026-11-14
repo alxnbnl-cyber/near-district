@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { RuleNode } from "@yielvy/core";
+import type { RuleNode } from "@near-district/core";
 import { plainText, slug } from "./schemas";
 
 const uuid = z.string().uuid();

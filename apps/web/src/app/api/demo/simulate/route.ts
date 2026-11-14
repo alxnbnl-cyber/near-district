@@ -1,4 +1,4 @@
-import { and, campaigns, count, DEMO_REWARD_PERIOD, eq, finalizeSealedEntry, participantEntries, qualifications, rewardAllocations, rewardClaims, rewardPeriods, walletConnections } from "@yielvy/db";
+import { and, campaigns, count, DEMO_REWARD_PERIOD, eq, finalizeSealedEntry, participantEntries, qualifications, rewardAllocations, rewardClaims, rewardPeriods, walletConnections } from "@near-district/db";
 import { z } from "zod";
 import { badRequest, body, notFound, route } from "@/server/http";
 import { db } from "@/server/db";

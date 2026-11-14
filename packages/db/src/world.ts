@@ -1,4 +1,4 @@
-import { districtForCategory, nextFreePlotIndex } from "@yielvy/core";
+import { districtForCategory, nextFreePlotIndex } from "@near-district/core";
 import { eq, sql } from "drizzle-orm";
 import { worldBuildings } from "./schema";
 import type { Tx } from "./index";

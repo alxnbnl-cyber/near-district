@@ -4,7 +4,7 @@ import { Logo } from "@/components/brand/Logo";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { frame, plate } from "./GameHud";
-import { ARTWORK_LOTS, type Atlas } from "@yielvy/core/world";
+import { ARTWORK_LOTS, type Atlas } from "@near-district/core/world";
 import type { AtlasScene } from "@/world/atlas-scene";
 import type { WorldBuildingData } from "@/world/types";
 import { IconChevron } from "./icons";

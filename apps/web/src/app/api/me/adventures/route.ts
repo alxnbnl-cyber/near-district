@@ -1,4 +1,4 @@
-import { and, campaigns, creativeSubmissions, desc, eq, participantEntries, qualifications, spaces } from "@yielvy/db";
+import { and, campaigns, creativeSubmissions, desc, eq, participantEntries, qualifications, spaces } from "@near-district/db";
 import { route } from "@/server/http";
 import { db } from "@/server/db";
 import { effectiveStatus } from "@/server/campaigns";

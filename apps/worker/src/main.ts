@@ -9,9 +9,9 @@
  */
 import { createServer } from "node:http";
 import { hostname } from "node:os";
-import { createDb } from "@yielvy/db";
-import { getNetwork, primaryToken } from "@yielvy/core";
-import { NearRpc, RheaClient, VaultClient } from "@yielvy/near";
+import { createDb } from "@near-district/db";
+import { getNetwork, primaryToken } from "@near-district/core";
+import { NearRpc, RheaClient, VaultClient } from "@near-district/near";
 import { claim, complete, enqueue, fail, reschedule, RetryLater } from "./queue";
 import { HANDLERS, SCHEDULE, type JobCtx } from "./jobs";
 import { createOperatorSigner, OperatorNotConfigured } from "./operator";

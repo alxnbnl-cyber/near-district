@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { eq, organizationMembers, users } from "@yielvy/db";
+import { eq, organizationMembers, users } from "@near-district/db";
 import { getSessionUser } from "@/server/session";
 import { db } from "@/server/db";
 import { myOrganization } from "@/server/spaces";

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { and, desc, eq, gt, isNull, sessions, walletConnections } from "@yielvy/db";
+import { and, desc, eq, gt, isNull, sessions, walletConnections } from "@near-district/db";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { Badge, Card, SectionHeader } from "@/components/ui";
 import { getSessionUser } from "@/server/session";

@@ -26,13 +26,13 @@ importers:
       '@near-wallet-selector/my-near-wallet':
         specifier: 10.1.4
         version: 10.1.4(@near-js/keystores@2.2.5(@near-js/crypto@2.5.1(@near-js/types@2.5.1)(@near-js/utils@2.5.1(@near-js/types@2.5.1)))(@near-js/types@2.5.1))(@near-js/signers@2.5.1(@near-js/crypto@2.5.1(@near-js/types@2.5.1)(@near-js/utils@2.5.1(@near-js/types@2.5.1)))(@near-js/keystores@2.2.5(@near-js/crypto@2.5.1(@near-js/types@2.5.1)(@near-js/utils@2.5.1(@near-js/types@2.5.1)))(@near-js/types@2.5.1))(@near-js/transactions@2.5.1(@near-js/crypto@2.5.1(@near-js/types@2.5.1)(@near-js/utils@2.5.1(@near-js/types@2.5.1)))(@near-js/types@2.5.1)(@near-js/utils@2.5.1(@near-js/types@2.5.1))))(@near-js/tokens@2.5.1)(@near-js/types@2.5.1)
-      '@yielvy/core':
+      '@near-district/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@yielvy/db':
+      '@near-district/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@yielvy/near':
+      '@near-district/near':
         specifier: workspace:*
         version: link:../../packages/near
       near-api-js:
@@ -90,13 +90,13 @@ importers:
 
   apps/worker:
     dependencies:
-      '@yielvy/core':
+      '@near-district/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@yielvy/db':
+      '@near-district/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@yielvy/near':
+      '@near-district/near':
         specifier: workspace:*
         version: link:../../packages/near
       near-api-js:
@@ -140,7 +140,7 @@ importers:
       '@electric-sql/pglite':
         specifier: 0.5.15
         version: 0.5.15
-      '@yielvy/core':
+      '@near-district/core':
         specifier: workspace:*
         version: link:../core
       drizzle-orm:
@@ -177,7 +177,7 @@ importers:
       '@noble/hashes':
         specifier: 2.4.0
         version: 2.4.0
-      '@yielvy/core':
+      '@near-district/core':
         specifier: workspace:*
         version: link:../core
       bs58:

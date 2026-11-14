@@ -32,4 +32,4 @@ Migrations are additive-first; destructive changes ship in a later release after
 ## Backups
 - Managed daily snapshots + point-in-time recovery (≥7 days).
 - Weekly logical dump to separate storage: `pg_dump --format=custom $DATABASE_URL > near-district-$(date +%F).dump`
-- Quarterly restore drill into a scratch database; run `pnpm --filter @yielvy/db test` against it.
+- Quarterly restore drill into a scratch database; run `pnpm --filter @near-district/db test` against it.

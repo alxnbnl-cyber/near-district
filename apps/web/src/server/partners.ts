@@ -14,8 +14,8 @@ import {
   sql,
   treasureHints,
   type Db,
-} from "@yielvy/db";
-import { definitionHash, describeActivity, validateActivity, type ActivityDef } from "@yielvy/core";
+} from "@near-district/db";
+import { definitionHash, describeActivity, validateActivity, type ActivityDef } from "@near-district/core";
 import { audit } from "./audit";
 import { requireOrgRole } from "./authz";
 import { badRequest, conflict, forbidden, notFound } from "./http";

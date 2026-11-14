@@ -1,5 +1,5 @@
 import "server-only";
-import { assignBuildingPlot, eq, organizationMembers, organizations, spaces, and, type Db } from "@yielvy/db";
+import { assignBuildingPlot, eq, organizationMembers, organizations, spaces, and, type Db } from "@near-district/db";
 import type { SpaceInput } from "@/lib/schemas";
 import { audit } from "./audit";
 import { conflict, HttpError } from "./http";

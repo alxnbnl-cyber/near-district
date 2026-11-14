@@ -18,7 +18,7 @@
  * This proves the function was called successfully. It does not claim anything about the business
  * result (what was minted, swapped or staked).
  */
-import type { ActivityDef, ActivityNetwork } from "@yielvy/core";
+import type { ActivityDef, ActivityNetwork } from "@near-district/core";
 import { failedReceipts, RpcError, txSucceeded, type NearRpc, type TxOutcome } from "./rpc";
 import type { OnchainVerdict, VerifyInput } from "./activity";
 

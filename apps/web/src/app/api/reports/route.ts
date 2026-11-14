@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { moderationReports } from "@yielvy/db";
+import { moderationReports } from "@near-district/db";
 import { body, route } from "@/server/http";
 import { db } from "@/server/db";
 import { rateLimit } from "@/server/rate-limit";

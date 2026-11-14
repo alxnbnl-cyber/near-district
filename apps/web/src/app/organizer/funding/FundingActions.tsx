@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { formatUnits, parseUnits } from "@yielvy/core";
+import { formatUnits, parseUnits } from "@near-district/core";
 import { Button, Field, Notice, inputClass } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { sendTransactions, walletOptions, type WalletOption, type FnCall } from "@/lib/wallet";

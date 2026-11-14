@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ARTWORK_LOTS, type Atlas } from "@yielvy/core/world";
+import { ARTWORK_LOTS, type Atlas } from "@near-district/core/world";
 import type { AtlasScene } from "@/world/atlas-scene";
 import TRAFFIC from "@/world/traffic-paths.json";
 

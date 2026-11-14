@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { formatUnits, parseUnits } from "@yielvy/core";
+import { formatUnits, parseUnits } from "@near-district/core";
 import { Button, Field, Notice, buttonClass, inputClass, textareaClass } from "@/components/ui";
 import { StatusBadge } from "@/components/campaign/bits";
 import { GameIcon } from "@/components/host/GameIcon";

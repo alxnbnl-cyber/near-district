@@ -66,7 +66,7 @@ receipt never counts.
 ## 4. Rule engine
 
 `RuleNode = { op: "ANY" | "ALL", children: (RuleNode | ActivityLeaf)[] }`. Nesting is supported and tested.
-Only ANY and ALL are exposed; COUNT and SEQUENCE are reserved. Evaluation is pure (`@yielvy/core`) and always
+Only ANY and ALL are exposed; COUNT and SEQUENCE are reserved. Evaluation is pure (`@near-district/core`) and always
 server-side. An unlock is written in the same transaction as the completion that satisfied the rule.
 
 ## 5. Cooperation

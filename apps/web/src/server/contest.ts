@@ -1,6 +1,6 @@
 import "server-only";
-import { and, campaigns, creativeSubmissions, desc, eq, inArray, submissionReviews, users, type Db } from "@yielvy/db";
-import { weightedScore, type CampaignRules } from "@yielvy/core";
+import { and, campaigns, creativeSubmissions, desc, eq, inArray, submissionReviews, users, type Db } from "@near-district/db";
+import { weightedScore, type CampaignRules } from "@near-district/core";
 import { audit } from "./audit";
 import { badRequest, conflict, forbidden, HttpError, notFound } from "./http";
 import { rateLimit } from "./rate-limit";

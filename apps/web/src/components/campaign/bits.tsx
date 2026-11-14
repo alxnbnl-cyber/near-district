@@ -1,4 +1,4 @@
-import type { CampaignRules, CampaignState } from "@yielvy/core";
+import type { CampaignRules, CampaignState } from "@near-district/core";
 import { Badge } from "@/components/ui";
 
 export const TEMPLATE_LABEL: Record<string, string> = {

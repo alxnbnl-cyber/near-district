@@ -2,17 +2,17 @@
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: yielvy-postgres
+    container_name: near-district-postgres
     environment:
-      POSTGRES_USER: yielvy
+      POSTGRES_USER: neardistrict
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
-      POSTGRES_DB: yielvy
+      POSTGRES_DB: neardistrict
     ports:
       - "127.0.0.1:54329:5432"
     volumes:
-      - yielvy-pgdata:/var/lib/postgresql/data
+      - near-district-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U yielvy"]
+      test: ["CMD-SHELL", "pg_isready -U neardistrict"]
       interval: 5s
       retries: 10
 
@@ -31,6 +31,6 @@ services:
     profiles: ["tools"]
 
 volumes:
-  yielvy-pgdata:
+  near-district-pgdata:
   near-district-cargo-registry:
   near-district-cargo-target:

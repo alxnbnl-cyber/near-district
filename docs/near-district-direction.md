@@ -6,7 +6,7 @@
 
 | Area | Before | NEAR District |
 |---|---|---|
-| Name | Yielvy | **NEAR District** |
+| Name | Previous working name | **NEAR District** |
 | Audience | Web2 + Web3, any chain | **NEAR ecosystem only** |
 | Sign in | Google/email (NEAR Auth), email link, NEAR, EVM, Solana wallets | **NEAR wallets only** (Meteor, MyNearWallet) |
 | Prize | Growing (yield on RHEA) or fixed | **Fixed prize only** |
@@ -48,10 +48,10 @@
 
 ## Rename to NEAR District
 
-- Visible text: page titles/metadata, homepage, HUD title ("YIELVY" → "NEAR DISTRICT"), sign-in, tutorial, host console, emails, docs/README
-- Assets: new logo/wordmark needed (current `yielvy-logo.webp` / `yielvy-mark.webp` contain the Yielvy brand) — provide new art, or a temporary text wordmark
-- Domain/strings: `yielvy.app` links, sign-in message text ("Sign in to Yielvy")
-- Internal package names (`@yielvy/*`), DB name, contract crate name can stay for now (not user-visible); rename later if wanted
+- Visible text: page titles/metadata, homepage, HUD title (→ "NEAR DISTRICT"), sign-in, tutorial, host console, emails, docs/README
+- Assets: new logo/wordmark needed (the previous logo files carried the old brand; now `near-district-logo.webp` / `near-district-mark.webp`) — provide new art, or a temporary text wordmark
+- Domain/strings: old domain links and the old sign-in message text (now "Sign in to NEAR District")
+- Internal package names (`@near-district/*`), DB name, contract crate name can stay for now (not user-visible); rename later if wanted
 
 ## Decisions (2026-11-12)
 
@@ -74,9 +74,9 @@ Done:
 - Prizes are fixed only. The app has no yield UI, ticking rewards, APY, interest deposit, economics panel or harvest step. The worker reserves only the deposited prize.
 - One reward rule. Hunts split the prize equally among everyone who answered every clue correctly; contests split it equally among the winners the company picks. The top-scorers mode, random draws (with their seed and randomness module) and rank shares are gone.
 - NEAR only. The 1Click/Intents code (worker poll, client, env) and app events are removed.
-- The product is renamed to NEAR District: titles, HUD, sign-in message, help, tutorial and README, with a temporary vector mark and text wordmark (`components/brand/Logo.tsx`, `app/icon.svg`). The prize vault was rewritten as a plain escrow (`contracts/prize-vault`, events `near_district_prize_vault`) and deployed on testnet. Only the internal workspace package names remain `@yielvy/*`.
+- The product is renamed to NEAR District: titles, HUD, sign-in message, help, tutorial and README, with a temporary vector mark and text wordmark (`components/brand/Logo.tsx`, `app/icon.svg`). The prize vault was rewritten as a plain escrow (`contracts/prize-vault`, events `near_district_prize_vault`) and deployed on testnet. Only the internal workspace package names remain `@near-district/*`.
 - Migration `0011_near_district_cleanup` drops the external_wallets, partner_*, email_login_tokens and users.payout_destination tables and columns, plus jurisdiction_rules.random_draw_allowed.
-- `pnpm --filter @yielvy/web seed:demo` (local only) wipes the database and seeds RHEA (hunt, 300 USDC), NEAR (contest, 3 winners, 500 USDC) and Meteor (hunt, 200 USDC). With no vault deployed, these missions show their planned prize tagged DEMO.
+- `pnpm --filter @near-district/web seed:demo` (local only) wipes the database and seeds RHEA (hunt, 300 USDC), NEAR (contest, 3 winners, 500 USDC) and Meteor (hunt, 200 USDC). With no vault deployed, these missions show their planned prize tagged DEMO.
 
 Still open:
 - Vault wasm build and testnet deploy (cargo-near toolchain issue). Until it is fixed, real prizes can't be funded.

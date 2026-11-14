@@ -1,8 +1,8 @@
 /**
  * Grants a platform admin role to an existing user (by email or NEAR account). Run by an
  * operator with database access — there is deliberately no self-service path in the app.
- *   DATABASE_URL=... pnpm --filter @yielvy/db grant-admin -- --email you@example.com --role superadmin
- *   DATABASE_URL=... pnpm --filter @yielvy/db grant-admin -- --near alice.near --role moderator
+ *   DATABASE_URL=... pnpm --filter @near-district/db grant-admin -- --email you@example.com --role superadmin
+ *   DATABASE_URL=... pnpm --filter @near-district/db grant-admin -- --near alice.near --role moderator
  */
 import { adminRoles, auditLogs, createDb, eq, sql, userIdentities, users } from "./index";
 

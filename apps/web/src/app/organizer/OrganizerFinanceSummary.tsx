@@ -1,5 +1,5 @@
-import { campaigns, eq, isNotNull, and } from "@yielvy/db";
-import { formatDisplay } from "@yielvy/core";
+import { campaigns, eq, isNotNull, and } from "@near-district/db";
+import { formatDisplay } from "@near-district/core";
 import { db } from "@/server/db";
 import { token, vault } from "@/server/near";
 import { Card, Figure, Notice, SectionHeader } from "@/components/ui";

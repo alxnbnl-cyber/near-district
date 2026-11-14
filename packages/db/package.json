@@ -1,5 +1,5 @@
 {
-  "name": "@yielvy/db",
+  "name": "@near-district/db",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.15",
-    "@yielvy/core": "workspace:*",
+    "@near-district/core": "workspace:*",
     "drizzle-orm": "0.45.4",
     "pg": "8.23.1"
   },

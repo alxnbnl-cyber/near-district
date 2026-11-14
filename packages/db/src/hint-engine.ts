@@ -8,7 +8,7 @@
  * Nothing here pays out. Unlocking a hint only reveals a clue.
  */
 import { and, count, desc, eq, inArray } from "drizzle-orm";
-import { evaluateRule, leaves, type ActivityDef, type ActivityLeaf, type RuleNode } from "@yielvy/core";
+import { evaluateRule, leaves, type ActivityDef, type ActivityLeaf, type RuleNode } from "@near-district/core";
 import type { Db, Tx } from "./index";
 import {
   activityCompletions,
@@ -34,7 +34,7 @@ export class HintEngineError extends Error {
   }
 }
 
-/** Structural mirror of @yielvy/near's OnchainVerdict (injected so this package stays chain-agnostic). */
+/** Structural mirror of @near-district/near's OnchainVerdict (injected so this package stays chain-agnostic). */
 export type OnchainVerdict =
   | { status: "verified"; evidence: { txHash: string; receiptId: string; amount: string; executedAt: string; provider: string } & Record<string, unknown> }
   | { status: "pending"; reason: string; retryAt: Date }

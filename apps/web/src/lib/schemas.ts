@@ -1,6 +1,6 @@
 /** Validation shared by forms (client) and API routes (server). The server always re-validates. */
 import { z } from "zod";
-import { SPACE_CATEGORIES } from "@yielvy/core/world";
+import { SPACE_CATEGORIES } from "@near-district/core/world";
 
 const SAFE_TEXT = /^[^<>]*$/; // plain text only; we never render user HTML
 
@@ -35,7 +35,7 @@ export const slug = z
   .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, "Use lowercase letters, numbers and dashes")
   .refine((s) => !RESERVED_SLUGS.has(s), "That name is reserved");
 
-const RESERVED_SLUGS = new Set(["admin", "api", "yielvy", "neardistrict", "near-district", "organizer", "host", "signin", "me", "help", "support", "official", "team", "staff"]);
+const RESERVED_SLUGS = new Set(["admin", "api", "neardistrict", "near-district", "organizer", "host", "signin", "me", "help", "support", "official", "team", "staff"]);
 
 export const BUILDING_STYLE_IDS = ["workshop", "tower", "market", "atelier", "observatory", "pavilion"] as const;
 

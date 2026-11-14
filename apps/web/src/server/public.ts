@@ -1,6 +1,6 @@
 import "server-only";
-import { and, campaigns, count, desc, eq, inArray, organizations, participantEntries, spaces, vaultPositions, worldBuildings } from "@yielvy/db";
-import { formatDisplay, type CampaignRules } from "@yielvy/core";
+import { and, campaigns, count, desc, eq, inArray, organizations, participantEntries, spaces, vaultPositions, worldBuildings } from "@near-district/db";
+import { formatDisplay, type CampaignRules } from "@near-district/core";
 import { token } from "./near";
 import { demoEnabled, demoPrize } from "./demo";
 import { db } from "./db";

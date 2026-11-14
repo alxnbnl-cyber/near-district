@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { generateAtlas } from "@yielvy/core/world";
+import { generateAtlas } from "@near-district/core/world";
 import type { AtlasScene } from "@/world/atlas-scene";
 import type { WorldData } from "@/world/types";
 import { buttonClass } from "@/components/ui";

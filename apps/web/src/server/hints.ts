@@ -26,7 +26,7 @@ import {
   type Db,
   type EngineDeps,
   type OnchainPort,
-} from "@yielvy/db";
+} from "@near-district/db";
 import {
   ACTIVITY_CATALOGUE,
   activityTokens,
@@ -39,8 +39,8 @@ import {
   type ActivityDef,
   type CampaignRules,
   type RuleNode,
-} from "@yielvy/core";
-import { NearActivityVerifier, NearBlocksIndexer, NearRpc, archivalRpcUrls, dispatchOnchain } from "@yielvy/near";
+} from "@near-district/core";
+import { NearActivityVerifier, NearBlocksIndexer, NearRpc, archivalRpcUrls, dispatchOnchain } from "@near-district/near";
 import type { HintInput } from "@/lib/hint-schemas";
 import { audit } from "./audit";
 import { conflict, badRequest, HttpError, notFound, forbidden } from "./http";

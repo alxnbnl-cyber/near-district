@@ -1,5 +1,5 @@
 {
-  "name": "@yielvy/near",
+  "name": "@near-district/near",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
   "dependencies": {
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
-    "@yielvy/core": "workspace:*",
+    "@near-district/core": "workspace:*",
     "bs58": "6.0.0",
     "zod": "4.6.7"
   },

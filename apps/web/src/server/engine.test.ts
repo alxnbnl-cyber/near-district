@@ -3,8 +3,8 @@
  * No mocks of our own code: these exercise the same services the API routes call.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createTestDb } from "@yielvy/db/testing";
-import { campaigns, eq, organizations, qualifications, spaces, treasureAnswerRules, users, type DbHandle, and, participantEntries } from "@yielvy/db";
+import { createTestDb } from "@near-district/db/testing";
+import { campaigns, eq, organizations, qualifications, spaces, treasureAnswerRules, users, type DbHandle, and, participantEntries } from "@near-district/db";
 import { addQuestion, checkPublishable, createDraft, publishCampaign, reorderQuestions, updateCampaign, listQuestions } from "./campaigns";
 import { getPlayState, joinCampaign, submitAnswer } from "./play";
 import { listSubmissions, reviewSubmission, selectWinners, submitEntry, toCsv } from "./contest";

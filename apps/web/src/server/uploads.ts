@@ -2,7 +2,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { uploads, type Db } from "@yielvy/db";
+import { uploads, type Db } from "@near-district/db";
 import { env } from "./env";
 import { sha256Hex } from "./crypto";
 import { badRequest } from "./http";

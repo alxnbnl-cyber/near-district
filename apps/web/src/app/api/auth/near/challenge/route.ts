@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
-import { authChallenges } from "@yielvy/db";
+import { authChallenges } from "@near-district/db";
 import { body, HttpError, route } from "@/server/http";
 import { db } from "@/server/db";
 import { env } from "@/server/env";

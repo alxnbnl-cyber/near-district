@@ -1,5 +1,5 @@
 import "server-only";
-import { rateLimits, sql, type Db } from "@yielvy/db";
+import { rateLimits, sql, type Db } from "@near-district/db";
 
 export class RateLimitError extends Error {
   constructor(readonly retryAfterSeconds: number) {

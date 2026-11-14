@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { campaigns, creativeSubmissions, desc, eq, participantEntries, qualifications, spaces, and } from "@yielvy/db";
+import { campaigns, creativeSubmissions, desc, eq, participantEntries, qualifications, spaces, and } from "@near-district/db";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { Badge, Card, EmptyState, buttonClass } from "@/components/ui";
 import { StatusBadge, TEMPLATE_LABEL } from "@/components/campaign/bits";

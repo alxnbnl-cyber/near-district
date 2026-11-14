@@ -1,5 +1,5 @@
 {
-  "name": "@yielvy/worker",
+  "name": "@near-district/worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,9 +10,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@yielvy/core": "workspace:*",
-    "@yielvy/db": "workspace:*",
-    "@yielvy/near": "workspace:*",
+    "@near-district/core": "workspace:*",
+    "@near-district/db": "workspace:*",
+    "@near-district/near": "workspace:*",
     "near-api-js": "7.4.0",
     "zod": "4.6.7"
   },

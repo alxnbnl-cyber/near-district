@@ -3,12 +3,12 @@
  * exercised with many buildings. It refuses to run against anything but a localhost database,
  * and it creates no campaigns, balances or activity — nothing that could pass as real data.
  *
- *   DATABASE_URL=... pnpm --filter @yielvy/db seed-dev -- --count 40
- *   DATABASE_URL=... pnpm --filter @yielvy/db seed-dev -- --remove
+ *   DATABASE_URL=... pnpm --filter @near-district/db seed-dev -- --count 40
+ *   DATABASE_URL=... pnpm --filter @near-district/db seed-dev -- --remove
  */
 import { createDb, organizations, spaces, users, eq, sql } from "./index";
 import { assignBuildingPlot } from "./world";
-import { SPACE_CATEGORIES } from "@yielvy/core";
+import { SPACE_CATEGORIES } from "@near-district/core";
 
 const url = process.env.DATABASE_URL ?? "";
 const host = url.startsWith("pglite://") ? "pglite" : new URL(url).hostname;

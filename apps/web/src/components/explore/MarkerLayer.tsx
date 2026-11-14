@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { cutEdges } from "./GameHud";
-import type { Atlas } from "@yielvy/core/world";
+import type { Atlas } from "@near-district/core/world";
 import type { AtlasScene } from "@/world/atlas-scene";
 import type { MarkerKind, WorldBuildingData, WorldLink } from "@/world/types";
 import { IconClock, IconCube, IconFlag, IconStar } from "./icons";

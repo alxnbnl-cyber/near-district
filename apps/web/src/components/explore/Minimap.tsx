@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Atlas } from "@yielvy/core/world";
+import type { Atlas } from "@near-district/core/world";
 import type { AtlasScene } from "@/world/atlas-scene";
 import type { WorldBuildingData } from "@/world/types";
 import { MAP_THEME } from "@/world/theme";

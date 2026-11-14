@@ -4,7 +4,7 @@
  *   pnpm verify:live --network testnet
  * Exits non-zero if any allowlisted fact no longer matches the chain.
  */
-import { getNetwork, primaryToken, formatDisplay } from "@yielvy/core";
+import { getNetwork, primaryToken, formatDisplay } from "@near-district/core";
 import { NearRpc } from "./rpc";
 import { RheaClient, utilizationBps, withdrawableLiquidity } from "./rhea";
 

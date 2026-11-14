@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { auditLogs, desc, eq, jobs, moderationReports, organizations, qualifications, reconciliationRuns, spaces, users, campaigns } from "@yielvy/db";
-import { formatDisplay } from "@yielvy/core";
+import { auditLogs, desc, eq, jobs, moderationReports, organizations, qualifications, reconciliationRuns, spaces, users, campaigns } from "@near-district/db";
+import { formatDisplay } from "@near-district/core";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { Card, EmptyState, Figure, Notice, SectionHeader } from "@/components/ui";
 import { getSessionUser } from "@/server/session";

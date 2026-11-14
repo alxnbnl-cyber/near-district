@@ -1,4 +1,4 @@
 import "server-only";
-import { getDb } from "@yielvy/db";
+import { getDb } from "@near-district/db";
 
 export const db = getDb;

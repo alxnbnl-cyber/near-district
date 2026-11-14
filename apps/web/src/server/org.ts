@@ -1,5 +1,5 @@
 import "server-only";
-import type { Db } from "@yielvy/db";
+import type { Db } from "@near-district/db";
 import { myOrganization } from "./spaces";
 import { forbidden } from "./http";
 import type { SessionUser } from "./session";
