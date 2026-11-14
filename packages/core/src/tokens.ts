@@ -45,22 +45,22 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
   testnet: {
     networkId: "testnet",
     // Testnet values MUST be verified with `pnpm verify:live --network testnet` before use.
-    rheaLendingContract: process.env.NEXT_PUBLIC_TESTNET_RHEA_CONTRACT ?? "",
+    // defaults are the verified testnet deployments, so a service missing these variables still starts correctly
+    rheaLendingContract: process.env.NEXT_PUBLIC_TESTNET_RHEA_CONTRACT || "contract.1638481328.burrow.testnet",
     explorerTxUrl: (h) => `https://testnet.nearblocks.io/txns/${h}`,
     explorerAccountUrl: (a) => `https://testnet.nearblocks.io/address/${a}`,
-    tokens: process.env.NEXT_PUBLIC_TESTNET_USDC_CONTRACT
-      ? [
-          {
-            // must equal the token's on-chain ft_metadata symbol (e.g. usdc.fakes.testnet is "USDC.e")
-            symbol: process.env.NEXT_PUBLIC_TESTNET_USDC_SYMBOL ?? "USDC",
-            contractId: process.env.NEXT_PUBLIC_TESTNET_USDC_CONTRACT,
-            decimals: 6,
-            rheaExtraDecimals: 12,
-            intentsAssetId: "",
-            storageDepositYocto: 1_250_000_000_000_000_000_000n,
-          },
-        ]
-      : [],
+    tokens: [
+      {
+        // must equal the token's on-chain ft_metadata symbol (usdc.fakes.testnet is "USDC.e");
+        // the prize vault (neardistrict-vault.testnet) accepts exactly this token
+        symbol: process.env.NEXT_PUBLIC_TESTNET_USDC_SYMBOL || "USDC.e",
+        contractId: process.env.NEXT_PUBLIC_TESTNET_USDC_CONTRACT || "usdc.fakes.testnet",
+        decimals: 6,
+        rheaExtraDecimals: 12,
+        intentsAssetId: "",
+        storageDepositYocto: 1_250_000_000_000_000_000_000n,
+      },
+    ],
   },
 };
 
